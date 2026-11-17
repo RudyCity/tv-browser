@@ -1,6 +1,7 @@
 package io.rudycity.tvbrowser;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
@@ -10,20 +11,26 @@ import android.webkit.DownloadListener;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import java.io.ByteArrayInputStream;
 
 /** Strictly the device's Android System WebView, NOT a standalone Chromium engine. */
 public final class WebViewEngine implements BrowserEngine {
     private final WebView view;
     private final Listener listener;
     private final String defaultUserAgent;
+    private final ExtensionSettings extensions;
+    private volatile String documentUrl;
     private boolean destroyed;
 
     public WebViewEngine(Activity activity, Listener callback, boolean desktop) {
         listener = callback;
+        extensions = new ExtensionSettings(activity.getSharedPreferences("tv_browser", Context.MODE_PRIVATE));
         view = new WebView(activity);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
@@ -53,6 +60,13 @@ public final class WebViewEngine implements BrowserEngine {
         setDesktopMode(desktop);
 
         view.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView webView, String url) {
+                return interceptResource(url, false);
+            }
+            @Override public WebResourceResponse shouldInterceptRequest(
+                    WebView webView, WebResourceRequest request) {
+                return interceptResource(request.getUrl().toString(), request.isForMainFrame());
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView webView, String url) {
                 if (UrlTools.isWebUrl(url)) return false;
                 listener.onError("Blocked unsupported link type");
@@ -62,11 +76,13 @@ public final class WebViewEngine implements BrowserEngine {
                 return shouldOverrideUrlLoading(webView, request.getUrl().toString());
             }
             @Override public void onPageStarted(WebView webView, String url, Bitmap icon) {
+                documentUrl = url;
                 listener.onPageStarted(url);
             }
             @Override public void onPageFinished(WebView webView, String url) {
+                documentUrl = url;
+                injectPageExtensions(webView, url);
                 listener.onPageFinished(url, webView.getTitle());
-                if (Build.VERSION.SDK_INT >= 19) webView.evaluateJavascript(TvNavigation.INSTALL, null);
             }
             @Override public void onReceivedSslError(WebView webView, SslErrorHandler handler, SslError error) {
                 handler.cancel();
@@ -99,6 +115,32 @@ public final class WebViewEngine implements BrowserEngine {
                 listener.onDownloadRequested(url, userAgent, disposition, mimeType);
             }
         });
+    }
+
+    /** Request interception can run off the UI thread. Use only thread-safe settings. */
+    private WebResourceResponse interceptResource(String url, boolean mainFrame) {
+        String page = documentUrl;
+        if (extensions.enabledForUrl(ExtensionPolicy.AD_BLOCKER, page)
+                && ExtensionPolicy.shouldBlockResource(page, url, mainFrame)) {
+            return new WebResourceResponse("text/plain", "UTF-8",
+                    new ByteArrayInputStream(new byte[0]));
+        }
+        return null;
+    }
+
+    private void injectPageExtensions(WebView webView, String url) {
+        if (destroyed || Build.VERSION.SDK_INT < 19) return;
+        if (ExtensionPolicy.host(url) != null
+                && extensions.enabledForUrl(ExtensionPolicy.DARK_MODE, url))
+            webView.evaluateJavascript(ExtensionScripts.DARK_MODE, null);
+        if (extensions.enabledForUrl(ExtensionPolicy.TV_NAVIGATION, url))
+            webView.evaluateJavascript(TvNavigation.INSTALL, null);
+        String script = extensions.scriptForUrl(url);
+        if (!script.isEmpty()) {
+            // Local opt-in source at an exact HTTPS hostname, never fetched remotely.
+            webView.evaluateJavascript("(function(){try{\n" + script
+                    + "\n}catch(__tvBrowserScriptError){}})();", null);
+        }
     }
 
     @Override public String name() { return "System WebView"; }

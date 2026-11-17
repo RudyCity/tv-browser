@@ -164,6 +164,9 @@ public final class MainActivity extends Activity {
         bookmarkButton = addButton(toolbar, "☆", "Toggle bookmark", new View.OnClickListener() {
             @Override public void onClick(View v) { toggleBookmark(); }
         });
+        addButton(toolbar, "Ext", "Extensions manager", new View.OnClickListener() {
+            @Override public void onClick(View v) { showExtensions(); }
+        });
         addButton(toolbar, "⋮", "Browser menu", new View.OnClickListener() {
             @Override public void onClick(View v) { showMenu(); }
         });
@@ -409,13 +412,18 @@ public final class MainActivity extends Activity {
         if (input != null) input.showSoftInput(address, InputMethodManager.SHOW_IMPLICIT);
     }
 
+    private void showExtensions() {
+        new ExtensionUi(this, prefs, engine).show();
+    }
+
     private void showMenu() {
         final boolean desktop = prefs.getBoolean(DESKTOP, false);
         final String mode = prefs.getString(ENGINE, EnginePolicy.AUTO);
         final String[] menu = {"Enter address or search", "Bookmarks", "Recent history", "Remove bookmark",
                 "Engine: " + mode + " (" + (engine == null ? "unavailable" : engine.name()) + ")",
                 desktop ? "Desktop mode: ON" : "Desktop mode: OFF", "Zoom in", "Zoom out",
-                "Clear cache and history", "About"};
+                "Clear cache and history", "About", "Extensions (" +
+                     new ExtensionSettings(prefs).enabledCount() + " enabled)"};
         new AlertDialog.Builder(this).setTitle("TV Browser")
                 .setItems(menu, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -435,13 +443,14 @@ public final class MainActivity extends Activity {
                             case 7: if (engine != null) engine.zoomOut(); break;
                             case 8: confirmClear(); break;
                             case 9: new AlertDialog.Builder(MainActivity.this).setTitle("About TV Browser")
-                                    .setMessage("Version 0.2.0 • Android 4.4+\nActive: " +
+                                    .setMessage("Version 0.3.0 • Android 4.4+\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +
                                             "a bundled Chromium provider. Legacy TV devices use WebView. " +
                                             "An old WebView is not a modern Chromium engine.")
                                     .setPositiveButton("OK", null).show(); break;
+                            case 10: showExtensions(); break;
                         }
                     }
                 }).show();
@@ -521,7 +530,11 @@ public final class MainActivity extends Activity {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_MENU) { showMenu(); return true; }
             if (key == KeyEvent.KEYCODE_SEARCH) { focusAddress(); return true; }
-            if (fullscreenView == null && engine.view().hasFocus()) {
+            // Disabled helper leaves WebView to handle its own D-pad events.
+            boolean tvHelperAllowed = !(engine instanceof WebViewEngine)
+                    || new ExtensionSettings(prefs).enabledForUrl(
+                            ExtensionPolicy.TV_NAVIGATION, engine.currentUrl());
+            if (fullscreenView == null && engine.view().hasFocus() && tvHelperAllowed) {
                 String command = null;
                 switch (key) {
                     case KeyEvent.KEYCODE_DPAD_LEFT: command = "move(-1,0)"; break;

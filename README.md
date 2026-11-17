@@ -21,6 +21,26 @@ Android System WebView as fallback**, including legacy devices from Android 4.4 
   is supplied and packaging validation is satisfied. Chromium APK must contain engine binaries.
 - `docs/CHROMIUM_ENGINE.md` — provider integration, build, compatibility, security, test gates.
 
+## Built-in Extensions Manager (0.3.0)
+
+Open **Ext** in the toolbar or **Menu → Extensions** with the TV remote.
+
+- **Ad/tracker blocker** (on by default): conservatively intercepts subresources from
+  a small, static tracker hostname list. This is *not* a full filter-list engine.
+- **Dark mode** (off by default): injects page CSS after navigation.
+- **TV navigation helper** (on by default): D-pad link navigation. Disabling lets
+  WebView handle keys itself.
+- **Userscript manager** (off by default): locally edit, save, or delete JavaScript for
+  an exact HTTPS hostname at document-end. Explicit security confirmation required.
+
+Switches persist. Every website has inherit/allow/deny controls; global **off**
+always wins over site allow. Changes reload the current page.
+
+**Compatibility:** these first-party add-ons currently run in **System WebView only**.
+There is no Chrome extension API, Manifest V3 service worker, Chrome Web Store installation,
+or CRX execution. The optional Chromium embedder needs its own add-on integration.
+See [extension specification and test plan](docs/EXTENSIONS.md).
+
 ## Functions
 
 - TV remote **D-pad**, OK, Back, Menu and USB keyboard/mouse

@@ -5,10 +5,12 @@ temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
 javac -d "$temp_dir" \
   app/src/main/java/io/rudycity/tvbrowser/EnginePolicy.java \
-  app/src/main/java/io/rudycity/tvbrowser/UrlTools.java
+  app/src/main/java/io/rudycity/tvbrowser/UrlTools.java \
+  app/src/main/java/io/rudycity/tvbrowser/ExtensionPolicy.java
 cat > "$temp_dir/EngineSmokeTest.java" <<'JAVA'
 import io.rudycity.tvbrowser.EnginePolicy;
 import io.rudycity.tvbrowser.UrlTools;
+import io.rudycity.tvbrowser.ExtensionPolicy;
 public class EngineSmokeTest {
     static int n;
     static void check(boolean result) { n++; if (!result) throw new AssertionError("Check #" + n); }
@@ -28,7 +30,17 @@ public class EngineSmokeTest {
         check(UrlTools.isWebUrl("https://example.com"));
         check(!UrlTools.isWebUrl("file:///tmp/a"));
         check(!UrlTools.isWebUrl("https://user:password@example.com"));
-        System.out.println("PASS " + n + " Java policy and URL smoke assertions");
+        check(ExtensionPolicy.host("HTTPS://Example.com/a").equals("example.com"));
+        check(ExtensionPolicy.host("file:///tmp/a") == null);
+        check(ExtensionPolicy.shouldBlockResource("https://mysite.net",
+                "https://x.google-analytics.com/collect", false));
+        check(!ExtensionPolicy.shouldBlockResource("https://mysite.net",
+                "https://google-analytics.com.evil.net/collect", false));
+        check(!ExtensionPolicy.shouldBlockResource("https://mysite.net",
+                "https://doubleclick.net/", true));
+        check(ExtensionPolicy.userscriptOrigin("https://example.com"));
+        check(!ExtensionPolicy.userscriptOrigin("http://example.com"));
+        System.out.println("PASS " + n + " Java policy, add-on and URL smoke assertions");
     }
 }
 JAVA
