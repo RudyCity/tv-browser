@@ -13,6 +13,8 @@ public interface BrowserEngine {
         void onFullscreenEnded();
         void onDownloadRequested(String url, String userAgent, String contentDisposition, String mimeType);
         void onEngineCrashed(String message);
+        /** Called only when a new-window destination has been captured without loading it. */
+        void onPopupRequested(String openerUrl, String destinationUrl);
     }
 
     /** Human-readable, unambiguous engine name. */
