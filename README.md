@@ -35,6 +35,16 @@ legacy APK.
 - Popup links and downloads still require explicit approval; installers and unsafe URL schemes
   are blocked. No extra device permissions are requested.
 
+## Native Chromium companion launcher (0.5.1)
+
+When native Chromium is built and installed as a **separate APK** with package
+ID io.rudycity.tvbrowser.chromium, open **Menu → Native Chromium + Chrome
+Extensions**. The browser asks permission, then starts the companion only if
+installed and supported by Android 10+. It deliberately does **not** transfer
+the current URL, credentials or cookies to an unverified package. If missing,
+you remain in Rudy Browser's System WebView. This is not automatic in-app
+engine switching; the actual Chromium AAR embedder is still missing.
+
 ## Browser features
 
 - Back, forward, home, reload, address/search, bookmarks, recent history, WebView zoom,

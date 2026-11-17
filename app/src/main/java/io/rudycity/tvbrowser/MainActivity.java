@@ -595,6 +595,41 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /** Launches a separate, manually installed Chromium browser without sharing URL or cookies. */
+    private void showNativeChromium() {
+        if (Build.VERSION.SDK_INT < 29) {
+            new AlertDialog.Builder(this).setTitle("Native Chromium unavailable")
+                .setMessage("Native Chromium requires Android 10+. Continue browsing with WebView.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        new AlertDialog.Builder(this).setTitle("Open separate Chromium app?")
+            .setMessage("This is an independent browser with its own data and Chrome "
+                + "extension manager, not an embedded engine. Your current URL, cookies, "
+                + "account sessions and scripts are not transferred. Rudy Browser remains "
+                + "available as the WebView fallback if the companion isn't installed.")
+            .setNegativeButton("Stay here", null)
+            .setPositiveButton("Open", new DialogInterface.OnClickListener() {
+                @Override public void onClick(DialogInterface dialog, int which) {
+                    final String pkg = "io.rudycity.tvbrowser.chromium";
+                    Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+                    if (launch == null && Build.VERSION.SDK_INT >= 21)
+                        launch = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+                    if (launch == null) {
+                        toast("Native Chromium companion is not installed");
+                        return;
+                    }
+                    try {
+                        startActivity(launch);
+                    } catch (android.content.ActivityNotFoundException invalid) {
+                        toast("Native Chromium could not be launched");
+                    } catch (SecurityException denied) {
+                        toast("Native Chromium launch was denied");
+                    }
+                }
+            }).show();
+    }
+
     private void showMenu() {
         final boolean desktop = prefs.getBoolean(DESKTOP, false);
         final String mode = prefs.getString(ENGINE, EnginePolicy.AUTO);
@@ -604,7 +639,8 @@ public final class MainActivity extends Activity {
                 "Clear cache and history", "About", "Extensions (" +
                      new ExtensionSettings(prefs).enabledCount() + " enabled)",
                  cursorMode ? "Remote pointer: ON" : "Remote pointer: OFF",
-                 "HTML5 video playback controls"};
+                 "HTML5 video playback controls",
+                 "Native Chromium + Chrome Extensions (separate app)"};
         new AlertDialog.Builder(this).setTitle("Rudy Browser")
                 .setItems(menu, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -624,7 +660,7 @@ public final class MainActivity extends Activity {
                             case 7: if (engine != null) engine.zoomOut(); break;
                             case 8: confirmClear(); break;
                             case 9: new AlertDialog.Builder(MainActivity.this).setTitle("About Rudy Browser")
-                                    .setMessage("Version 0.5.0 • Android 4.4+\nActive: " +
+                                    .setMessage("Version 0.5.1 • Android 4.4+\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +
@@ -635,6 +671,7 @@ public final class MainActivity extends Activity {
                             case 11: toggleCursorMode(); break;
                             case 12: new ExtensionUi(MainActivity.this, prefs, engine)
                                     .showVideoControls(); break;
+                            case 13: showNativeChromium(); break;
                         }
                     }
                 }).show();
