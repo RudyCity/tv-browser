@@ -443,7 +443,7 @@ public final class MainActivity extends Activity {
                             case 7: if (engine != null) engine.zoomOut(); break;
                             case 8: confirmClear(); break;
                             case 9: new AlertDialog.Builder(MainActivity.this).setTitle("About TV Browser")
-                                    .setMessage("Version 0.3.0 • Android 4.4+\nActive: " +
+                                    .setMessage("Version 0.3.1 • Android 4.4+\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +

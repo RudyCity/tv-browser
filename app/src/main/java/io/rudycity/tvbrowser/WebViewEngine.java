@@ -18,6 +18,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.ByteArrayInputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Strictly the device's Android System WebView, NOT a standalone Chromium engine. */
 public final class WebViewEngine implements BrowserEngine {
@@ -26,7 +27,8 @@ public final class WebViewEngine implements BrowserEngine {
     private final String defaultUserAgent;
     private final ExtensionSettings extensions;
     private volatile String documentUrl;
-    private boolean destroyed;
+    private final AtomicInteger blockedTrackers = new AtomicInteger();
+    private volatile boolean destroyed;
 
     public WebViewEngine(Activity activity, Listener callback, boolean desktop) {
         listener = callback;
@@ -61,7 +63,9 @@ public final class WebViewEngine implements BrowserEngine {
 
         view.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView webView, String url) {
-                return interceptResource(url, false);
+                // The old callback cannot distinguish a main-frame navigation from a subresource.
+                // Fail open and let the API 21+ overload handle requests safely.
+                return null;
             }
             @Override public WebResourceResponse shouldInterceptRequest(
                     WebView webView, WebResourceRequest request) {
@@ -77,9 +81,13 @@ public final class WebViewEngine implements BrowserEngine {
             }
             @Override public void onPageStarted(WebView webView, String url, Bitmap icon) {
                 documentUrl = url;
+                blockedTrackers.set(0);
                 listener.onPageStarted(url);
             }
             @Override public void onPageFinished(WebView webView, String url) {
+                // Redirects and cancelled loads can deliver stale completion callbacks.
+                String activeUrl = webView.getUrl();
+                if (activeUrl == null || !activeUrl.equals(url)) return;
                 documentUrl = url;
                 injectPageExtensions(webView, url);
                 listener.onPageFinished(url, webView.getTitle());
@@ -120,8 +128,10 @@ public final class WebViewEngine implements BrowserEngine {
     /** Request interception can run off the UI thread. Use only thread-safe settings. */
     private WebResourceResponse interceptResource(String url, boolean mainFrame) {
         String page = documentUrl;
-        if (extensions.enabledForUrl(ExtensionPolicy.AD_BLOCKER, page)
+        if (Build.VERSION.SDK_INT >= 21 && !destroyed
+                && extensions.enabledForUrl(ExtensionPolicy.AD_BLOCKER, page)
                 && ExtensionPolicy.shouldBlockResource(page, url, mainFrame)) {
+            blockedTrackers.incrementAndGet();
             return new WebResourceResponse("text/plain", "UTF-8",
                     new ByteArrayInputStream(new byte[0]));
         }
@@ -142,6 +152,9 @@ public final class WebViewEngine implements BrowserEngine {
                     + "\n}catch(__tvBrowserScriptError){}})();", null);
         }
     }
+
+    /** Count of matched tracker subresource requests for the current top-level load. */
+    public int blockedTrackerRequests() { return blockedTrackers.get(); }
 
     @Override public String name() { return "System WebView"; }
     @Override public View view() { return view; }

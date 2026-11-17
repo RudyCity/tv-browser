@@ -32,6 +32,8 @@ public class EngineSmokeTest {
         check(!UrlTools.isWebUrl("https://user:password@example.com"));
         check(ExtensionPolicy.host("HTTPS://Example.com/a").equals("example.com"));
         check(ExtensionPolicy.host("file:///tmp/a") == null);
+        check(ExtensionPolicy.host("https://example.com.").equals("example.com"));
+        check(ExtensionPolicy.host("https://user:password@example.com") == null);
         check(ExtensionPolicy.shouldBlockResource("https://mysite.net",
                 "https://x.google-analytics.com/collect", false));
         check(!ExtensionPolicy.shouldBlockResource("https://mysite.net",

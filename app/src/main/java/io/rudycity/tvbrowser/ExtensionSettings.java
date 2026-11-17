@@ -2,6 +2,9 @@ package io.rudycity.tvbrowser;
 
 import android.content.SharedPreferences;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
 /** Persistent built-in add-on switches and exact-host site permission overrides. */
 public final class ExtensionSettings {
     public static final String INHERIT = "inherit";
@@ -11,7 +14,7 @@ public final class ExtensionSettings {
     private static final String ENABLED_PREFIX = "ext.enabled.";
     private static final String SITE_PREFIX = "ext.site.";
     private static final String SCRIPT_PREFIX = "ext.script.";
-    public static final int MAX_SCRIPT_LENGTH = 32768;
+    public static final int MAX_SCRIPT_BYTES = 32768;
 
     private final SharedPreferences prefs;
 
@@ -78,11 +81,34 @@ public final class ExtensionSettings {
     public void setScript(String host, String script) {
         if (host == null || !host.equals(ExtensionPolicy.host("https://" + host)))
             throw new IllegalArgumentException("Invalid userscript host");
-        if (script == null || script.length() > MAX_SCRIPT_LENGTH)
+        if (script == null || script.getBytes(StandardCharsets.UTF_8).length > MAX_SCRIPT_BYTES)
             throw new IllegalArgumentException("Script exceeds 32 KiB");
         SharedPreferences.Editor editor = prefs.edit();
         if (script.trim().isEmpty()) editor.remove(SCRIPT_PREFIX + host);
         else editor.putString(SCRIPT_PREFIX + host, script);
         editor.apply();
+    }
+
+    /** Clear only Extension Manager keys; preserve history, bookmarks and browser preferences. */
+    public void resetAll() {
+        SharedPreferences.Editor editor = prefs.edit();
+        for (String key : prefs.getAll().keySet()) {
+            if (key.startsWith(ENABLED_PREFIX)
+                    || key.startsWith(SITE_PREFIX)
+                    || key.startsWith(SCRIPT_PREFIX)) {
+                editor.remove(key);
+            }
+        }
+        editor.apply();
+    }
+
+    public int savedScriptCount() {
+        int count = 0;
+        for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
+            if (entry.getKey().startsWith(SCRIPT_PREFIX)
+                    && entry.getValue() instanceof String
+                    && !((String) entry.getValue()).isEmpty()) count++;
+        }
+        return count;
     }
 }

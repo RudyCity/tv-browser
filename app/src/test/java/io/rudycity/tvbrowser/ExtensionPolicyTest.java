@@ -10,6 +10,9 @@ public class ExtensionPolicyTest {
         assertNull(ExtensionPolicy.host("javascript:alert(1)"));
         assertNull(ExtensionPolicy.host("data:text/html,hi"));
         assertNull(ExtensionPolicy.host("https://"));
+        assertEquals("example.com", ExtensionPolicy.host("https://EXAMPLE.COM./"));
+        assertNull(ExtensionPolicy.host("https://user:pass@example.com/"));
+        assertNull(ExtensionPolicy.host("http://alice@example.com/"));
     }
 
     @Test public void blocksOnlyRecognizedThirdPartyTrackerSubresources() {
@@ -25,6 +28,10 @@ public class ExtensionPolicyTest {
                 "https://example.org/main.js", false));
         assertFalse(ExtensionPolicy.shouldBlockResource(null,
                 "https://doubleclick.net/x", false));
+        assertFalse(ExtensionPolicy.shouldBlockResource("https://example.org",
+                "http://example.org/keep.js", false));
+        assertFalse(ExtensionPolicy.shouldBlockResource("https://example.org",
+                "data:text/plain,hello", false));
     }
 
     @Test public void userscriptsRequireHttpsPages() {

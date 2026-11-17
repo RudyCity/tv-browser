@@ -21,7 +21,7 @@ Android System WebView as fallback**, including legacy devices from Android 4.4 
   is supplied and packaging validation is satisfied. Chromium APK must contain engine binaries.
 - `docs/CHROMIUM_ENGINE.md` — provider integration, build, compatibility, security, test gates.
 
-## Built-in Extensions Manager (0.3.0)
+## Built-in Extensions Manager (0.3.1)
 
 Open **Ext** in the toolbar or **Menu → Extensions** with the TV remote.
 
@@ -35,6 +35,13 @@ Open **Ext** in the toolbar or **Menu → Extensions** with the TV remote.
 
 Switches persist. Every website has inherit/allow/deny controls; global **off**
 always wins over site allow. Changes reload the current page.
+
+The Extensions menu also has a **tracker protection dashboard** showing the number
+of blocked subresource requests on the current page, a **disable-on-this-site**
+control, and a confirmed **reset all add-ons and saved scripts** operation that
+preserves bookmarks and browser history. API 19–20 does not intercept requests
+because the legacy callback cannot identify top-level navigations safely. Userscript
+size limit is 32 KiB of UTF-8 bytes; stale page-finish events do not inject scripts.
 
 **Compatibility:** these first-party add-ons currently run in **System WebView only**.
 There is no Chrome extension API, Manifest V3 service worker, Chrome Web Store installation,

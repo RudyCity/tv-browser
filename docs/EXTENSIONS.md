@@ -2,7 +2,7 @@
 
 ## Scope and compatibility
 
-Version 0.3.0 ships a **built-in WebView add-on manager**, not Chrome extension
+Version 0.3.1 ships a **built-in WebView add-on manager**, not Chrome extension
 runtime support. Android System WebView does not implement Chrome's extensions
 APIs, service workers, Manifest V3 permission system or CRX loader. Nothing in
 this release downloads an extension package from the Chrome Web Store.
@@ -25,7 +25,7 @@ Switching renderers does not magically port WebView add-ons.
 - Each add-on has a global switch and per-HTTP(S)-hostname inherit/allow/deny policy.
 - Global disable always wins over a site-specific allow. No wildcard domain policies.
 - Userscripts additionally require HTTPS. No file, content, data or HTTP execution.
-- Script size limit: 32,768 characters. Store manually with an explicit warning.
+- Script size limit: 32,768 UTF-8 bytes. Store manually with an explicit warning.
 - The app never downloads arbitrary extension code.
 - Clearing history/cache does not delete saved add-ons and scripts.
 
@@ -33,6 +33,11 @@ Switching renderers does not magically port WebView add-ons.
 
 - Ad blocker does not implement filter-list subscriptions, cosmetic selectors or
   network-wide filtering; interception is confined to WebView resource requests.
+- API 19–20: the old request-intercept callback has no reliable main-frame indicator,
+  so request interception is intentionally disabled to avoid breaking navigation.
+- The Extensions menu shows blocked requests for the active page, with a one-click
+  site exception. The reset action removes global switches, site exceptions and all
+  saved scripts after confirmation; it preserves regular browser data.
 - Dark mode and scripts run after page load rather than at document-start.
 - Userscripts run in the website's JavaScript context, without extension sandbox
   isolation, so only use scripts you trust.
@@ -43,10 +48,13 @@ Switching renderers does not magically port WebView add-ons.
 
 1. Test API 19, 25 and 29+ TV remote navigation to the Ext button.
 2. Toggle each add-on; restart app and confirm persistence.
-3. Test exact-host site deny and global-disable precedence.
+   Check tracker dashboard reset on navigation and API 19–20 unsupported status.
+3. Test exact-host site deny and global-disable precedence; confirm that
+   credentials in URL authority and trailing-dot normalization never leak permissions.
 4. Confirm no userscript execution on HTTP, local or home pages.
 5. Save, enable, execute and delete a harmless HTTPS userscript.
 6. Verify third-party tracker blocking but first-party/main-frame bypass.
 7. Disable TV helper and verify native D-pad handling.
 8. Confirm CRX menu reports unsupported functionality.
-9. Check fullscreen video, bookmarks, downloads and engine switching.
+9. Verify reset restores default switches and deletes scripts but keeps bookmarks.
+10. Check fullscreen video, bookmarks, downloads and engine switching.

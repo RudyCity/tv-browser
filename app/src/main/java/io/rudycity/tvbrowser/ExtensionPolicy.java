@@ -55,9 +55,14 @@ public final class ExtensionPolicy {
             String scheme = uri.getScheme();
             if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme))
                 return null;
+            // Never grant an add-on to credential-bearing or opaque URLs.
+            if (uri.isOpaque() || uri.getRawUserInfo() != null) return null;
             String host = uri.getHost();
             if (host == null || host.isEmpty()) return null;
-            return host.toLowerCase(Locale.US);
+            String canonical = host.toLowerCase(Locale.US);
+            // example.org. is the same DNS host as example.org.
+            if (canonical.endsWith(".")) canonical = canonical.substring(0, canonical.length() - 1);
+            return canonical.isEmpty() ? null : canonical;
         } catch (URISyntaxException | IllegalArgumentException invalid) {
             return null;
         }
