@@ -9,7 +9,8 @@ javac -d "$temp_dir" \
   app/src/main/java/io/rudycity/tvbrowser/PopupPolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/ExtensionPolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/CursorPolicy.java \
-  app/src/main/java/io/rudycity/tvbrowser/VideoTools.java
+  app/src/main/java/io/rudycity/tvbrowser/VideoTools.java \
+  app/src/main/java/io/rudycity/tvbrowser/BrowserLayoutPolicy.java
 cat > "$temp_dir/EngineSmokeTest.java" <<'JAVA'
 import io.rudycity.tvbrowser.EnginePolicy;
 import io.rudycity.tvbrowser.UrlTools;
@@ -17,6 +18,7 @@ import io.rudycity.tvbrowser.ExtensionPolicy;
 import io.rudycity.tvbrowser.PopupPolicy;
 import io.rudycity.tvbrowser.CursorPolicy;
 import io.rudycity.tvbrowser.VideoTools;
+import io.rudycity.tvbrowser.BrowserLayoutPolicy;
 public class EngineSmokeTest {
     static int n;
     static void check(boolean result) { n++; if (!result) throw new AssertionError("Check #" + n); }
@@ -61,7 +63,15 @@ public class EngineSmokeTest {
         check(PopupPolicy.mightInstallSoftware("https://cdn.example.com/app.apk?download=1"));
         check(!PopupPolicy.mightInstallSoftware("https://example.com/article"));
         check(PopupPolicy.usesPlainHttp("http://legacy.local/"));
-        System.out.println("PASS " + n + " Java policy, popup, add-on and URL smoke assertions");
+        check(BrowserLayoutPolicy.isCompact(320));
+        check(BrowserLayoutPolicy.isCompact(390));
+        check(BrowserLayoutPolicy.isCompact(768));
+        check(!BrowserLayoutPolicy.isCompact(840));
+        check(!BrowserLayoutPolicy.isCompact(1280));
+        check(!BrowserLayoutPolicy.isTelevision(false, false, false, true));
+        check(BrowserLayoutPolicy.isTelevision(true, false, false, true));
+        check(BrowserLayoutPolicy.isTelevision(false, false, false, false));
+        System.out.println("PASS " + n + " Java policy, form-factor, popup, add-on and URL smoke assertions");
     }
 }
 JAVA

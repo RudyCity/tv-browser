@@ -33,7 +33,7 @@ jobs:
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: tv-browser-legacy-debug-apk
+          name: rudy-browser-legacy-debug-apk
           path: app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -47,7 +47,7 @@ jobs:
         if: ${{ hashFiles('app/libs/chromium-engine.aar') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: tv-browser-chromium-debug-apk
+          name: rudy-browser-chromium-debug-apk
           path: app/build/outputs/apk/chromium/debug/app-chromium-debug.apk
           if-no-files-found: error
           retention-days: 14

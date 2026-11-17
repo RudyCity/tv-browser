@@ -1,134 +1,72 @@
-# TV Browser — Remote-first Android TV browser
+# Rudy Browser — Android phone, tablet and TV browser
 
-**Private GitHub repository:** `RudyCity/tv-browser`.
+**Private GitHub repository:** `RudyCity/tv-browser` (the repository slug is unchanged).
+**Android app label:** Rudy Browser. **Android application ID:** `io.rudycity.tvbrowser`
+(unchanged, so compatible installs can be upgraded rather than installed as separate apps).
 
-Dual-engine design: **standalone embedded Chromium when actually bundled on Android 10+, with
-Android System WebView as fallback**, including legacy devices from Android 4.4 (API 19).
+The app adapts to **phone portrait/landscape**, **tablets** and **Android TV/TV boxes**.
+The renderer is Android System WebView (API 19+); a true independent Chromium engine is
+**not bundled**. Chromium integration is available only as an optional interface and
+build variant that remains disabled until a validated native AAR is provided.
 
-> **Status:** Android WebView engine and engine-routing source implemented; embedded native
-> Chromium library is not supplied in this starter archive. A Chromium engine cannot be
-> inferred merely from the presence of a `Chromium` toggle. No device APK runtime test yet.
+## Phone and tablet behavior (0.5.0)
 
-## Architecture
+- Touch browsing with a responsive home page, native pinch-to-zoom where supported by WebView,
+  Android software keyboard for address/search and visible system status/navigation bars.
+- Up to 839 dp available width: two compact toolbar rows (Back / Forward / address / Go,
+  then Home / Reload / Bookmark / Extensions / Menu).
+- From 840 dp: one toolbar row, preserving a flexible address bar.
+- Rotation resizes/reparents existing toolbar controls **without destroying the active WebView
+  or navigation history**. Activity state also records the current URL for process recreation.
+- TV remains remote-first: fullscreen app, D-pad page navigation and optional remote pointer.
+  Those TV-specific key interceptions are not applied to touch devices.
+- Popup links and downloads still require explicit approval; installers and unsafe URL schemes
+  are blocked. No extra device permissions are requested.
 
-- `:app` — Android TV / generic TV box UI, remote D-pad input, URL/search, bookmarks,
-  history, fullscreen video, downloads, menu/settings and engine selection.
-- `:engine-api` — Java contract shared between host app and an independent Chromium renderer.
-- `WebViewEngine` — implemented fallback, uses system Android WebView.
-- `EngineFactory` — attempts optional `EmbeddedChromiumProvider` via reflection on Android 10+;
-  on missing or failed initialization, falls back to `WebViewEngine`. Engine status is visible.
-- `:app:legacy` flavor API 19+; `:app:chromium` flavor API 29+ is disabled until the native AAR
-  is supplied and packaging validation is satisfied. Chromium APK must contain engine binaries.
-- `docs/CHROMIUM_ENGINE.md` — provider integration, build, compatibility, security, test gates.
+## Browser features
 
-## TV remote pointer and video controls (0.4.0)
+- Back, forward, home, reload, address/search, bookmarks, recent history, WebView zoom,
+  desktop user-agent toggle, clear cache/history, and controlled downloads
+- Extension controls: built-in ad/tracker protection, dark mode, site-scoped userscripts,
+  TV navigation helper and HTML5 video controls
+- Conditional renderer selection: Auto / Embedded Chromium (when genuinely present) /
+  System WebView. **A Chrome browser APK is not an embeddable Chromium AAR.**
+- Conservative popup confirmation displays source, destination host and full URL.
+  User-initiated popups open in the current page after approval, not as real browser tabs;
+  multi-tab management is not yet implemented.
 
-- Tap **Ptr** in the toolbar or select **Remote pointer** from the menu. Remote
-  arrows move a visible cursor, OK sends a tap to the underlying WebView, and
-  Back exits pointer mode. This is a TV workaround, not physical mouse emulation
-  and not integrated with the optional standalone Chromium provider.
-- **HTML5 video controls** (on by default) appear in Extensions or the browser
-  menu. Play/pause, seek ±10 seconds, mute and change speed (0.75×/1×/1.5×).
-  Works only for accessible HTML5 video elements in the current WebView page;
-  DRM, embedded third-party frames and native players may not support it.
-- Gesture injection is confined to the app's own WebView surface. No accessibility
-  permissions, root, device-wide input control or extra Android permissions.
-
-## Built-in Extensions Manager (0.4.0)
-
-Open **Ext** in the toolbar or **Menu → Extensions** with the TV remote.
-
-- **Ad/tracker blocker** (on by default): conservatively intercepts subresources from
-  a small, static tracker hostname list. This is *not* a full filter-list engine.
-- **Dark mode** (off by default): injects page CSS after navigation.
-- **TV navigation helper** (on by default): D-pad link navigation. Disabling lets
-  WebView handle keys itself.
-- **Userscript manager** (off by default): locally edit, save, or delete JavaScript for
-  an exact HTTPS hostname at document-end. Explicit security confirmation required.
-
-Switches persist. Every website has inherit/allow/deny controls; global **off**
-always wins over site allow. Changes reload the current page.
-
-The Extensions menu also has a **tracker protection dashboard** showing the number
-of blocked subresource requests on the current page, a **disable-on-this-site**
-control, and a confirmed **reset all add-ons and saved scripts** operation that
-preserves bookmarks and browser history. API 19–20 does not intercept requests
-because the legacy callback cannot identify top-level navigations safely. Userscript
-size limit is 32 KiB of UTF-8 bytes; stale page-finish events do not inject scripts.
-
-**Compatibility:** these first-party add-ons currently run in **System WebView only**.
-There is no Chrome extension API, Manifest V3 service worker, Chrome Web Store installation,
-or CRX execution. The optional Chromium embedder needs its own add-on integration.
-See [extension specification and test plan](docs/EXTENSIONS.md).
-
-## Functions
-
-- TV remote **D-pad**, OK, Back, Menu and USB keyboard/mouse
-- Address/search bar, back/forward/refresh/home, local bookmarks and recent history
-- Fullscreen HTML5 video *if device engine supports it*
-- Desktop user agent toggle, zoom, local browsing data clearing
-- Browser engine **Auto / Chromium / WebView** menu, explicit active-engine indicator
-- Android DownloadManager support for normal HTTP/HTTPS links
-- No analytics, trackers, account or unneeded permissions
-- TLS certificate errors are never bypassed; file/content URI loading disabled in WebView
-
-## Build
+## Build and tests
 
 Requires JDK 17, Android SDK Platform 35, Android Gradle Plugin 8.6.1, Gradle 8.7.
 
 ```sh
-# Pure-Java smoke test works without Android SDK
 bash scripts/test-policy.sh
-
-# Android 4.4+ fallback APK (no Chromium native SDK required)
-gradle testLegacyDebugUnitTest assembleLegacyDebug
-# -> app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
-
-# Only after independently producing a complete Chromium embedder AAR:
-python3 scripts/check_chromium_aar.py app/libs/chromium-engine.aar
-gradle testChromiumDebugUnitTest assembleChromiumDebug
-# -> app/build/outputs/apk/chromium/debug/app-chromium-debug.apk
+gradle --no-daemon testLegacyDebugUnitTest assembleLegacyDebug
+# app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
 ```
 
-`chromium` flavor is disabled when the library is absent; the repository intentionally does not
-ship a fake/prebuilt Chromium library. A normal Chromium/Chrome APK is **not** an embeddable AAR.
-See [Chromium engine integration](docs/CHROMIUM_ENGINE.md).
+CI builds the API 19+ WebView fallback and uploads the
+`rudy-browser-legacy-debug-apk` artifact. Optional Chromium builds require
+`app/libs/chromium-engine.aar` passing `scripts/check_chromium_aar.py`.
 
-GitHub Actions (`.github/workflows/android-apk.yml`) builds the legacy variant, then conditionally
-checks and builds the Chromium variant only when a genuine AAR has been added. CI artifacts are
-**debug APKs**, not signed production releases. Current Play Store target SDK rules are stricter
-than this legacy sideload build target.
-
-## Installing on TV
+For sideloading:
 
 ```sh
-adb connect YOUR_TV_IP:5555
 adb install -r app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
 ```
 
-For a device without ADB, transfer the APK via USB or a local file manager. Android 4.4–9 will
-use its original WebView; this does not make old JS engines, DRM, Widevine, TLS stacks or codecs
-modern. Consider OS updates where available. Avoid logging in to sensitive services from an
-unpatched TV platform.
+The debug APK is **not** a signed production release. A Play Store release requires an
+appropriate updated target SDK, policy review, signing and device compatibility checks.
+Old system WebView/TLS/DRM/codec limitations cannot be fixed just by changing the app name.
 
-## Private repository
+## Technical docs
 
-After `gh auth login`, in a clean extracted project directory:
+- [Chromium engine integration](docs/CHROMIUM_ENGINE.md)
+- [Extension scope and limitations](docs/EXTENSIONS.md)
+- [Implementation, test and release status](docs/VERIFICATION.md)
 
-```sh
-bash scripts/create-private-repo.sh
-```
+## Device QA before release
 
-The script is only for initial setup when a private repo does not exist. The remote repository
-is already available; do not rerun repository creation.
-
-See [Verification](docs/VERIFICATION.md) for honest implementation/test/release status.
-
-App ID: `io.rudycity.tvbrowser`.
-
-## Popup protection and download confirmation
-
-- WebView intercepts user-triggered `target="_blank"` and `window.open` requests. A temporary network-blocked renderer captures the requested HTTP(S) URL but does not load the new page. A TV-remote-friendly confirmation shows the source, hostname, **full** destination URL and any installer/HTTP warnings; **Block** is the focused default.
-- Automatic/non-user-gesture popups are blocked. Invalid, unresolvable or non-web destinations (`intent:`, `market:`, `file:`, `javascript:`) never launch external apps. A provisional popup is discarded after a short timeout if no safe URL is captured.
-- Approved links open in the **current tab** pending a future tab manager. Every WebView file download requires a separate confirmation, including APKs. This browser only downloads files, it never directly installs them.
-- The optional standalone Chromium provider is not bundled; once provided, it must implement the same `BrowserEngine.Listener.onPopupRequested` guard. The current implementation is for the System WebView renderer only. This mitigates accidental ad clicks but cannot guarantee protection from every malicious site or download.
+Check 320 dp and 390 dp portrait, narrow landscape, 600–839 dp tablets, 840+ dp
+tablets and Android TV with D-pad; verify address entry and IME, orientation changes,
+back stack, popup default Block, download confirmation, fullscreen video, and TV pointer.
