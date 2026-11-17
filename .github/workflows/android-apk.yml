@@ -1,0 +1,53 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Verify pure Java engine policy
+        run: bash scripts/test-policy.sh
+      - name: Test and build legacy APK
+        run: gradle --no-daemon testLegacyDebugUnitTest assembleLegacyDebug
+      - name: Upload legacy debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-browser-legacy-debug-apk
+          path: app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Verify embedded Chromium package
+        if: ${{ hashFiles('app/libs/chromium-engine.aar') != '' }}
+        run: python3 scripts/check_chromium_aar.py app/libs/chromium-engine.aar
+      - name: Build standalone Chromium variant
+        if: ${{ hashFiles('app/libs/chromium-engine.aar') != '' }}
+        run: gradle --no-daemon testChromiumDebugUnitTest assembleChromiumDebug
+      - name: Upload Chromium debug APK
+        if: ${{ hashFiles('app/libs/chromium-engine.aar') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-browser-chromium-debug-apk
+          path: app/build/outputs/apk/chromium/debug/app-chromium-debug.apk
+          if-no-files-found: error
+          retention-days: 14
