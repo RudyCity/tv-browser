@@ -5,7 +5,11 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.SslErrorHandler;
@@ -29,6 +33,9 @@ public final class WebViewEngine implements BrowserEngine {
     private volatile String documentUrl;
     private final AtomicInteger blockedTrackers = new AtomicInteger();
     private volatile boolean destroyed;
+    private final Handler popupHandler = new Handler(Looper.getMainLooper());
+    private WebView pendingPopup;
+    private Runnable popupTimeout;
 
     public WebViewEngine(Activity activity, Listener callback, boolean desktop) {
         listener = callback;
@@ -52,6 +59,7 @@ public final class WebViewEngine implements BrowserEngine {
         settings.setAllowFileAccessFromFileURLs(false);
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(true);
         if (Build.VERSION.SDK_INT >= 21) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         }
@@ -107,6 +115,69 @@ public final class WebViewEngine implements BrowserEngine {
             }
         });
         view.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onCreateWindow(WebView webView, boolean isDialog,
+                                                     boolean isUserGesture, Message resultMsg) {
+                // Ads cannot open unattended windows; only one isolated probe is allowed.
+                if (destroyed || !isUserGesture || pendingPopup != null
+                        || resultMsg == null ||
+                        !(resultMsg.obj instanceof WebView.WebViewTransport)) return false;
+                final String opener = webView.getUrl();
+                final WebView probe = new WebView(webView.getContext());
+                WebSettings safe = probe.getSettings();
+                safe.setJavaScriptEnabled(false);
+                safe.setDomStorageEnabled(false);
+                safe.setAllowFileAccess(false);
+                safe.setAllowContentAccess(false);
+                safe.setAllowFileAccessFromFileURLs(false);
+                safe.setAllowUniversalAccessFromFileURLs(false);
+                safe.setBlockNetworkLoads(true);
+                probe.setWebViewClient(new WebViewClient() {
+                    @Override public boolean shouldOverrideUrlLoading(WebView child, String url) {
+                        capturePopupDestination(probe, opener, url);
+                        return true;
+                    }
+                    @Override public boolean shouldOverrideUrlLoading(
+                            WebView child, WebResourceRequest request) {
+                        if (request.isForMainFrame())
+                            capturePopupDestination(probe, opener, request.getUrl().toString());
+                        return true;
+                    }
+                    @Override public void onPageStarted(WebView child, String url, Bitmap favicon) {
+                        capturePopupDestination(probe, opener, url);
+                    }
+                    @Override public WebResourceResponse shouldInterceptRequest(WebView child, String url) {
+                        return emptyResponse();
+                    }
+                    @Override public WebResourceResponse shouldInterceptRequest(
+                            WebView child, WebResourceRequest request) {
+                        return emptyResponse();
+                    }
+                });
+                probe.setWebChromeClient(new WebChromeClient() {
+                    @Override public void onCloseWindow(WebView child) {
+                        discardPopupProbe(probe);
+                    }
+                });
+                pendingPopup = probe;
+                popupTimeout = new Runnable() {
+                    @Override public void run() { discardPopupProbe(probe); }
+                };
+                popupHandler.postDelayed(popupTimeout, 6000);
+                try {
+                    if (webView.getParent() instanceof ViewGroup) {
+                        // Older WebView providers may require an attached popup transport.
+                        probe.setVisibility(View.INVISIBLE);
+                        ((ViewGroup) webView.getParent()).addView(probe,
+                                new ViewGroup.LayoutParams(1, 1));
+                    }
+                    ((WebView.WebViewTransport) resultMsg.obj).setWebView(probe);
+                    resultMsg.sendToTarget();
+                    return true;
+                } catch (RuntimeException error) {
+                    discardPopupProbe(probe);
+                    return false;
+                }
+            }
             @Override public void onShowCustomView(View fullscreen, final CustomViewCallback callback) {
                 listener.onFullscreenRequested(fullscreen, new Runnable() {
                     @Override public void run() { callback.onCustomViewHidden(); }
@@ -121,6 +192,36 @@ public final class WebViewEngine implements BrowserEngine {
             @Override public void onDownloadStart(String url, String userAgent,
                                                    String disposition, String mimeType, long size) {
                 listener.onDownloadRequested(url, userAgent, disposition, mimeType);
+            }
+        });
+    }
+
+    private static WebResourceResponse emptyResponse() {
+        return new WebResourceResponse("text/plain", "UTF-8",
+                new ByteArrayInputStream(new byte[0]));
+    }
+
+    /** No destination is loaded by the probe, even if the user later approves. */
+    private void capturePopupDestination(WebView probe, String opener, String url) {
+        if (pendingPopup != probe || destroyed || url == null ||
+                "about:blank".equalsIgnoreCase(url)) return;
+        discardPopupProbe(probe);
+        if (PopupPolicy.isPreviewable(url)) listener.onPopupRequested(opener, url);
+        else listener.onError("Unsafe popup destination blocked");
+    }
+
+    private void discardPopupProbe(final WebView probe) {
+        if (pendingPopup != probe) return;
+        pendingPopup = null;
+        if (popupTimeout != null) popupHandler.removeCallbacks(popupTimeout);
+        popupTimeout = null;
+        // Do not destroy a WebView inside its own client callback.
+        popupHandler.post(new Runnable() {
+            @Override public void run() {
+                probe.stopLoading();
+                if (probe.getParent() instanceof ViewGroup)
+                    ((ViewGroup) probe.getParent()).removeView(probe);
+                probe.destroy();
             }
         });
     }
@@ -205,6 +306,7 @@ public final class WebViewEngine implements BrowserEngine {
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
+        if (pendingPopup != null) discardPopupProbe(pendingPopup);
         view.stopLoading();
         if (view.getParent() instanceof android.view.ViewGroup)
             ((android.view.ViewGroup) view.getParent()).removeView(view);
