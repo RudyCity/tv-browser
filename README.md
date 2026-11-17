@@ -125,3 +125,10 @@ is already available; do not rerun repository creation.
 See [Verification](docs/VERIFICATION.md) for honest implementation/test/release status.
 
 App ID: `io.rudycity.tvbrowser`.
+
+## Popup protection and download confirmation
+
+- WebView intercepts user-triggered `target="_blank"` and `window.open` requests. A temporary network-blocked renderer captures the requested HTTP(S) URL but does not load the new page. A TV-remote-friendly confirmation shows the source, hostname, **full** destination URL and any installer/HTTP warnings; **Block** is the focused default.
+- Automatic/non-user-gesture popups are blocked. Invalid, unresolvable or non-web destinations (`intent:`, `market:`, `file:`, `javascript:`) never launch external apps. A provisional popup is discarded after a short timeout if no safe URL is captured.
+- Approved links open in the **current tab** pending a future tab manager. Every WebView file download requires a separate confirmation, including APKs. This browser only downloads files, it never directly installs them.
+- The optional standalone Chromium provider is not bundled; once provided, it must implement the same `BrowserEngine.Listener.onPopupRequested` guard. The current implementation is for the System WebView renderer only. This mitigates accidental ad clicks but cannot guarantee protection from every malicious site or download.
