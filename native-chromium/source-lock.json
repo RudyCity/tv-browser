@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "upstream_repo": "https://github.com/jqssun/android-titanium-browser.git",
+  "upstream_tag": "v157.0.8103.78",
+  "upstream_commit": "bde250ae7c7d43a7a1827a44d07841132f6db7f4",
+  "vanadium_commit": "a8b304ef63b51f0158775a9d4f90106e8fc9a721",
+  "chromium_version": "157.0.8103.78",
+  "extension_url": "https://github.com/jqssun/android-titanium-extension/releases/download/v0.0.1/titanium.crx",
+  "extension_sha256": "9374d141153c7d2f5218ac9b96d0bc290818f19a0c5df774728a04664d397974",
+  "native_package": "io.rudycity.tvbrowser.chromium",
+  "minimum_android_api": 29
+}

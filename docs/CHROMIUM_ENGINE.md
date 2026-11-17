@@ -30,6 +30,17 @@ multi-process engine requiring Java/native glue, content/embedder resources, ABI
 renderer services, sandboxing, update maintenance, and substantial build infrastructure. An AAR
 containing only a `WebView` wrapper is not acceptable.
 
+## Independent native Chromium browser source route
+
+The separate [native Chromium source build](../native-chromium/README.md)
+pins Titanium / Vanadium / Chromium with extension patches and a TV launch
+manifest customization. If compiled, it produces a **standalone Android 10+
+APK** with native Chromium and upstream Chrome-extension functionality.
+This is not an AAR and cannot be loaded through `EngineFactory` or serve as the
+same-activity WebView fallback. It requires large dedicated Linux build
+hardware, GPL compliance, and device/extension runtime verification.
+The legacy embedded Chromium provider remains unimplemented.
+
 ## Upstream starting point and build flow
 
 1. Build and pin Chromium using the official Linux checkout instructions:

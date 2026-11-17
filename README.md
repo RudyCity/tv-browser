@@ -9,6 +9,18 @@ The renderer is Android System WebView (API 19+); a true independent Chromium en
 **not bundled**. Chromium integration is available only as an optional interface and
 build variant that remains disabled until a validated native AAR is provided.
 
+### Native Chromium and Chrome Extensions — separate build route
+
+The new [native Chromium build pipeline](native-chromium/README.md) pins a real
+Chromium/Vanadium/Titanium source revision with Android Chrome Extensions support,
+a locked CRX helper digest, a dedicated Android TV manifest patch and a native
+APK validation gate. The source-only tests run in GitHub Actions; **the huge native
+Chromium binary has not been compiled here and is NOT embedded in this APK**.
+Until a genuine Chromium AAR is built, the native Chromium output is a **separate**
+Android 10+ companion APK. Android 4.4–9 remains on System WebView. No automatic
+native-to-WebView process recovery or Chrome Web Store support exists inside the
+legacy APK.
+
 ## Phone and tablet behavior (0.5.0)
 
 - Touch browsing with a responsive home page, native pinch-to-zoom where supported by WebView,
@@ -62,6 +74,7 @@ Old system WebView/TLS/DRM/codec limitations cannot be fixed just by changing th
 ## Technical docs
 
 - [Chromium engine integration](docs/CHROMIUM_ENGINE.md)
+- [Native Chromium + extension source/build pipeline](native-chromium/README.md)
 - [Extension scope and limitations](docs/EXTENSIONS.md)
 - [Implementation, test and release status](docs/VERIFICATION.md)
 

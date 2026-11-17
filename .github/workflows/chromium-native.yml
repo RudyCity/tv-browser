@@ -1,0 +1,49 @@
+name: Native Chromium and Chrome Extensions
+on:
+  push:
+    paths:
+      - 'native-chromium/**'
+      - '.github/workflows/chromium-native.yml'
+  pull_request:
+    paths:
+      - 'native-chromium/**'
+      - '.github/workflows/chromium-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify pinned source and syntax
+        run: |
+          python3 -m compileall -q native-chromium
+          python3 native-chromium/build_native.py --check
+      - name: Test source patches and APK verification gates
+        run: python3 -m unittest discover -s native-chromium/tests -v
+
+  native-arm64-build:
+    if: github.event_name == 'workflow_dispatch'
+    needs: source-validation
+    runs-on: [self-hosted, linux, x64, chromium-builder]
+    timeout-minutes: 720
+    steps:
+      - name: Checkout build config
+        uses: actions/checkout@v4
+      - name: Build locked Chromium and extension-enabled native APK
+        run: |
+          python3 native-chromium/build_native.py             --workdir "${{ runner.temp }}/tv-chromium-${{ github.run_id }}-${{ github.run_attempt }}"             --output "${{ github.workspace }}/native-chromium/artifacts"
+      - name: Upload debug native Chromium artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-chromium-arm64-debug
+          path: |
+            native-chromium/artifacts/tv-browser-chromium-arm64-debug.apk
+            native-chromium/artifacts/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
