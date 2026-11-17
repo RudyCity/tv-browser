@@ -57,6 +57,8 @@ public final class MainActivity extends Activity {
     private View fullscreenView;
     private Runnable fullscreenClose;
     private int recoveryAttempts;
+    private AlertDialog popupDialog;
+    private AlertDialog downloadDialog;
     private TvCursorOverlay cursorOverlay;
     private boolean cursorMode;
 
@@ -225,6 +227,9 @@ public final class MainActivity extends Activity {
         @Override public void onDownloadRequested(String url, String agent, String disposition, String mimeType) {
             download(url, agent, disposition, mimeType);
         }
+        @Override public void onPopupRequested(String openerUrl, String destinationUrl) {
+            confirmPopup(openerUrl, destinationUrl);
+        }
         @Override public void onEngineCrashed(String reason) {
             if (++recoveryAttempts > 1) {
                 status.setText(reason + " — recovery stopped to avoid a crash loop");
@@ -246,6 +251,8 @@ public final class MainActivity extends Activity {
     }
 
     private void selectEngine(String preference, String restoreUrl) {
+        if (popupDialog != null) popupDialog.dismiss();
+        if (downloadDialog != null) downloadDialog.dismiss();
         cursorMode = false;
         if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
         hideFullscreen();
@@ -550,12 +557,98 @@ public final class MainActivity extends Activity {
                 }).show();
     }
 
-    private void download(String url, String userAgent, String contentDisposition, String mimeType) {
-        if (!UrlTools.isWebUrl(url)) { toast("Unsupported download URL"); return; }
+    /** All user-triggered new-window links require an explicit human choice. */
+    private void confirmPopup(String openerUrl, final String destinationUrl) {
+        if (!PopupPolicy.isPreviewable(destinationUrl)) {
+            toast("Unsafe popup destination blocked");
+            return;
+        }
+        if (popupDialog != null && popupDialog.isShowing()) {
+            toast("Another popup was blocked while a decision is pending");
+            return;
+        }
+        final BrowserEngine requestingEngine = engine;
+        String opener = PopupPolicy.isPreviewable(openerUrl) ? openerUrl : "Browser home";
+        StringBuilder details = new StringBuilder("Opened from:\n").append(opener)
+                .append("\n\nDestination domain:\n").append(PopupPolicy.host(destinationUrl))
+                .append("\n\nFull destination link:\n").append(destinationUrl)
+                .append("\n\nApproved popup links open in the current tab.");
+        if (PopupPolicy.mightInstallSoftware(destinationUrl))
+            details.append("\n\nWARNING: The link looks like an installer/executable.");
+        if (PopupPolicy.usesPlainHttp(destinationUrl))
+            details.append("\n\nWARNING: The destination does not use HTTPS.");
+        details.append("\n\nBlock this popup unless you trust the link.");
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Open this new-tab link?")
+                .setMessage(details.toString())
+                .setNegativeButton("Block", null)
+                .setPositiveButton("Open link", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface ignored, int which) {
+                        if (engine != requestingEngine) {
+                            toast("Popup expired after switching browser engines");
+                            return;
+                        }
+                        open(destinationUrl);
+                    }
+                }).create();
+        popupDialog = dialog;
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override public void onDismiss(DialogInterface ignored) {
+                if (popupDialog == dialog) popupDialog = null;
+            }
+        });
+        dialog.show();
+        // On a TV remote, the initial focus is always the safe choice.
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+    }
+
+    /** Prevent drive-by APK and other automatic downloads even after a popup approval. */
+    private void download(final String url, final String userAgent,
+                          final String contentDisposition, final String mimeType) {
+        if (!PopupPolicy.isPreviewable(url)) {
+            toast("Unsafe download URL blocked");
+            return;
+        }
+        if (downloadDialog != null && downloadDialog.isShowing()) {
+            toast("Another download was blocked while a decision is pending");
+            return;
+        }
+        String guessed = URLUtil.guessFileName(url, contentDisposition, mimeType);
+        String cleaned = guessed == null ? "download.bin"
+                : guessed.replaceAll("[^A-Za-z0-9._-]", "_");
+        final String filename = cleaned.isEmpty() || cleaned.equals(".")
+                || cleaned.equals("..") ? "download.bin" : cleaned;
+        StringBuilder details = new StringBuilder("File:\n").append(filename)
+                .append("\n\nSource link:\n").append(url);
+        if (PopupPolicy.mightInstallSoftware(url) ||
+                PopupPolicy.mightInstallSoftware("https://example.invalid/" + filename) ||
+                (mimeType != null && mimeType.toLowerCase(java.util.Locale.US)
+                        .contains("android.package-archive")))
+            details.append("\n\nWARNING: Possible installer. Never install untrusted APKs.");
+        if (PopupPolicy.usesPlainHttp(url))
+            details.append("\n\nWARNING: Download source is not HTTPS.");
+        details.append("\n\nNothing downloads without your approval.");
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Allow file download?")
+                .setMessage(details.toString())
+                .setNegativeButton("Block", null)
+                .setPositiveButton("Download", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface ignored, int which) {
+                        enqueueDownload(url, userAgent, mimeType, filename);
+                    }
+                }).create();
+        downloadDialog = dialog;
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override public void onDismiss(DialogInterface ignored) {
+                if (downloadDialog == dialog) downloadDialog = null;
+            }
+        });
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+    }
+
+    private void enqueueDownload(String url, String userAgent, String mimeType, String name) {
         try {
-            String name = URLUtil.guessFileName(url, contentDisposition, mimeType);
-            name = name.replaceAll("[^A-Za-z0-9._-]", "_");
-            if (name.length() == 0 || name.equals(".") || name.equals("..")) name = "download.bin";
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
             request.setTitle(name);
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
@@ -643,6 +736,8 @@ public final class MainActivity extends Activity {
         if (engine != null) engine.onResume();
     }
     @Override protected void onDestroy() {
+        if (popupDialog != null) popupDialog.dismiss();
+        if (downloadDialog != null) downloadDialog.dismiss();
         hideFullscreen();
         if (engine != null) {
             BrowserEngine old = engine;
