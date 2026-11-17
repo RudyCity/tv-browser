@@ -12,9 +12,10 @@ android {
         applicationId 'io.rudycity.tvbrowser'
         minSdk 19
         targetSdk 28
-        versionCode 7
-        versionName '0.5.1'
+        versionCode 8
+        versionName '0.5.2'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+        manifestPlaceholders = [browserLabel: '@string/app_name']
     }
 
     flavorDimensions 'renderer'
@@ -22,6 +23,15 @@ android {
         legacy {
             dimension 'renderer'
             minSdk 19
+        }
+        // Distinct installable debug package, preserving existing user's legacy browser.
+        // Never use this ID for a production Play Store release.
+        preview {
+            dimension 'renderer'
+            minSdk 19
+            applicationIdSuffix '.preview'
+            versionNameSuffix '-preview'
+            manifestPlaceholders = [browserLabel: '@string/app_name_preview']
         }
         chromium {
             dimension 'renderer'

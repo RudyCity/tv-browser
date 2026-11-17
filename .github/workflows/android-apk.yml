@@ -28,13 +28,33 @@ jobs:
           gradle-version: '8.7'
       - name: Verify pure Java engine policy
         run: bash scripts/test-policy.sh
-      - name: Test and build legacy APK
-        run: gradle --no-daemon testLegacyDebugUnitTest assembleLegacyDebug
+      - name: Test and build legacy and side-by-side preview APKs
+        run: gradle --no-daemon testLegacyDebugUnitTest testPreviewDebugUnitTest assembleLegacyDebug assemblePreviewDebug
+      - name: Verify APK signatures and distinct application IDs
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          LEGACY="app/build/outputs/apk/legacy/debug/app-legacy-debug.apk"
+          PREVIEW="app/build/outputs/apk/preview/debug/app-preview-debug.apk"
+          "$APKSIGNER" verify --verbose "$LEGACY"
+          "$APKSIGNER" verify --verbose "$PREVIEW"
+          "$AAPT" dump badging "$LEGACY" | grep -F "package: name='io.rudycity.tvbrowser' "
+          "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.preview' "
+          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Preview'"
+          sha256sum "$LEGACY" "$PREVIEW"
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4
         with:
           name: rudy-browser-legacy-debug-apk
           path: app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload clean-install Preview debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-preview-installable-apk
+          path: app/build/outputs/apk/preview/debug/app-preview-debug.apk
           if-no-files-found: error
           retention-days: 14
       - name: Verify embedded Chromium package

@@ -45,6 +45,32 @@ the current URL, credentials or cookies to an unverified package. If missing,
 you remain in Rudy Browser's System WebView. This is not automatic in-app
 engine switching; the actual Chromium AAR embedder is still missing.
 
+## Installing when Android reports "App not installed" (0.5.2)
+
+Android rejects an APK update when the installed package has **a different
+signing certificate**, even if the package ID and version are correct. Our
+previous CI debug artifacts used ephemeral Android debug signing keys, so
+their certificates were **not stable between build runs**. Do not uninstall
+your old browser just to test a build.
+
+The new **Rudy Browser Preview** APK has its own package ID:
+`io.rudycity.tvbrowser.preview`. It installs **alongside** the existing
+`io.rudycity.tvbrowser` without replacing its data. It intentionally
+does not share cookies, bookmarks, settings or accounts with the old app.
+The previous package continues to exist, with its same user data.
+
+**Limit:** preview is still debug-signed using CI's per-run key. You can
+install it freshly, but upgrading the same preview package from a later
+CI run may again require uninstalling the preview. For reliable in-place
+future upgrades, configure a persistent signing key via encrypted GitHub
+Actions secrets (never commit a production private key). Until that is
+configured, prefer testing independent clean-install previews.
+
+For diagnostic ADB use, `adb install -r path/to/app.apk`. A
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` response specifically confirms a
+signature conflict. Different install errors (storage, SDK, security policy)
+need separate fixes. Do not disable Play Protect or Android security checks.
+
 ## Browser features
 
 - Back, forward, home, reload, address/search, bookmarks, recent history, WebView zoom,
