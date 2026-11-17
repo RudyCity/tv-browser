@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Remote-accessible built-in add-on manager. This is deliberately NOT a Chrome .crx runtime.
- * WebView supports the four first-party add-ons; the standalone Chromium provider requires
+ * WebView supports the first-party add-ons; the standalone Chromium provider requires
  * its own integration before claiming these add-ons work in that renderer.
  */
 public final class ExtensionUi {
@@ -53,33 +53,69 @@ public final class ExtensionUi {
 
     /** Entry point from the toolbar, browser menu and TV remote. */
     public void show() {
-        final String[] names = new String[9];
-        for (int i = 0; i < ExtensionPolicy.IDS.length; i++) {
+        final int count = ExtensionPolicy.IDS.length;
+        final String[] names = new String[count + 6];
+        for (int i = 0; i < count; i++) {
             String id = ExtensionPolicy.IDS[i];
             names[i] = ExtensionPolicy.NAMES[i] + (settings.enabled(id) ? "  •  ON" : "  •  OFF");
         }
         String site = ExtensionPolicy.host(pageUrl());
-        names[4] = "Permissions for " + (site == null ? "current website" : site);
-        names[5] = "Edit userscript for current HTTPS website";
-        names[6] = "Tracker protection status";
-        names[7] = "Reset add-ons and saved scripts";
-        names[8] = "Chrome Web Store / .crx compatibility";
-        // A list dialog must not also setMessage: some Android TV versions hide its items.
+        names[count] = "Permissions for " + (site == null ? "current website" : site);
+        names[count + 1] = "Edit userscript for current HTTPS website";
+        names[count + 2] = "Tracker protection status";
+        names[count + 3] = "HTML5 video playback controls";
+        names[count + 4] = "Reset add-ons and saved scripts";
+        names[count + 5] = "Chrome Web Store / .crx compatibility";
         new AlertDialog.Builder(activity)
                 .setTitle(supportedRenderer() ? "Extensions - WebView" : "Extensions - WebView only")
                 .setItems(names, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int item) {
-                        if (item < ExtensionPolicy.IDS.length) showDetails(item);
-                        else if (item == 4) showSitePermissions();
-                        else if (item == 5) confirmUserscriptEditor();
-                        else if (item == 6) showTrackerStatus();
-                        else if (item == 7) confirmResetAll();
-                        else info("Chrome extensions not available",
+                        if (item < count) { showDetails(item); return; }
+                        switch (item - count) {
+                            case 0: showSitePermissions(); break;
+                            case 1: confirmUserscriptEditor(); break;
+                            case 2: showTrackerStatus(); break;
+                            case 3: showVideoControls(); break;
+                            case 4: confirmResetAll(); break;
+                            default: info("Chrome extensions not available",
                                 "Chrome Web Store / .crx files are not supported by Android WebView. "
                                 + "The standalone Chromium embedder and the required extension APIs "
                                 + "are not integrated. No extension is downloaded or installed.");
+                        }
                     }
                 }).setNegativeButton("Close", null).show();
+    }
+
+    /** Accessible from extensions and the browser's video menu. */
+    public void showVideoControls() {
+        final String url = pageUrl();
+        if (!supportedRenderer() || ExtensionPolicy.host(url) == null) {
+            info("HTML5 video controls", "Open an HTTP/HTTPS webpage with an HTML5 video "
+                    + "in System WebView to use playback controls.");
+            return;
+        }
+        if (!settings.enabledForUrl(ExtensionPolicy.VIDEO_TOOLS, url)) {
+            info("HTML5 video controls", "Enable the HTML5 video controls add-on and "
+                    + "allow it on this website first.");
+            return;
+        }
+        final String[] labels = {
+                "Play / pause", "Rewind 10 seconds", "Forward 10 seconds",
+                "Mute / unmute", "Speed 0.75×", "Speed normal (1×)", "Speed 1.5×"
+        };
+        new AlertDialog.Builder(activity).setTitle("HTML5 video controls")
+                .setItems(labels, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int index) {
+                        if (index < 0 || index >= VideoTools.COMMANDS.length) return;
+                        boolean sent = ((WebViewEngine) engine)
+                                .executeVideoCommand(VideoTools.COMMANDS[index]);
+                        Toast.makeText(activity, sent
+                                ? "Command sent (requires accessible HTML5 video)"
+                                : "Video controls unavailable on this site", Toast.LENGTH_SHORT).show();
+                    }
+                }).setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) { show(); }
+                }).show();
     }
 
     private void showTrackerStatus() {

@@ -25,7 +25,8 @@ public final class ExtensionSettings {
     public boolean enabled(String id) {
         if (!ExtensionPolicy.knownId(id)) return false;
         boolean defaultValue = ExtensionPolicy.AD_BLOCKER.equals(id)
-                || ExtensionPolicy.TV_NAVIGATION.equals(id);
+                || ExtensionPolicy.TV_NAVIGATION.equals(id)
+                || ExtensionPolicy.VIDEO_TOOLS.equals(id);
         return prefs.getBoolean(ENABLED_PREFIX + id, defaultValue);
     }
 

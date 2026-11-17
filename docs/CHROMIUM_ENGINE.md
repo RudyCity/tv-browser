@@ -16,6 +16,15 @@ is an embedded Chromium engine.
   `chromium` on unsupported devices reports a fallback, never silently claims it was activated.
 - Engine status is visible in the footer and **Menu → Engine / About**.
 
+As confirmed by a Chromium WebView maintainer in January 2026, Chromium does not
+ship a supported reusable Content Shell or Chromium AAR for arbitrary Android apps.
+The viable custom paths are building/maintaining an Android //content-based embedder
+within Chromium's GN build, or designing an unsupported distribution AAR target
+such as the upstream dist_aar template. Each requires the app-specific native
+renderer, sandbox/service packaging, bridge APIs, security update process, and
+continuous compatibility tests. CEF does not support Android. The Content Shell
+APK is a test utility, not a production browser runtime.
+
 A modern Android Chromium build is not a drop-in Java Maven dependency. It is a Chromium-native
 multi-process engine requiring Java/native glue, content/embedder resources, ABI-specific binaries,
 renderer services, sandboxing, update maintenance, and substantial build infrastructure. An AAR

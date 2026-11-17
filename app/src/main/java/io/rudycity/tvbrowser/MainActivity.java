@@ -13,8 +13,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -55,6 +57,8 @@ public final class MainActivity extends Activity {
     private View fullscreenView;
     private Runnable fullscreenClose;
     private int recoveryAttempts;
+    private TvCursorOverlay cursorOverlay;
+    private boolean cursorMode;
 
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -167,12 +171,17 @@ public final class MainActivity extends Activity {
         addButton(toolbar, "Ext", "Extensions manager", new View.OnClickListener() {
             @Override public void onClick(View v) { showExtensions(); }
         });
+        addButton(toolbar, "Ptr", "Toggle TV remote pointer mode", new View.OnClickListener() {
+            @Override public void onClick(View v) { toggleCursorMode(); }
+        });
         addButton(toolbar, "⋮", "Browser menu", new View.OnClickListener() {
             @Override public void onClick(View v) { showMenu(); }
         });
 
         engineSlot = new FrameLayout(this);
         engineSlot.setBackgroundColor(Color.rgb(12, 20, 30));
+        cursorOverlay = new TvCursorOverlay(this);
+        engineSlot.addView(cursorOverlay, new FrameLayout.LayoutParams(-1, -1));
         layout.addView(engineSlot, new LinearLayout.LayoutParams(-1, 0, 1));
 
         status = new TextView(this);
@@ -195,7 +204,8 @@ public final class MainActivity extends Activity {
                 saveHistory(url, title);
             }
             refreshBookmarkButton();
-            status.setText(engine.name() + "  •  D-pad: navigate  •  Menu: options");
+            status.setText(cursorMode ? "Remote pointer: arrows move, OK clicks, Back exits"
+                    : engine.name() + "  •  D-pad: navigate  •  Menu: options");
         }
         @Override public void onProgress(int progress) {
             if (progress < 100) status.setText("Loading " + progress + "%  •  " + engine.name());
@@ -236,6 +246,8 @@ public final class MainActivity extends Activity {
     }
 
     private void selectEngine(String preference, String restoreUrl) {
+        cursorMode = false;
+        if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
         hideFullscreen();
         BrowserEngine previous = engine;
         engine = null;
@@ -248,7 +260,8 @@ public final class MainActivity extends Activity {
                     prefs.getBoolean(DESKTOP, false), rendererEvents);
             engine = selected.engine;
             engineReason = selected.reason;
-            engineSlot.addView(engine.view(), new FrameLayout.LayoutParams(-1, -1));
+            // Renderer belongs behind the non-interactive pointer overlay.
+            engineSlot.addView(engine.view(), 0, new FrameLayout.LayoutParams(-1, -1));
             engine.view().requestFocus();
             status.setText(engine.name() + "  •  " + engineReason);
             if (restoreUrl != null && UrlTools.isWebUrl(restoreUrl)) open(restoreUrl);
@@ -416,6 +429,51 @@ public final class MainActivity extends Activity {
         new ExtensionUi(this, prefs, engine).show();
     }
 
+    private void toggleCursorMode() {
+        if (!(engine instanceof WebViewEngine)) {
+            toast("Remote pointer requires System WebView");
+            return;
+        }
+        cursorMode = !cursorMode;
+        cursorOverlay.setVisibility(cursorMode ? View.VISIBLE : View.GONE);
+        if (cursorMode) {
+            cursorOverlay.post(new Runnable() {
+                @Override public void run() { cursorOverlay.recenter(); }
+            });
+            status.setText("Remote pointer: arrows move, OK clicks, Back exits");
+        } else {
+            status.setText(engine.name() + "  •  D-pad: navigate  •  Menu: options");
+        }
+        engine.view().requestFocus();
+    }
+
+    private void moveCursor(int dx, int dy) {
+        int px = dp(44);
+        int margin = dp(12);
+        cursorOverlay.place(
+                CursorPolicy.move(cursorOverlay.cursorX(), dx, px,
+                        cursorOverlay.getWidth(), margin),
+                CursorPolicy.move(cursorOverlay.cursorY(), dy, px,
+                        cursorOverlay.getHeight(), margin));
+    }
+
+    private void tapCursor() {
+        if (!(engine instanceof WebViewEngine) || cursorOverlay.getWidth() == 0) return;
+        View target = engine.view();
+        long now = SystemClock.uptimeMillis();
+        int x = cursorOverlay.cursorX();
+        int y = cursorOverlay.cursorY();
+        MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0);
+        MotionEvent up = MotionEvent.obtain(now, now + 50, MotionEvent.ACTION_UP, x, y, 0);
+        try {
+            target.dispatchTouchEvent(down);
+            target.dispatchTouchEvent(up);
+        } finally {
+            down.recycle();
+            up.recycle();
+        }
+    }
+
     private void showMenu() {
         final boolean desktop = prefs.getBoolean(DESKTOP, false);
         final String mode = prefs.getString(ENGINE, EnginePolicy.AUTO);
@@ -423,7 +481,9 @@ public final class MainActivity extends Activity {
                 "Engine: " + mode + " (" + (engine == null ? "unavailable" : engine.name()) + ")",
                 desktop ? "Desktop mode: ON" : "Desktop mode: OFF", "Zoom in", "Zoom out",
                 "Clear cache and history", "About", "Extensions (" +
-                     new ExtensionSettings(prefs).enabledCount() + " enabled)"};
+                     new ExtensionSettings(prefs).enabledCount() + " enabled)",
+                 cursorMode ? "Remote pointer: ON" : "Remote pointer: OFF",
+                 "HTML5 video playback controls"};
         new AlertDialog.Builder(this).setTitle("TV Browser")
                 .setItems(menu, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -443,7 +503,7 @@ public final class MainActivity extends Activity {
                             case 7: if (engine != null) engine.zoomOut(); break;
                             case 8: confirmClear(); break;
                             case 9: new AlertDialog.Builder(MainActivity.this).setTitle("About TV Browser")
-                                    .setMessage("Version 0.3.1 • Android 4.4+\nActive: " +
+                                    .setMessage("Version 0.4.0 • Android 4.4+\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +
@@ -451,6 +511,9 @@ public final class MainActivity extends Activity {
                                             "An old WebView is not a modern Chromium engine.")
                                     .setPositiveButton("OK", null).show(); break;
                             case 10: showExtensions(); break;
+                            case 11: toggleCursorMode(); break;
+                            case 12: new ExtensionUi(MainActivity.this, prefs, engine)
+                                    .showVideoControls(); break;
                         }
                     }
                 }).show();
@@ -530,6 +593,17 @@ public final class MainActivity extends Activity {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_MENU) { showMenu(); return true; }
             if (key == KeyEvent.KEYCODE_SEARCH) { focusAddress(); return true; }
+            if (cursorMode && fullscreenView == null && engine instanceof WebViewEngine
+                    && engine.view().hasFocus()) {
+                switch (key) {
+                    case KeyEvent.KEYCODE_DPAD_LEFT: moveCursor(-1, 0); return true;
+                    case KeyEvent.KEYCODE_DPAD_RIGHT: moveCursor(1, 0); return true;
+                    case KeyEvent.KEYCODE_DPAD_UP: moveCursor(0, -1); return true;
+                    case KeyEvent.KEYCODE_DPAD_DOWN: moveCursor(0, 1); return true;
+                    case KeyEvent.KEYCODE_DPAD_CENTER:
+                    case KeyEvent.KEYCODE_ENTER: tapCursor(); return true;
+                }
+            }
             // Disabled helper leaves WebView to handle its own D-pad events.
             boolean tvHelperAllowed = !(engine instanceof WebViewEngine)
                     || new ExtensionSettings(prefs).enabledForUrl(
@@ -555,6 +629,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (fullscreenView != null) hideFullscreen();
+        else if (cursorMode) toggleCursorMode();
         else if (engine != null && engine.canGoBack()) engine.goBack();
         else super.onBackPressed();
     }

@@ -2,7 +2,7 @@
 
 ## Scope and compatibility
 
-Version 0.3.1 ships a **built-in WebView add-on manager**, not Chrome extension
+Version 0.4.0 ships a **built-in WebView add-on manager**, not Chrome extension
 runtime support. Android System WebView does not implement Chrome's extensions
 APIs, service workers, Manifest V3 permission system or CRX loader. Nothing in
 this release downloads an extension package from the Chrome Web Store.
@@ -18,6 +18,7 @@ Switching renderers does not magically port WebView add-ons.
 | Dark mode | Disabled | WebView HTTP(S) pages, CSS at document-end |
 | TV navigation | Enabled | WebView D-pad navigation |
 | Userscripts | Disabled | WebView HTTPS exact hostname, local JavaScript at document-end |
+| HTML5 video controls | Enabled | WebView page HTML5 videos; whitelist-only player actions |
 
 ## Settings and permissions
 
@@ -41,6 +42,8 @@ Switching renderers does not magically port WebView add-ons.
 - Dark mode and scripts run after page load rather than at document-start.
 - Userscripts run in the website's JavaScript context, without extension sandbox
   isolation, so only use scripts you trust.
+- HTML5 video controls operate only on visible video elements in the page DOM;
+  embedded third-party iframe players, native players and DRM behavior are not guaranteed.
 - Add-ons currently run in the System WebView renderer only. No Chromium .crx,
   Chrome Web Store or Manifest V3 execution. No real-device TV QA yet.
 

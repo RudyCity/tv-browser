@@ -42,8 +42,9 @@ public class ExtensionPolicyTest {
     }
 
     @Test public void onlyKnownBuiltIns() {
-        assertEquals(4, ExtensionPolicy.IDS.length);
+        assertEquals(5, ExtensionPolicy.IDS.length);
         assertFalse(ExtensionPolicy.knownId("chrome_crx"));
         assertTrue(ExtensionPolicy.knownId(ExtensionPolicy.TV_NAVIGATION));
+        assertTrue(ExtensionPolicy.knownId(ExtensionPolicy.VIDEO_TOOLS));
     }
 }

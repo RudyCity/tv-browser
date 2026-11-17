@@ -10,12 +10,14 @@ public final class ExtensionPolicy {
     public static final String DARK_MODE = "dark_mode";
     public static final String TV_NAVIGATION = "tv_navigation";
     public static final String USER_SCRIPT = "user_script";
+    public static final String VIDEO_TOOLS = "video_tools";
 
     public static final String[] IDS = {
-            AD_BLOCKER, DARK_MODE, TV_NAVIGATION, USER_SCRIPT
+            AD_BLOCKER, DARK_MODE, TV_NAVIGATION, USER_SCRIPT, VIDEO_TOOLS
     };
     public static final String[] NAMES = {
-            "Ad & tracker blocker", "Dark mode", "TV navigation helper", "Userscript manager"
+            "Ad & tracker blocker", "Dark mode", "TV navigation helper",
+            "Userscript manager", "HTML5 video controls"
     };
     public static final String[] DESCRIPTIONS = {
             "Blocks requests to a small built-in set of advertising and tracking hosts. "
@@ -25,7 +27,9 @@ public final class ExtensionPolicy {
             "Adds remote-control D-pad navigation to supported HTML pages. "
                     + "The website itself can still handle remote keys.",
             "Runs only the JavaScript you write, after loading an HTTPS page at its exact hostname. "
-                    + "Scripts can read and alter site content."
+                    + "Scripts can read and alter site content.",
+            "Controls play/pause, seek, mute and playback speed for accessible HTML5 videos. "
+                    + "Embedded players in third-party frames may not work."
     };
 
     private static final String[] TRACKER_HOSTS = {

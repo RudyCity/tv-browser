@@ -21,7 +21,20 @@ Android System WebView as fallback**, including legacy devices from Android 4.4 
   is supplied and packaging validation is satisfied. Chromium APK must contain engine binaries.
 - `docs/CHROMIUM_ENGINE.md` — provider integration, build, compatibility, security, test gates.
 
-## Built-in Extensions Manager (0.3.1)
+## TV remote pointer and video controls (0.4.0)
+
+- Tap **Ptr** in the toolbar or select **Remote pointer** from the menu. Remote
+  arrows move a visible cursor, OK sends a tap to the underlying WebView, and
+  Back exits pointer mode. This is a TV workaround, not physical mouse emulation
+  and not integrated with the optional standalone Chromium provider.
+- **HTML5 video controls** (on by default) appear in Extensions or the browser
+  menu. Play/pause, seek ±10 seconds, mute and change speed (0.75×/1×/1.5×).
+  Works only for accessible HTML5 video elements in the current WebView page;
+  DRM, embedded third-party frames and native players may not support it.
+- Gesture injection is confined to the app's own WebView surface. No accessibility
+  permissions, root, device-wide input control or extra Android permissions.
+
+## Built-in Extensions Manager (0.4.0)
 
 Open **Ext** in the toolbar or **Menu → Extensions** with the TV remote.
 

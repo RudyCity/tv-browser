@@ -6,11 +6,15 @@ trap 'rm -rf "$temp_dir"' EXIT
 javac -d "$temp_dir" \
   app/src/main/java/io/rudycity/tvbrowser/EnginePolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/UrlTools.java \
-  app/src/main/java/io/rudycity/tvbrowser/ExtensionPolicy.java
+  app/src/main/java/io/rudycity/tvbrowser/ExtensionPolicy.java \
+  app/src/main/java/io/rudycity/tvbrowser/CursorPolicy.java \
+  app/src/main/java/io/rudycity/tvbrowser/VideoTools.java
 cat > "$temp_dir/EngineSmokeTest.java" <<'JAVA'
 import io.rudycity.tvbrowser.EnginePolicy;
 import io.rudycity.tvbrowser.UrlTools;
 import io.rudycity.tvbrowser.ExtensionPolicy;
+import io.rudycity.tvbrowser.CursorPolicy;
+import io.rudycity.tvbrowser.VideoTools;
 public class EngineSmokeTest {
     static int n;
     static void check(boolean result) { n++; if (!result) throw new AssertionError("Check #" + n); }
@@ -41,7 +45,14 @@ public class EngineSmokeTest {
         check(!ExtensionPolicy.shouldBlockResource("https://mysite.net",
                 "https://doubleclick.net/", true));
         check(ExtensionPolicy.userscriptOrigin("https://example.com"));
+        check(ExtensionPolicy.knownId(ExtensionPolicy.VIDEO_TOOLS));
+        check(ExtensionPolicy.IDS.length == 5);
         check(!ExtensionPolicy.userscriptOrigin("http://example.com"));
+        check(CursorPolicy.clamp(-100,100,12) == 12);
+        check(CursorPolicy.move(80,1,40,100,12) == 88);
+        check(CursorPolicy.move(20,-1,40,100,12) == 12);
+        check(VideoTools.javascript(VideoTools.PLAY_PAUSE) != null);
+        check(VideoTools.javascript("alert(1)") == null);
         System.out.println("PASS " + n + " Java policy, add-on and URL smoke assertions");
     }
 }

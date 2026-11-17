@@ -156,6 +156,17 @@ public final class WebViewEngine implements BrowserEngine {
     /** Count of matched tracker subresource requests for the current top-level load. */
     public int blockedTrackerRequests() { return blockedTrackers.get(); }
 
+    /** Executes only allowlisted HTML5 controls on the current web page when enabled. */
+    public boolean executeVideoCommand(String command) {
+        String javascript = VideoTools.javascript(command);
+        String url = view.getUrl();
+        if (destroyed || javascript == null || ExtensionPolicy.host(url) == null
+                || !extensions.enabledForUrl(ExtensionPolicy.VIDEO_TOOLS, url)) return false;
+        if (Build.VERSION.SDK_INT < 19) return false;
+        view.evaluateJavascript(javascript, null);
+        return true;
+    }
+
     @Override public String name() { return "System WebView"; }
     @Override public View view() { return view; }
     @Override public String currentUrl() { return view.getUrl(); }

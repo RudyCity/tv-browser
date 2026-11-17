@@ -16,6 +16,7 @@ public class ExtensionSettingsTest {
         FakePrefs prefs = new FakePrefs();
         ExtensionSettings settings = new ExtensionSettings(prefs);
         assertTrue(settings.enabled(ExtensionPolicy.AD_BLOCKER));
+        assertTrue(settings.enabled(ExtensionPolicy.VIDEO_TOOLS));
         settings.setSiteRule(ExtensionPolicy.AD_BLOCKER, "example.com", ExtensionSettings.ALLOW);
         assertTrue(settings.enabledForUrl(ExtensionPolicy.AD_BLOCKER, "https://example.com/path"));
         settings.setEnabled(ExtensionPolicy.AD_BLOCKER, false);
