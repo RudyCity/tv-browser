@@ -7,6 +7,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.view.View;
 import android.widget.Toast;
+import android.widget.EditText;
+import android.text.InputFilter;
+import android.text.InputType;
+import org.mozilla.geckoview.AllowOrDeny;
 
 import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoSession;
@@ -27,6 +31,9 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
     private String pageUrl;
     private boolean destroyed;
     private AlertDialog consentDialog;
+    private AlertDialog webDialog;
+    private GeckoResult<PromptResponse> pendingWebResponse;
+    private BasePrompt pendingWebPrompt;
     private FilePrompt uploadPrompt;
     private GeckoResult<PromptResponse> uploadResponse;
     private int uploadCode = -1;
@@ -49,9 +56,173 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
 
     private static int newCode() { return NEXT_REQUEST.getAndIncrement(); }
 
+    private interface WebChoice {
+        PromptResponse accept();
+        PromptResponse reject();
+    }
+
+    private static String limit(String input, int max) {
+        if (input == null) return "";
+        return input.length() > max ? input.substring(0, max) + "…" : input;
+    }
+
+    private void completeWebPrompt(PromptResponse selection) {
+        GeckoResult<PromptResponse> result = pendingWebResponse;
+        pendingWebResponse = null;
+        pendingWebPrompt = null;
+        if (result != null) result.complete(selection);
+    }
+
+    private GeckoResult<PromptResponse> webPrompt(BasePrompt prompt,
+            String title, String message, View input, String affirmative, String negative,
+            WebChoice resultChoice) {
+        if (!eligible() || pendingWebResponse != null || uploadResponse != null)
+            return GeckoResult.fromValue(resultChoice.reject());
+        final GeckoResult<PromptResponse> result = new GeckoResult<>();
+        pendingWebPrompt = prompt;
+        pendingWebResponse = result;
+        Uri site = Uri.parse(pageUrl);
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                .setTitle(title)
+                .setMessage(site.getHost() + "\n\n" + limit(message, 850))
+                .setNegativeButton(negative, (ignored, which) ->
+                        completeWebPrompt(resultChoice.reject()))
+                .setPositiveButton(affirmative, (ignored, which) ->
+                        completeWebPrompt(resultChoice.accept()));
+        if (input != null) builder.setView(input);
+        AlertDialog dialog = builder.create();
+        webDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (webDialog == dialog) webDialog = null;
+            if (pendingWebResponse == result)
+                completeWebPrompt(resultChoice.reject());
+        });
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+        return result;
+    }
+
+    @Override public GeckoResult<PromptResponse> onAlertPrompt(
+            GeckoSession from, AlertPrompt prompt) {
+        return webPrompt(prompt, "Website message", prompt.message,
+                null, "OK", "Close", new WebChoice() {
+                    @Override public PromptResponse accept() { return prompt.dismiss(); }
+                    @Override public PromptResponse reject() { return prompt.dismiss(); }
+                });
+    }
+
+    @Override public GeckoResult<PromptResponse> onButtonPrompt(
+            GeckoSession from, ButtonPrompt prompt) {
+        return webPrompt(prompt, "Website confirmation", prompt.message,
+                null, "Confirm", "Cancel", new WebChoice() {
+                    @Override public PromptResponse accept() {
+                        return prompt.confirm(ButtonPrompt.Type.POSITIVE);
+                    }
+                    @Override public PromptResponse reject() {
+                        return prompt.confirm(ButtonPrompt.Type.NEGATIVE);
+                    }
+                });
+    }
+
+    @Override public GeckoResult<PromptResponse> onTextPrompt(
+            GeckoSession from, TextPrompt prompt) {
+        final EditText field = new EditText(activity);
+        field.setSingleLine(true);
+        field.setFilters(new InputFilter[]{new InputFilter.LengthFilter(4096)});
+        field.setInputType(InputType.TYPE_CLASS_TEXT);
+        if (prompt.defaultValue != null) field.setText(prompt.defaultValue);
+        field.setPadding(24, 12, 24, 12);
+        return webPrompt(prompt, "Website text input", prompt.message,
+                field, "Submit", "Cancel", new WebChoice() {
+                    @Override public PromptResponse accept() {
+                        return prompt.confirm(field.getText().toString());
+                    }
+                    @Override public PromptResponse reject() { return prompt.dismiss(); }
+                });
+    }
+
+    @Override public GeckoResult<PromptResponse> onBeforeUnloadPrompt(
+            GeckoSession from, BeforeUnloadPrompt prompt) {
+        return webPrompt(prompt, "Leave this website?",
+                "The page may contain unsaved changes. Leave this page?",
+                null, "Leave", "Stay", new WebChoice() {
+                    @Override public PromptResponse accept() {
+                        return prompt.confirm(AllowOrDeny.ALLOW);
+                    }
+                    @Override public PromptResponse reject() {
+                        return prompt.confirm(AllowOrDeny.DENY);
+                    }
+                });
+    }
+
+    private static void flattenChoices(ChoicePrompt.Choice[] entries,
+            List<ChoicePrompt.Choice> flattened, String parent) {
+        if (entries == null) return;
+        for (ChoicePrompt.Choice choice : entries) {
+            if (flattened.size() >= 100) return;
+            if (choice.items != null) {
+                flattenChoices(choice.items, flattened, parent + choice.label + " / ");
+            } else if (!choice.separator) flattened.add(choice);
+        }
+    }
+
+    @Override public GeckoResult<PromptResponse> onChoicePrompt(
+            GeckoSession from, ChoicePrompt prompt) {
+        if (!eligible() || pendingWebResponse != null || uploadResponse != null)
+            return GeckoResult.fromValue(prompt.dismiss());
+        final List<ChoicePrompt.Choice> choices = new ArrayList<>();
+        flattenChoices(prompt.choices, choices, "");
+        if (choices.isEmpty()) return GeckoResult.fromValue(prompt.dismiss());
+        final GeckoResult<PromptResponse> result = new GeckoResult<>();
+        pendingWebPrompt = prompt;
+        pendingWebResponse = result;
+        String[] names = new String[choices.size()];
+        boolean[] selected = new boolean[choices.size()];
+        for (int i = 0; i < choices.size(); i++) {
+            ChoicePrompt.Choice choice = choices.get(i);
+            names[i] = (choice.disabled ? "(Disabled) " : "") + limit(choice.label, 90);
+            selected[i] = choice.selected;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+                .setTitle("Choose from " + Uri.parse(pageUrl).getHost())
+                .setNegativeButton("Cancel", (ignored, which) ->
+                        completeWebPrompt(prompt.dismiss()));
+        if (prompt.type == ChoicePrompt.Type.MULTIPLE) {
+            builder.setMultiChoiceItems(names, selected, (dialog, index, checked) -> {
+                if (choices.get(index).disabled) {
+                    ((AlertDialog) dialog).getListView().setItemChecked(index, selected[index]);
+                    return;
+                }
+                selected[index] = checked;
+            });
+            builder.setPositiveButton("Done", (ignored, which) -> {
+                List<String> ids = new ArrayList<>();
+                for (int i = 0; i < selected.length; i++)
+                    if (selected[i] && !choices.get(i).disabled) ids.add(choices.get(i).id);
+                completeWebPrompt(prompt.confirm(ids.toArray(new String[0])));
+            });
+        } else {
+            builder.setItems(names, (ignored, index) -> {
+                if (choices.get(index).disabled) {
+                    completeWebPrompt(prompt.dismiss());
+                } else completeWebPrompt(prompt.confirm(choices.get(index).id));
+            });
+        }
+        AlertDialog dialog = builder.create();
+        webDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (webDialog == dialog) webDialog = null;
+            if (pendingWebResponse == result) completeWebPrompt(prompt.dismiss());
+        });
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+        return result;
+    }
+
     @Override public GeckoResult<PromptResponse> onFilePrompt(
             GeckoSession from, FilePrompt prompt) {
-        if (!eligible() || uploadResponse != null || prompt.type == FilePrompt.Type.FOLDER)
+        if (!eligible() || uploadResponse != null || pendingWebResponse != null ||
+                prompt.type == FilePrompt.Type.FOLDER)
             return GeckoResult.fromValue(prompt.dismiss());
         uploadPrompt = prompt;
         uploadResponse = new GeckoResult<>();
@@ -179,6 +350,10 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
     void destroy() {
         if (destroyed) return;
         destroyed = true;
+        if (pendingWebResponse != null && pendingWebPrompt != null)
+            completeWebPrompt(pendingWebPrompt.dismiss());
+        if (webDialog != null) webDialog.dismiss();
+        webDialog = null;
         if (consentDialog != null) consentDialog.dismiss();
         consentDialog = null;
         rejectUpload();
