@@ -66,6 +66,20 @@ public final class MainActivity extends ComponentActivity {
     private Button menuButton;
     private boolean tvDevice;
     private BrowserEngine engine;
+    // Each real tab owns its own GeckoSession or WebView engine. Background tabs are
+    // paused/hidden, never replaced by a synthetic tab counter.
+    private static final class BrowserTab {
+        BrowserEngine browser;
+        String reason;
+        String title;
+        String url;
+        boolean home = true;
+        boolean loading;
+        boolean crashed;
+        int progress;
+    }
+    private final List<BrowserTab> tabs = new ArrayList<>();
+    private BrowserTab activeTab;
     private FrameLayout engineSlot;
     private String engineReason;
     private EditText address;
@@ -99,7 +113,22 @@ public final class MainActivity extends ComponentActivity {
         String restored = savedInstanceState == null ? null :
                 savedInstanceState.getString("current_url");
         if (UrlTools.isWebUrl(launch)) open(launch);
-        else if (UrlTools.isWebUrl(restored)) open(restored);
+        else if (savedInstanceState != null &&
+                savedInstanceState.containsKey("restorable_tabs")) {
+            ArrayList<String> urls =
+                    savedInstanceState.getStringArrayList("restorable_tabs");
+            if (urls != null && !urls.isEmpty()) {
+                final int count = Math.min(urls.size(), maxTabs());
+                for (int i = 0; i < count; i++) {
+                    if (i > 0 && !createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO),
+                            null)) break;
+                    if (UrlTools.isWebUrl(urls.get(i))) open(urls.get(i));
+                    else home();
+                }
+                switchBrowserTab(Math.min(
+                        savedInstanceState.getInt("selected_tab", 0), tabs.size() - 1));
+            }
+        } else if (UrlTools.isWebUrl(restored)) open(restored);
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -111,6 +140,14 @@ public final class MainActivity extends ComponentActivity {
     @Override protected void onSaveInstanceState(Bundle outState) {
         if (engine != null && UrlTools.isWebUrl(engine.currentUrl()))
             outState.putString("current_url", engine.currentUrl());
+        ArrayList<String> urls = new ArrayList<>();
+        for (BrowserTab tab : tabs) {
+            String url = tab.browser == null ? null : tab.browser.currentUrl();
+            // No cookie or private session data is ever serialized into a Bundle.
+            urls.add(UrlTools.isWebUrl(url) ? url : "");
+        }
+        outState.putStringArrayList("restorable_tabs", urls);
+        outState.putInt("selected_tab", Math.max(0, tabs.indexOf(activeTab)));
         super.onSaveInstanceState(outState);
     }
 
@@ -569,40 +606,251 @@ public final class MainActivity extends ComponentActivity {
         selectEngine(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
     }
 
+    private int maxTabs() {
+        // TV and old devices: smaller memory budget. Compatible touch: capped at 6.
+        return tvDevice || Build.VERSION.SDK_INT < 26 ? 3 : 6;
+    }
+
+    /** Ignore callbacks for background sessions: no inactive tab can open a dialog. */
+    private BrowserEngine.Listener guardedEvents(final BrowserTab tab) {
+        return new BrowserEngine.Listener() {
+            private boolean active() {
+                return activeTab == tab && engine == tab.browser;
+            }
+            @Override public void onPageStarted(String url) {
+                tab.url = UrlTools.isWebUrl(url) ? url : null;
+                tab.home = !UrlTools.isWebUrl(url);
+                tab.loading = true;
+                tab.progress = 5;
+                if (active()) rendererEvents.onPageStarted(url);
+            }
+            @Override public void onPageFinished(String url, String title) {
+                tab.url = UrlTools.isWebUrl(url) ? url : null;
+                tab.title = title;
+                tab.loading = false;
+                tab.progress = 100;
+                if (active()) rendererEvents.onPageFinished(url, title);
+            }
+            @Override public void onProgress(int progress) {
+                tab.progress = progress;
+                tab.loading = progress < 100;
+                if (active()) rendererEvents.onProgress(progress);
+            }
+            @Override public void onError(String message) {
+                tab.loading = false;
+                if (active()) rendererEvents.onError(message);
+            }
+            @Override public void onFullscreenRequested(View view, Runnable closeAction) {
+                if (active()) rendererEvents.onFullscreenRequested(view, closeAction);
+                else closeAction.run();
+            }
+            @Override public void onFullscreenEnded() {
+                if (active()) rendererEvents.onFullscreenEnded();
+            }
+            @Override public void onDownloadRequested(
+                    String url, String agent, String disposition, String mimeType) {
+                // Background tabs may not spawn unattended download prompts.
+                if (active()) rendererEvents.onDownloadRequested(
+                        url, agent, disposition, mimeType);
+            }
+            @Override public void onPopupRequested(String opener, String destination) {
+                if (active()) rendererEvents.onPopupRequested(opener, destination);
+            }
+            @Override public void onEngineCrashed(String reason) {
+                tab.crashed = true;
+                if (active()) rendererEvents.onEngineCrashed(reason);
+            }
+        };
+    }
+
+    private void clearAllTabSessions() {
+        if (activeTab != null) hideFullscreen();
+        activeTab = null;
+        engine = null;
+        for (BrowserTab tab : new ArrayList<>(tabs)) {
+            if (tab.browser == null) continue;
+            engineSlot.removeView(tab.browser.view());
+            tab.browser.destroy();
+        }
+        tabs.clear();
+        homeRequested = false;
+        showComposeHome(false);
+    }
+
+    private boolean createBrowserTab(String preference, String restoreUrl) {
+        if (tabs.size() >= maxTabs()) {
+            toast("Tab limit reached; close a background tab to free memory");
+            return false;
+        }
+        BrowserTab tab = new BrowserTab();
+        final EngineFactory.Selection selected;
+        try {
+            selected = EngineFactory.create(this, preference,
+                    prefs.getBoolean(DESKTOP, false), guardedEvents(tab));
+        } catch (RuntimeException | LinkageError problem) {
+            status.setText("Unable to start a new browser tab");
+            return false;
+        }
+        tab.browser = selected.engine;
+        tab.reason = selected.reason;
+        BrowserTab previous = activeTab;
+        if (previous != null) {
+            previous.home = homeRequested;
+            previous.loading = pageLoading;
+            previous.progress = pageProgress;
+            previous.browser.onPause();
+            previous.browser.view().setVisibility(View.GONE);
+        }
+        if (popupDialog != null) popupDialog.dismiss();
+        if (downloadDialog != null) downloadDialog.dismiss();
+        hideFullscreen();
+        activeTab = tab;
+        engine = tab.browser;
+        engineReason = tab.reason;
+        tabs.add(tab);
+        engineSlot.addView(engine.view(), 0, new FrameLayout.LayoutParams(-1, -1));
+        engine.view().setVisibility(View.VISIBLE);
+        engine.view().requestFocus();
+        homeRequested = true;
+        pageLoading = false;
+        pageProgress = 0;
+        if (restoreUrl != null && UrlTools.isWebUrl(restoreUrl)) open(restoreUrl);
+        else home();
+        updateJavaProgress();
+        syncComposeChrome();
+        status.setText(engine.name() + " • tab " + tabs.size() + "/" + maxTabs());
+        engine.onResume();
+        return true;
+    }
+
+    private void switchBrowserTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        BrowserTab selected = tabs.get(index);
+        if (selected == activeTab) return;
+        if (selected.crashed) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Tab renderer unavailable")
+                    .setMessage("This tab's rendering process crashed. Close the tab or " +
+                            "switch to another tab; it will not reload silently.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Close crashed tab",
+                            (dialog, which) -> closeBrowserTab(index)).show();
+            return;
+        }
+        if (popupDialog != null) popupDialog.dismiss();
+        if (downloadDialog != null) downloadDialog.dismiss();
+        hideFullscreen();
+        cursorMode = false;
+        if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
+        if (activeTab != null) {
+            activeTab.home = homeRequested;
+            activeTab.loading = pageLoading;
+            activeTab.progress = pageProgress;
+            activeTab.browser.onPause();
+            activeTab.browser.view().setVisibility(View.GONE);
+        }
+        activeTab = selected;
+        engine = selected.browser;
+        engineReason = selected.reason;
+        engine.view().setVisibility(View.VISIBLE);
+        engine.onResume();
+        homeRequested = selected.home;
+        pageLoading = selected.loading;
+        pageProgress = selected.progress;
+        showComposeHome(homeRequested);
+        String url = engine.currentUrl();
+        address.setText(UrlTools.isWebUrl(url) ? url : "");
+        showCompactAddress();
+        refreshBookmarkButton();
+        updateJavaProgress();
+        syncComposeChrome();
+        status.setText(engine.name() + " • tab " + (index + 1) + "/" + tabs.size());
+        engine.view().requestFocus();
+    }
+
+    private void closeBrowserTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        if (popupDialog != null) popupDialog.dismiss();
+        if (downloadDialog != null) downloadDialog.dismiss();
+        BrowserTab tab = tabs.remove(index);
+        boolean wasActive = tab == activeTab;
+        if (wasActive) {
+            hideFullscreen();
+            activeTab = null;
+            engine = null;
+        }
+        engineSlot.removeView(tab.browser.view());
+        tab.browser.destroy();
+        if (tabs.isEmpty()) {
+            // Closing the last tab opens one clean home, not a fictitious tab 0.
+            createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+        } else if (wasActive) {
+            switchBrowserTab(Math.min(index, tabs.size() - 1));
+        }
+    }
+
+    private void showBrowserTabs() {
+        final int count = tabs.size();
+        final String[] choices = new String[count + 3];
+        for (int i = 0; i < count; i++) {
+            BrowserTab tab = tabs.get(i);
+            String label = tab.title;
+            if (label == null || label.isEmpty()) {
+                String url = tab.url;
+                String host = UrlTools.isWebUrl(url) ? Uri.parse(url).getHost() : null;
+                label = host == null ? "New tab" : host;
+            }
+            if (label.length() > 42) label = label.substring(0, 42) + "…";
+            choices[i] = (tab == activeTab ? "● " : "○ ") +
+                    (i + 1) + ". " + label;
+        }
+        choices[count] = "New independent tab";
+        choices[count + 1] = "Close current tab";
+        choices[count + 2] = "Close all tabs";
+        BrowserChrome.ChoiceHandler handler = new BrowserChrome.ChoiceHandler() {
+            @Override public void onChoice(int choice) {
+                if (choice < count) switchBrowserTab(choice);
+                else if (choice == count) createBrowserTab(
+                        prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                else if (choice == count + 1) closeBrowserTab(tabs.indexOf(activeTab));
+                else if (choice == count + 2) {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Close all browser tabs?")
+                            .setMessage("All tab sessions will be destroyed. Open pages " +
+                                    "will be lost. A clean home tab will remain.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Close all", (dialog, which) -> {
+                                clearAllTabSessions();
+                                createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                            }).show();
+                }
+            }
+        };
+        if (composeChrome != null) {
+            composeChrome.showActions("Browser tabs (" + count + ")", choices, handler);
+        } else {
+            new AlertDialog.Builder(this).setTitle("Browser tabs (" + count + ")")
+                    .setItems(choices, (dialog, which) -> handler.onChoice(which))
+                    .setNegativeButton("Back", null).show();
+        }
+    }
+
+    /** Engine selection applies to all tabs, never implies cookie/session migration. */
     private void selectEngine(String preference, String restoreUrl) {
         if (popupDialog != null) popupDialog.dismiss();
         if (downloadDialog != null) downloadDialog.dismiss();
         cursorMode = false;
         pageLoading = false;
         pageProgress = 0;
-        updateJavaProgress();
         if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
-        hideFullscreen();
-        BrowserEngine previous = engine;
-        engine = null;
-        if (previous != null) {
-            engineSlot.removeView(previous.view());
-            previous.destroy();
-        }
-        try {
-            EngineFactory.Selection selected = EngineFactory.create(this, preference,
-                    prefs.getBoolean(DESKTOP, false), rendererEvents);
-            engine = selected.engine;
-            engineReason = selected.reason;
-            // Renderer belongs behind the non-interactive pointer overlay.
-            engineSlot.addView(engine.view(), 0, new FrameLayout.LayoutParams(-1, -1));
-            engine.view().requestFocus();
-            status.setText(engine.name() + "  •  " + engineReason);
-            syncComposeChrome();
-            if (restoreUrl != null && UrlTools.isWebUrl(restoreUrl)) open(restoreUrl);
-            else home();
-        } catch (RuntimeException | LinkageError error) {
+        clearAllTabSessions();
+        if (!createBrowserTab(preference, restoreUrl)) {
             engineReason = "No working rendering engine available";
             status.setText(engineReason);
             syncComposeChrome();
             new AlertDialog.Builder(this).setTitle("Browser unavailable")
-                    .setMessage("Neither GeckoView, embedded Chromium, nor System WebView could start. " +
-                            "Check the TV firmware and system WebView package.")
+                    .setMessage("Neither GeckoView, embedded Chromium, nor System WebView " +
+                            "could start. Check the device firmware and installed WebView.")
                     .setPositiveButton("OK", null).show();
         }
     }
@@ -642,6 +890,10 @@ public final class MainActivity extends ComponentActivity {
         }
         if (engine == null) { toast("Browser engine unavailable"); return; }
         homeRequested = false;
+        if (activeTab != null) {
+            activeTab.home = false;
+            activeTab.url = url;
+        }
         showComposeHome(false);
         engine.loadUrl(url);
         address.setText(url);
@@ -652,6 +904,10 @@ public final class MainActivity extends ComponentActivity {
 
     private void home() {
         homeRequested = true;
+        if (activeTab != null) {
+            activeTab.home = true;
+            activeTab.url = null;
+        }
         address.setText("");
         bookmarkButton.setText("☆");
         String html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
@@ -999,6 +1255,7 @@ public final class MainActivity extends ComponentActivity {
                 "Reload page",
                 "Home",
                 "Forward",
+                "Tabs (" + tabs.size() + ")",
                 bookmarked ? "Remove bookmark" : "Bookmark this page",
                 "Extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)",
                 "Bookmarks",
@@ -1012,11 +1269,12 @@ public final class MainActivity extends ComponentActivity {
                             case 1: home(); break;
                             case 2: if (engine != null && engine.canGoForward())
                                         engine.goForward(); break;
-                            case 3: toggleBookmark(); break;
-                            case 4: showExtensions(); break;
-                            case 5: showSavedList(BOOKMARKS, false); break;
-                            case 6: showSavedList(HISTORY, false); break;
-                            case 7: showToolsMenu(); break;
+                            case 3: showBrowserTabs(); break;
+                            case 4: toggleBookmark(); break;
+                            case 5: showExtensions(); break;
+                            case 6: showSavedList(BOOKMARKS, false); break;
+                            case 7: showSavedList(HISTORY, false); break;
+                            case 8: showToolsMenu(); break;
                         }
                     }
                 };
@@ -1165,7 +1423,7 @@ public final class MainActivity extends ComponentActivity {
         StringBuilder details = new StringBuilder("Opened from:\n").append(opener)
                 .append("\n\nDestination domain:\n").append(PopupPolicy.host(destinationUrl))
                 .append("\n\nFull destination link:\n").append(destinationUrl)
-                .append("\n\nApproved popup links open in the current tab.");
+                .append("\n\nApproved popup links open in a separate tab after human consent.");
         if (PopupPolicy.mightInstallSoftware(destinationUrl))
             details.append("\n\nWARNING: The link looks like an installer/executable.");
         if (PopupPolicy.usesPlainHttp(destinationUrl))
@@ -1181,7 +1439,7 @@ public final class MainActivity extends ComponentActivity {
                             toast("Popup expired after switching browser engines");
                             return;
                         }
-                        open(destinationUrl);
+                        createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), destinationUrl);
                     }
                 }).create();
         popupDialog = dialog;
@@ -1337,11 +1595,7 @@ public final class MainActivity extends ComponentActivity {
         if (popupDialog != null) popupDialog.dismiss();
         if (downloadDialog != null) downloadDialog.dismiss();
         hideFullscreen();
-        if (engine != null) {
-            BrowserEngine old = engine;
-            engine = null;
-            old.destroy();
-        }
+        clearAllTabSessions();
         super.onDestroy();
     }
 }
