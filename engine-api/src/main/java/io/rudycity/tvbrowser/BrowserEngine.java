@@ -42,6 +42,9 @@ public interface BrowserEngine {
         callback.onResult(false);
     }
     default void exitFullscreen() {}
+    default boolean showSitePermissions() { return false; }
+    default boolean onAndroidPermissionsResult(int requestCode, String[] permissions,
+                                               int[] grantResults) { return false; }
     void onResume();
     void onPause();
     void destroy();

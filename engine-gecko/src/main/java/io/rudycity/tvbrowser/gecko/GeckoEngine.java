@@ -1,11 +1,20 @@
 package io.rudycity.tvbrowser.gecko;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.Manifest;
 import android.net.Uri;
 import android.view.View;
 import android.view.ViewGroup;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import io.rudycity.tvbrowser.BrowserEngine;
 import io.rudycity.tvbrowser.BrowserExtensions;
@@ -24,6 +33,11 @@ import org.mozilla.geckoview.WebResponse;
  */
 public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private final GeckoRuntime runtime;
+    private final Activity activity;
+    private static final AtomicInteger NEXT_PERMISSION_ID = new AtomicInteger(5400);
+    private AlertDialog sitePermissionDialog;
+    private GeckoSession.PermissionDelegate.Callback pendingAndroidPermission;
+    private int pendingAndroidRequestCode = -1;
     private final GeckoExtensionManager extensions;
     private final GeckoSession session;
     private final GeckoView view;
@@ -43,6 +57,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     public GeckoEngine(Activity activity, Listener callback, boolean desktop,
                        boolean privateMode) {
         this.privateMode = privateMode;
+        this.activity = activity;
         listener = callback;
         runtime = GeckoRuntime.getDefault(activity.getApplicationContext());
         extensions = new GeckoExtensionManager(activity, runtime);
@@ -125,27 +140,232 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     listener.onDownloadRequested(response.uri, null, null, null);
             }
         });
-        // Explicit fail-closed site permissions until there is an audited two-layer
-        // Android runtime + per-origin consent manager. A website may not silently
-        // obtain microphone, camera, location, notifications or persistent storage.
+        // Every site permission remains denied unless a visible user explicitly
+        // approves the origin; Android runtime grants are a separate gate.
         session.setPermissionDelegate(new GeckoSession.PermissionDelegate() {
             @Override public void onAndroidPermissionsRequest(
                     GeckoSession from, String[] requested, Callback callback) {
-                callback.reject();
+                requestAndroidPermissions(requested, callback);
             }
             @Override public void onMediaPermissionRequest(
                     GeckoSession from, String origin, MediaSource[] video,
                     MediaSource[] audio, MediaCallback callback) {
-                callback.reject();
+                if (!promptAllowed(origin) ||
+                        (video != null && video.length > 0 && !hasAndroidPermission(Manifest.permission.CAMERA)) ||
+                        (audio != null && audio.length > 0 && !hasAndroidPermission(Manifest.permission.RECORD_AUDIO))) {
+                    callback.reject();
+                    return;
+                }
+                String devices = (video != null && video.length > 0 ? "Camera " : "") +
+                        (audio != null && audio.length > 0 ? "Microphone" : "");
+                promptSite("Allow site media capture?",
+                        safeOrigin(origin) + "\n\nRequested: " + devices +
+                        "\n\nOnly approve sites you trust.",
+                        null, approved -> {
+                            if (approved && !destroyed)
+                                callback.grant(video != null && video.length > 0 ? video[0] : null,
+                                        audio != null && audio.length > 0 ? audio[0] : null);
+                            else callback.reject();
+                        });
             }
             @Override public GeckoResult<Integer> onContentPermissionRequest(
                     GeckoSession from, ContentPermission permission) {
-                return GeckoResult.fromValue(ContentPermission.VALUE_DENY);
+                return requestSitePermission(permission);
             }
         });
         setDesktopMode(desktop);
         session.open(runtime);
         view.setSession(session);
+    }
+
+    private interface Decision { void complete(boolean approved); }
+
+    private boolean hasAndroidPermission(String name) {
+        return activity.checkSelfPermission(name) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean promptAllowed(String origin) {
+        return !destroyed && view.getVisibility() == View.VISIBLE &&
+                !activity.isFinishing() && !activity.isDestroyed() &&
+                isHttps(origin);
+    }
+
+    private String safeOrigin(String uri) {
+        try {
+            Uri parsed = Uri.parse(uri);
+            return parsed.getScheme() + "://" + parsed.getHost() +
+                    (parsed.getPort() < 0 ? "" : ":" + parsed.getPort());
+        } catch (RuntimeException ignored) {
+            return "Unknown site";
+        }
+    }
+
+    private void promptSite(String title, String message, Runnable onShown,
+                            Decision decision) {
+        if (destroyed || sitePermissionDialog != null ||
+                activity.isFinishing() || activity.isDestroyed() ||
+                view.getVisibility() != View.VISIBLE) {
+            decision.complete(false);
+            return;
+        }
+        final AtomicBoolean settled = new AtomicBoolean(false);
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle(title).setMessage(message)
+                .setNegativeButton("Block", (ignored, which) -> {
+                    if (settled.compareAndSet(false, true)) decision.complete(false);
+                })
+                .setPositiveButton("Allow", (ignored, which) -> {
+                    if (settled.compareAndSet(false, true)) decision.complete(true);
+                })
+                .create();
+        sitePermissionDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (sitePermissionDialog == dialog) sitePermissionDialog = null;
+            if (settled.compareAndSet(false, true)) decision.complete(false);
+        });
+        dialog.show();
+        dialog.getButton(DialogInterface.BUTTON_NEGATIVE).requestFocus();
+        if (onShown != null) onShown.run();
+    }
+
+    private static String contentPermissionName(int permission) {
+        switch (permission) {
+            case GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION: return "Location";
+            case GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION: return "Notifications";
+            case GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE: return "Autoplay with sound";
+            case GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE: return "Silent autoplay";
+            case GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS: return "Protected media / DRM";
+            case GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE: return "Persistent storage";
+            case GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS: return "Third-party cookie access";
+            case GeckoSession.PermissionDelegate.PERMISSION_TRACKING: return "Disable tracking protection";
+            default: return "Restricted permission (" + permission + ")";
+        }
+    }
+
+    private GeckoResult<Integer> requestSitePermission(
+            GeckoSession.PermissionDelegate.ContentPermission permission) {
+        final int type = permission.permission;
+        // Known, user-comprehensible permissions only. Persistent storage is
+        // irreversible per Mozilla; trackers, XR and third-party cookies stay blocked.
+        boolean supported = type == GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION ||
+                type == GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE ||
+                type == GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE ||
+                type == GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS;
+        if (!supported || !promptAllowed(permission.uri)) return GeckoResult.fromValue(
+                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+        if (type == GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION &&
+                !hasAndroidPermission(Manifest.permission.ACCESS_FINE_LOCATION) &&
+                !hasAndroidPermission(Manifest.permission.ACCESS_COARSE_LOCATION))
+            return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+        final GeckoResult<Integer> outcome = new GeckoResult<>();
+        promptSite("Website permission: " + contentPermissionName(type),
+                safeOrigin(permission.uri) + "\n\nAllow " + contentPermissionName(type) +
+                " for this site? You can reset it from Browser tools → Site permissions.",
+                permission::notifyShown,
+                approved -> outcome.complete(approved
+                        ? GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                        : GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY));
+        return outcome;
+    }
+
+    private void requestAndroidPermissions(String[] requested,
+            GeckoSession.PermissionDelegate.Callback callback) {
+        if (requested == null || requested.length == 0 ||
+                !promptAllowed(location) || pendingAndroidPermission != null) {
+            callback.reject(); return;
+        }
+        List<String> missing = new ArrayList<>();
+        for (String item : requested) {
+            if (!Manifest.permission.CAMERA.equals(item) &&
+                    !Manifest.permission.RECORD_AUDIO.equals(item) &&
+                    !Manifest.permission.ACCESS_FINE_LOCATION.equals(item) &&
+                    !Manifest.permission.ACCESS_COARSE_LOCATION.equals(item)) {
+                callback.reject(); return;
+            }
+            if (!hasAndroidPermission(item)) missing.add(item);
+        }
+        if (missing.isEmpty()) { callback.grant(); return; }
+        promptSite("Android device permission",
+                safeOrigin(location) + "\n\nSite requests Android permissions:\n" +
+                Arrays.toString(missing.toArray()) +
+                "\n\nThe Android system will ask again. Nothing is granted automatically.",
+                null, approved -> {
+                    if (!approved || destroyed) { callback.reject(); return; }
+                    int requestCode = NEXT_PERMISSION_ID.getAndIncrement();
+                    pendingAndroidPermission = callback;
+                    pendingAndroidRequestCode = requestCode;
+                    try {
+                        activity.requestPermissions(missing.toArray(new String[0]), requestCode);
+                    } catch (RuntimeException error) {
+                        pendingAndroidPermission = null;
+                        pendingAndroidRequestCode = -1;
+                        callback.reject();
+                    }
+                });
+    }
+
+    @Override public boolean onAndroidPermissionsResult(int code, String[] permissions,
+                                                           int[] grants) {
+        if (code != pendingAndroidRequestCode || pendingAndroidPermission == null)
+            return false;
+        GeckoSession.PermissionDelegate.Callback callback = pendingAndroidPermission;
+        pendingAndroidPermission = null;
+        pendingAndroidRequestCode = -1;
+        boolean allGranted = !destroyed && grants.length == permissions.length && grants.length > 0;
+        for (int result : grants) allGranted &= result == PackageManager.PERMISSION_GRANTED;
+        if (allGranted) callback.grant();
+        else callback.reject();
+        return true;
+    }
+
+    @Override public boolean showSitePermissions() {
+        if (destroyed || !isHttps(location)) return false;
+        String selectedOrigin = location;
+        runtime.getStorageController().getPermissions(selectedOrigin, privateMode)
+                .accept(perms -> activity.runOnUiThread(() -> {
+                    if (destroyed || activity.isFinishing() || activity.isDestroyed()) return;
+                    if (perms == null || perms.isEmpty()) {
+                        new AlertDialog.Builder(activity).setTitle("Site permissions")
+                                .setMessage(safeOrigin(selectedOrigin) +
+                                        "\n\nNo stored website permissions.")
+                                .setPositiveButton("OK", null).show();
+                        return;
+                    }
+                    String[] labels = new String[perms.size()];
+                    for (int i = 0; i < perms.size(); i++) {
+                        GeckoSession.PermissionDelegate.ContentPermission p = perms.get(i);
+                        labels[i] = contentPermissionName(p.permission) + " — " +
+                                (p.value == GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                                        ? "Allowed" : p.value ==
+                                        GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+                                        ? "Blocked" : "Ask");
+                    }
+                    new AlertDialog.Builder(activity).setTitle("Site permissions: " +
+                            safeOrigin(selectedOrigin)).setItems(labels, (dialog, index) -> {
+                        GeckoSession.PermissionDelegate.ContentPermission selected = perms.get(index);
+                        if (selected.permission == GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE) {
+                            new AlertDialog.Builder(activity).setTitle("Persistent storage")
+                                    .setMessage("Mozilla does not support revoking an existing " +
+                                            "persistent-storage grant. Use Clear browsing data.")
+                                    .setPositiveButton("OK", null).show();
+                            return;
+                        }
+                        new AlertDialog.Builder(activity).setTitle("Reset site permission?")
+                                .setMessage(contentPermissionName(selected.permission) + "\n" +
+                                        safeOrigin(selected.uri))
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Reset to Ask", (ignored, which) ->
+                                        runtime.getStorageController().setPermission(selected,
+                                                GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT))
+                                .show();
+                    }).setNegativeButton("Close", null).show();
+                }), error -> activity.runOnUiThread(() -> {
+                    if (!destroyed && !activity.isFinishing())
+                        new AlertDialog.Builder(activity).setTitle("Site permissions unavailable")
+                                .setMessage("Firefox could not read this site's permissions.")
+                                .setPositiveButton("OK", null).show();
+                }));
+        return true;
     }
 
     private static boolean isHttps(String url) {
@@ -238,6 +458,11 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
+        if (sitePermissionDialog != null) sitePermissionDialog.dismiss();
+        sitePermissionDialog = null;
+        if (pendingAndroidPermission != null) pendingAndroidPermission.reject();
+        pendingAndroidPermission = null;
+        pendingAndroidRequestCode = -1;
         extensions.destroy();
         view.releaseSession();
         session.close();

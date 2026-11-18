@@ -1379,7 +1379,8 @@ public final class MainActivity extends ComponentActivity {
                         : "Remote pointer (Android TV only)",
                 "Native Chromium + Chrome Extensions (separate app)",
                 "Clear browsing data",
-                "About Rudy Browser"
+                "About Rudy Browser",
+                "Site permissions for current page"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1402,6 +1403,10 @@ public final class MainActivity extends ComponentActivity {
                                     break;
                             case 8: showNativeChromium(); break;
                             case 9: confirmClear(); break;
+                            case 11:
+                                if (engine == null || !engine.showSitePermissions())
+                                    toast("Site permissions are available for Gecko HTTPS pages");
+                                break;
                             case 10: new AlertDialog.Builder(MainActivity.this)
                                     .setTitle("About Rudy Browser")
                                     .setMessage("Version " + BuildConfig.VERSION_NAME + " • Android API " + Build.VERSION.SDK_INT + "\nActive: " +
@@ -1725,6 +1730,17 @@ public final class MainActivity extends ComponentActivity {
         else if (cursorMode) toggleCursorMode();
         else if (engine != null && engine.canGoBack()) engine.goBack();
         else super.onBackPressed();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                                     int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // Results belong to the original tab/session, never to the current tab by assumption.
+        for (BrowserTab tab : new ArrayList<>(tabs)) {
+            if (tab.browser != null &&
+                    tab.browser.onAndroidPermissionsResult(requestCode, permissions, grantResults))
+                return;
+        }
     }
 
     @Override protected void onPause() {
