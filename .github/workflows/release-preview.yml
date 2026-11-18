@@ -106,10 +106,13 @@ jobs:
           gh run download "$APK_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name rudy-browser-preview-installable-apk --dir incoming/preview
           gh run download "$GECKO_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-            --name rudy-browser-gecko-debug-apk --dir incoming/gecko
+            --name rudy-browser-gecko-abi-apks --dir incoming/gecko
           install -m 0644 incoming/legacy/app-legacy-debug.apk dist/RudyBrowser-Legacy-Android4-debug.apk
           install -m 0644 incoming/preview/app-preview-debug.apk dist/RudyBrowser-Preview-Android5-debug.apk
-          install -m 0644 incoming/gecko/app-gecko-debug.apk dist/RudyBrowser-GeckoView-Android8-debug.apk
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            name="RudyBrowser-GeckoView-Android8-${abi}-debug.apk"
+            install -m 0644 "incoming/gecko/$name" "dist/$name"
+          done
 
       - name: Verify APK structure and generate SHA-256 checksums
         shell: bash
@@ -119,6 +122,71 @@ jobs:
             test -s "$apk"
             unzip -tq "$apk" >/dev/null
             unzip -Z -1 "$apk" | grep -Fx 'AndroidManifest.xml' >/dev/null
+          done
+          # Refuse to distribute a mislabeled universal Gecko APK.
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            apk="dist/RudyBrowser-GeckoView-Android8-${abi}-debug.apk"
+            unzip -Z -1 "$apk" > "$apk.files"
+            grep -Eq "^lib/${abi}/[^/]+[.]so$" "$apk.files"
+            if grep -E '^lib/[^/]+/[^/]+[.]so
+          # The Android APK and Gecko workflows already verify exact versionCode/versionName
+          # and have to pass against the same source SHA before publication.
+          test "$SOURCE_SHA" != "67001288ba57b64ec945194c37319e6d71d25078"
+          ( cd dist && sha256sum ./*.apk > SHA256SUMS.txt )
+          cat dist/SHA256SUMS.txt
+
+      - name: Compose accurate preview release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          # Rudy Browser — Development Beta 0.8.0
+
+          **This is a testing beta with debug-signed APKs, not a production/App Store release.**
+          Original app source commit: \`$SOURCE_SHA\`
+
+          Download **one APK** for your device from the release assets:
+          - **RudyBrowser-Legacy-Android4-debug.apk** — Android 4.4+ (API19+), System WebView, designed for older TVs.
+          - **RudyBrowser-Preview-Android5-debug.apk** — Android 5.0+ (API21+), System WebView + Compose UI.
+          - **RudyBrowser-GeckoView-Android8-debug.apk** — Android 8.0+ (API26+), real Firefox GeckoView, Firefox WebExtensions, private tabs and modern site permission controls.
+
+          All three APKs have **different package IDs** and can coexist. A true embedded Chromium build and Chrome CRX/Web Store are **not included**.
+
+          **Verified CI for exact source SHA:**
+          - [Legacy + Compose build and tests](https://github.com/$GITHUB_REPOSITORY/actions/runs/$APK_RUN_ID)
+          - [Gecko build + Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GECKO_RUN_ID)
+          - [Compose Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$PREVIEW_RUN_ID)
+          - [Android TV API29 remote and lifecycle emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$TV_RUN_ID)
+
+          See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Debug signing keys can change between CI runners: Android upgrades may fail with a signing mismatch. Never uninstall an existing installation without backing up any data you want to preserve. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
+          EOF
+
+      - name: Create immutable GitHub pre-release with direct APK assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RUDY_RELEASE_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          title="Rudy Browser 0.8.0 Development Beta (${SOURCE_SHA:0:8})"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists; refusing overwrite."
+            exit 1
+          fi
+          if ! gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+            --title "$title" --notes-file release-notes.md --prerelease; then
+            echo "::error::GitHub Release was not published. Check Actions Contents: write"
+            echo "::error::and repository policy. If necessary, the owner may configure"
+            echo "::error::RUDY_RELEASE_TOKEN with only repository Contents: write."
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,isPrerelease,tagName,assets
+ "$apk.files" | grep -Ev "^lib/${abi}/"; then
+              echo "::error::Mixed native ABIs in $apk"
+              exit 1
+            fi
+            rm -f "$apk.files"
           done
           # Refuse to label old 0.7.x artifacts as a newer beta release.
           # The Android APK and Gecko workflows already verify exact versionCode/versionName
