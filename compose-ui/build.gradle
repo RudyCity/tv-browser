@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'io.rudycity.tvbrowser.compose'
-    compileSdk 35
+    compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
     defaultConfig {
         minSdk 21
     }

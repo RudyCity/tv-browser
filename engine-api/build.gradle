@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'io.rudycity.tvbrowser.engineapi'
-    compileSdk 35
+    compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
     defaultConfig { minSdk 19 }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

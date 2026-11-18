@@ -1188,8 +1188,8 @@ public final class MainActivity extends ComponentActivity {
                 }
             }
             // Disabled helper leaves WebView to handle its own D-pad events.
-            boolean tvHelperAllowed = !(engine instanceof WebViewEngine)
-                    || new ExtensionSettings(prefs).enabledForUrl(
+            boolean tvHelperAllowed = engine instanceof WebViewEngine
+                    && new ExtensionSettings(prefs).enabledForUrl(
                             ExtensionPolicy.TV_NAVIGATION, engine.currentUrl());
             if (tvDevice && fullscreenView == null && engine.view().hasFocus() && tvHelperAllowed) {
                 String command = null;

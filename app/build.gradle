@@ -6,7 +6,7 @@ def embeddedChromiumAar = file('libs/chromium-engine.aar')
 
 android {
     namespace 'io.rudycity.tvbrowser'
-    compileSdk 35
+    compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
     buildFeatures { buildConfig true }
 
     defaultConfig {
@@ -108,8 +108,11 @@ tasks.matching { it.name.startsWith('preChromium') && it.name.endsWith('Build') 
  * artifacts across BOTH legacy and modern variants to avoid duplicate DEX.
  */
 configurations.configureEach {
+    // Keep exact old APK toolchain reproducible; modern Gecko uses its own
+    // Android Gradle 9.1 build root and newer compatible Kotlin dependency graph.
+    def kotlinVersion = rootProject.hasProperty('geckoModernBuild') ? '2.2.10' : '2.1.20'
     resolutionStrategy.force(
-            'org.jetbrains.kotlin:kotlin-stdlib:2.1.20',
-            'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.20',
-            'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.20')
+            "org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}",
+            "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${kotlinVersion}",
+            "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}")
 }

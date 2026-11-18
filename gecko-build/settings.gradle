@@ -1,0 +1,21 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://maven.mozilla.org/maven2/' }
+    }
+}
+rootProject.name = 'rudy-browser-gecko'
+include ':app', ':engine-api', ':compose-ui', ':engine-gecko'
+project(':app').projectDir = file('../app')
+project(':engine-api').projectDir = file('../engine-api')
+project(':compose-ui').projectDir = file('../compose-ui')
+project(':engine-gecko').projectDir = file('../engine-gecko')

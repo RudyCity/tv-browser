@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'io.rudycity.tvbrowser.gecko'
-    compileSdk 35
+    compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
     defaultConfig { minSdk 26 }
     compileOptions {
         // Mozilla's current GeckoView consumer guide requires Java 17.

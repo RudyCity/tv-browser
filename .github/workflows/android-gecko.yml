@@ -33,12 +33,12 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4
-      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '9.3.1'
       - name: Compile real GeckoView and run JVM regression tests
-        run: gradle --no-daemon :app:testGeckoDebugUnitTest :app:assembleGeckoDebug :engine-gecko:assembleDebug
+        run: gradle -p gecko-build --no-daemon :app:testGeckoDebugUnitTest :app:assembleGeckoDebug :engine-gecko:assembleDebug
       - name: Verify real Gecko APK not accidentally installed over legacy
         run: |
           set -euo pipefail
@@ -65,7 +65,8 @@ jobs:
       - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '9.3.1'
+      - run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0'
       - name: Verify KVM
         run: |
           test -e /dev/kvm
@@ -81,7 +82,7 @@ jobs:
           disable-animations: true
           script: |
             set -eu
-            gradle --no-daemon connectedGeckoDebugAndroidTest
+            gradle -p gecko-build --no-daemon connectedGeckoDebugAndroidTest
             adb install -r app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
             adb shell am start -W -n io.rudycity.tvbrowser.gecko159/io.rudycity.tvbrowser.MainActivity
             sleep 5

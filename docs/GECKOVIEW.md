@@ -11,3 +11,7 @@ The `gecko` flavor packages the official Mozilla GeckoView stable binary; **it i
 - Preview command: `gradle :app:assembleGeckoDebug`. Emulator: `gradle connectedGeckoDebugAndroidTest`.
 
 Versions: `org.mozilla.geckoview:geckoview:159.0.20261102144711` pinned from Mozilla Maven. See GeckoView official [quick start](https://firefox-source-docs.mozilla.org/mobile/android/geckoview/consumer/geckoview-quick-start.html) and [WebExtensions documentation](https://firefox-source-docs.mozilla.org/mobile/android/geckoview/consumer/web-extensions.html). Version and minimum API should be verified against resolved AAR manifest in CI, not presumed from a high-level browser release announcement.
+
+## Separate modern build toolchain (CI finding 2026-11-18)
+
+GeckoView 159.0.20261102144711 declares `compileSdk >=37`. Its transitive AndroidX libraries require AGP 9.1+. The original project uses AGP 8.6.1 and Gradle 8.7 and must continue building API19 legacy without modification. **Do not bypass AAR metadata validation**. A second Gradle root (`gecko-build/`) reuses exactly the same sources with AGP 9.1.1 / Gradle 9.3.1 / compileSdk 37 and Kotlin 2.2.10. The root project preserves the legacy/Preview toolchain. Install Android platform 37; execute `gradle -p gecko-build :app:assembleGeckoDebug`. This is a build migration path, not yet a passing build proof.
