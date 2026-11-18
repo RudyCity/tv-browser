@@ -7,6 +7,7 @@ def embeddedChromiumAar = file('libs/chromium-engine.aar')
 android {
     namespace 'io.rudycity.tvbrowser'
     compileSdk 35
+    buildFeatures { buildConfig true }
 
     defaultConfig {
         applicationId 'io.rudycity.tvbrowser'
