@@ -29,6 +29,16 @@ public final class BrowserSessionPolicy {
                 capturedUrl.equals(currentUrl);
     }
 
+    /** No download may be started from a stale, hidden or navigated browser tab. */
+    public static boolean downloadApprovalCurrent(boolean sameTabAndEngine,
+                                                  long capturedSequence,
+                                                  long currentSequence,
+                                                  String capturedUrl,
+                                                  String currentUrl) {
+        return popupApprovalCurrent(sameTabAndEngine, capturedSequence,
+                currentSequence, capturedUrl, currentUrl);
+    }
+
     /** A user-approved popup from a private tab still belongs in private mode. */
     public static boolean popupMustStayPrivate(boolean openerPrivate) {
         return openerPrivate;

@@ -1882,6 +1882,16 @@ public final class MainActivity extends ComponentActivity {
             toast("Another download was blocked while a decision is pending");
             return;
         }
+        // Bind approval to the original active tab and navigation. Website
+        // redirects or tab switches invalidate a pending download consent.
+        final BrowserTab requestingTab = activeTab;
+        final BrowserEngine requestingEngine = engine;
+        final String requestingUrl = requestingEngine == null ? null : requestingEngine.currentUrl();
+        final long requestingSequence = requestingTab == null ? -1 : requestingTab.navigationSequence;
+        if (!PopupPolicy.isPreviewable(requestingUrl)) {
+            toast("Download blocked: originating page unavailable");
+            return;
+        }
         String guessed = URLUtil.guessFileName(url, contentDisposition, mimeType);
         // Content-Disposition is untrusted. Limit its filename before displaying
         // a TV consent dialog or passing the name to Android DownloadManager.
@@ -1902,6 +1912,15 @@ public final class MainActivity extends ComponentActivity {
                 .setNegativeButton("Block", null)
                 .setPositiveButton("Download", new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface ignored, int which) {
+                        if (!BrowserSessionPolicy.downloadApprovalCurrent(
+                                activeTab == requestingTab && engine == requestingEngine,
+                                requestingSequence,
+                                requestingTab == null ? -1 : requestingTab.navigationSequence,
+                                requestingUrl,
+                                requestingEngine == null ? null : requestingEngine.currentUrl())) {
+                            toast("Download expired because the originating page changed");
+                            return;
+                        }
                         enqueueDownload(url, userAgent, mimeType, filename);
                     }
                 }).create();

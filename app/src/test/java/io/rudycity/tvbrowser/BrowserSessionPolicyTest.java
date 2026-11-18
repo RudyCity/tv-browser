@@ -32,6 +32,20 @@ public final class BrowserSessionPolicyTest {
                 "file:///etc/passwd", "file:///etc/passwd"));
     }
 
+    @Test public void downloadConsentExpiresOnRedirectOrDifferentActiveTab() {
+        String page = "https://downloads.example.org/file";
+        assertTrue(BrowserSessionPolicy.downloadApprovalCurrent(true, 3, 3, page, page));
+        assertFalse(BrowserSessionPolicy.downloadApprovalCurrent(false, 3, 3, page, page));
+        assertFalse(BrowserSessionPolicy.downloadApprovalCurrent(true, 3, 4, page, page));
+        assertFalse(BrowserSessionPolicy.downloadApprovalCurrent(true, 3, 3,
+                page, "https://downloads.example.org/other"));
+        assertFalse(BrowserSessionPolicy.downloadApprovalCurrent(true, -1, -1, page, page));
+        assertFalse(BrowserSessionPolicy.downloadApprovalCurrent(true, 3, 3, null, page));
+        // Legacy Android TV can still download HTTP with explicit fresh consent.
+        assertTrue(BrowserSessionPolicy.downloadApprovalCurrent(true, 1, 1,
+                "http://device.lan/a", "http://device.lan/a"));
+    }
+
     @Test public void popupRetainsItsOpenersPrivacyBoundary() {
         assertTrue(BrowserSessionPolicy.popupMustStayPrivate(true));
         assertFalse(BrowserSessionPolicy.popupMustStayPrivate(false));
