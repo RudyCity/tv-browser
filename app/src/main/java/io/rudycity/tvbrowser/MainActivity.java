@@ -660,7 +660,24 @@ public final class MainActivity extends ComponentActivity {
             confirmPopup(openerUrl, destinationUrl);
         }
         @Override public void onEngineCrashed(String reason) {
-            if (++recoveryAttempts > 1) {
+            final BrowserTab crashedTab = activeTab;
+            if (crashedTab == null || crashedTab.browser != engine) return;
+            if (!BrowserSessionPolicy.canAutoFallback(crashedTab.privateMode, 1)) {
+                // A private Gecko process must NEVER silently reopen in WebView,
+                // where it could disclose the page to shared cookies or history.
+                status.setText("Private tab crashed — it cannot be recovered in shared WebView");
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Private tab unavailable")
+                        .setMessage("This private renderer crashed. The private page will not " +
+                                "be opened in another browser engine. Close this tab to continue.")
+                        .setNegativeButton("Keep closed renderer", null)
+                        .setPositiveButton("Close private tab", (dialog, which) -> {
+                            int index = tabs.indexOf(crashedTab);
+                            if (index >= 0) closeBrowserTab(index);
+                        }).show();
+                return;
+            }
+            if (!BrowserSessionPolicy.canAutoFallback(false, ++recoveryAttempts)) {
                 status.setText(reason + " — recovery stopped to avoid a crash loop");
                 return;
             }
@@ -669,8 +686,10 @@ public final class MainActivity extends ComponentActivity {
             try { if (engine != null) remembered = engine.currentUrl(); }
             catch (RuntimeException ignored) { /* crash recovery still proceeds */ }
             final String url = remembered;
-            engineSlot.post(new Runnable() {
-                @Override public void run() { selectEngine(EnginePolicy.WEBVIEW, url); }
+            engineSlot.post(() -> {
+                // A delayed crash from a closed/switched session may not steal focus.
+                if (activeTab == crashedTab && engine == crashedTab.browser)
+                    selectEngine(EnginePolicy.WEBVIEW, url);
             });
         }
     };
@@ -1467,7 +1486,10 @@ public final class MainActivity extends ComponentActivity {
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int index) {
                         final String next = values[index];
-                        final String url = engine == null ? null : engine.currentUrl();
+                        // A user may switch engines, but private URLs are never
+                        // transferred into a normal, persistent renderer.
+                        final String url = !BrowserSessionPolicy.canTransferUrl(activeTab != null && activeTab.privateMode)
+                                ? null : engine == null ? null : engine.currentUrl();
                         final Runnable apply = () -> {
                             prefs.edit().putString(ENGINE, next).apply();
                             selectEngine(next, url);
@@ -1579,6 +1601,12 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         final BrowserEngine requestingEngine = engine;
+        final boolean privatePopup = BrowserSessionPolicy.popupMustStayPrivate(
+                activeTab != null && activeTab.privateMode);
+        if (privatePopup && PopupPolicy.usesPlainHttp(destinationUrl)) {
+            toast("Private tabs only open HTTPS popups");
+            return;
+        }
         String opener = PopupPolicy.isPreviewable(openerUrl) ? openerUrl : "Browser home";
         StringBuilder details = new StringBuilder("Opened from:\n").append(opener)
                 .append("\n\nDestination domain:\n").append(PopupPolicy.host(destinationUrl))
@@ -1599,7 +1627,9 @@ public final class MainActivity extends ComponentActivity {
                             toast("Popup expired after switching browser engines");
                             return;
                         }
-                        createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), destinationUrl);
+                        createBrowserTab(privatePopup ? EnginePolicy.GECKO :
+                                prefs.getString(ENGINE, EnginePolicy.AUTO),
+                                destinationUrl, privatePopup);
                     }
                 }).create();
         popupDialog = dialog;
