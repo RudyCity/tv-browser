@@ -1,7 +1,7 @@
 name: Publish Rudy Browser developer pre-release
 
 # Manual, fail-closed release only. No release on push; no unsigned rewrite.
-# Requires exact source SHA and successful artifacts from three CI workflows.
+# Requires exact source SHA and success of all four CI workflows, including real Android TV.
 on:
   workflow_dispatch:
     inputs:
@@ -19,6 +19,10 @@ on:
         type: string
       preview_smoke_run_id:
         description: 'Successful Android Compose Emulator Smoke workflow run ID'
+        required: true
+        type: string
+      tv_smoke_run_id:
+        description: 'Successful Android TV Emulator Smoke workflow run ID'
         required: true
         type: string
 
@@ -43,25 +47,29 @@ jobs:
           INPUT_APK_RUN_ID: ${{ inputs.apk_run_id }}
           INPUT_GECKO_RUN_ID: ${{ inputs.gecko_run_id }}
           INPUT_PREVIEW_RUN_ID: ${{ inputs.preview_smoke_run_id }}
+          INPUT_TV_RUN_ID: ${{ inputs.tv_smoke_run_id }}
         run: |
           set -euo pipefail
           SOURCE_SHA="$INPUT_SOURCE_SHA"
           APK_RUN_ID="$INPUT_APK_RUN_ID"
           GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
           PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
+          TV_RUN_ID="$INPUT_TV_RUN_ID"
           if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] ||
              [[ ! "$APK_RUN_ID" =~ ^[0-9]+$ ]] ||
              [[ ! "$GECKO_RUN_ID" =~ ^[0-9]+$ ]] ||
-             [[ ! "$PREVIEW_RUN_ID" =~ ^[0-9]+$ ]]; then
+             [[ ! "$PREVIEW_RUN_ID" =~ ^[0-9]+$ ]] ||
+             [[ ! "$TV_RUN_ID" =~ ^[0-9]+$ ]]; then
             echo "Invalid source SHA or CI run ID"; exit 1
           fi
           echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           echo "APK_RUN_ID=$APK_RUN_ID" >> "$GITHUB_ENV"
           echo "GECKO_RUN_ID=$GECKO_RUN_ID" >> "$GITHUB_ENV"
           echo "PREVIEW_RUN_ID=$PREVIEW_RUN_ID" >> "$GITHUB_ENV"
+          echo "TV_RUN_ID=$TV_RUN_ID" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=v0.8.0-beta.${SOURCE_SHA:0:8}" >> "$GITHUB_ENV"
 
-      - name: Verify the same exact commit passed all three CI workflows
+      - name: Verify the same exact commit passed all four CI workflows
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,6 +90,7 @@ jobs:
           check_run "$APK_RUN_ID" "Android APK"
           check_run "$GECKO_RUN_ID" "Android GeckoView Preview"
           check_run "$PREVIEW_RUN_ID" "Android Compose Emulator Smoke"
+          check_run "$TV_RUN_ID" "Android TV Emulator Smoke"
 
       - name: Download exact-run APK artifacts
         shell: bash
@@ -137,6 +146,7 @@ jobs:
           - [Legacy + Compose build and tests](https://github.com/$GITHUB_REPOSITORY/actions/runs/$APK_RUN_ID)
           - [Gecko build + Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GECKO_RUN_ID)
           - [Compose Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$PREVIEW_RUN_ID)
+          - [Android TV API29 remote and lifecycle emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$TV_RUN_ID)
 
           See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Debug signing keys can change between CI runners: Android upgrades may fail with a signing mismatch. Never uninstall an existing installation without backing up any data you want to preserve. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
           EOF
