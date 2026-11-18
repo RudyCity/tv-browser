@@ -7,7 +7,7 @@ This is a checklist, **not** an authorization to publish or sign a production AP
 - `legacy` supports API19+ Android WebView and deliberately keeps old-firmware compatibility.
 - `preview` supports API21+ Android WebView + Compose; an isolated debug ID prevents overwrite.
 - `gecko` supports API26+ Firefox GeckoView and Firefox WebExtensions; its debug ID is `io.rudycity.tvbrowser.gecko159`.
-- No official GitHub release/tag signed for distribution; no production keystore is in this repository.
+- The **debug developer pre-release** [v0.7.1-preview.67001288](https://github.com/RudyCity/tv-browser/releases/tag/v0.7.1-preview.67001288) is published with direct Legacy/Preview/Gecko APKs and SHA256SUMS. This is not a production-signed or Play-approved release. No production keystore is in the repository.
 - Native Chromium remains a source-only experiment. Do not advertise Chrome Web Store or CRX support.
 
 ## Must pass before a production release
