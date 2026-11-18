@@ -20,7 +20,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 | --- | --- | --- | --- | --- |
 | M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Tested in CI; real-device QA pending |
 | M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Emulator startup/progress tested; remaining runtime behaviors pending |
-| M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | Started: modern HTTP restrictions; target SDK/signing still pending |
+| M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | First HTTP security slice tested (CI + API29 emulator); SDK/signing pending |
 | M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Not started |
 | M4 | P1 | Complete Material 3 migration | Bookmarks/history, settings, extension manager, downloads and consent dialogs modernized without losing controller security | Not started |
 | M5 | P1 | Real browser functionality | Genuine multi-tab manager, tabs/session restoration, private data model, better download manager and navigation | Not started |
@@ -98,3 +98,5 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 
 - M1: commit `25042161` added API 29 Android emulator CI. Build run `44219194544` succeeded. Emulator run `44219194576` succeeded, with **2 actual instrumentation tests / 0 failures** (Composer toolbar and WebView attached; one loading indicator only). Physical phone, TV, rotation, keyboard and popup QA still pending.
 - M2 first slice: modern flavor denies HTTP in Android manifest, direct navigation, redirects, main-frame resource interception, popup and download entrypoints. Java unit/smoke tests and Preview API29 NetworkSecurityPolicy instrumentation assertion added. Legacy flavor still allows cleartext for old TV firmware. Mark Tested only after CI and emulator run both pass.
+
+- M2: commit `8bdc2e53` blocked cleartext for modern Preview while keeping legacy TV HTTP; Android APK run `44220329584` succeeded including manifest checks; API 29 emulator run `44220329665` succeeded with **3/3 instrumentation tests and 0 failures**, including Android NetworkSecurityPolicy denying cleartext. Physical API 21–25 WebView and TV testing remain pending.

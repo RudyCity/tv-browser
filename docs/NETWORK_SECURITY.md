@@ -45,3 +45,13 @@ websites that must work on older TVs should use the legacy APK.
 Android documentation:
 - https://developer.android.com/privacy-and-security/security-config
 - https://developer.android.com/guide/topics/manifest/application-element
+
+## Verification evidence (2026-11-18)
+
+- Android APK workflow `44220329584`: **success** including legacy/Preview
+  `aapt` manifest policy assertions, Java/Kotlin tests and signed APK builds.
+- API29 Android emulator workflow `44220329665`: **success**, 3 instrumentation
+  tests, 0 failed/errors/skipped. Checked startup, single progress owner, and
+  `NetworkSecurityPolicy.isCleartextTrafficPermitted("example.com") == false`.
+- This is not a blanket penetration test or physical Android 4.4/5.0 TV
+  compatibility certification. Current published artifacts remain debug builds.

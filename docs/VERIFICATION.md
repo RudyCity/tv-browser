@@ -5,10 +5,11 @@
 - API 29 emulator workflow `44219194576`: 2 real instrumentation tests succeeded,
   confirming Compose toolbar and WebView attachment and preventing duplicate
   Java loading progress. Other runtime behaviors are not yet verified.
-- Security change in progress: modern Preview should block cleartext HTTP via
-  manifest + Java navigation/download/popup guards; legacy TV compatibility
-  remains deliberate. Confirm with unit tests, aapt manifest check, and
-  Android emulator NetworkSecurityPolicy test before marking tested.
+- Modern Preview cleartext restrictions implemented/tested on commit `8bdc2e53`:
+  Android APK workflow `44220329584` passed manifest + unit tests, and
+  API29 emulator workflow `44220329665` passed 3 real instrumentation tests,
+  including `NetworkSecurityPolicy` denying HTTP. Legacy TV HTTP remains
+  deliberately allowed. Other SDK versions and devices are still unverified.
 - targetSdk policy compliance, production signing and native Chromium are
   still outstanding; do not release this debug build as production.
 
@@ -35,10 +36,10 @@ extensions runtime is implied by this UI change.
 
 | Stage | Result | Details |
 | --- | --- | --- |
-| Implemented | Code changes pending CI | Rudy Browser label and 0.5.0 version; responsive phone/tablet toolbar; touch navigation keeps Android bars; TV fullscreen, D-pad and pointer remain. |
+| Implemented | M0 + first M1/M2 slices | Compose single-progress/fallback, API29 instrumentation and modern-Preview HTTP restrictions; plan at `docs/plans/`. |
 | Standalone Chromium | Build route staged; no compiled Chromium APK yet | Locked Chromium 157 / Titanium extension-enabled source build recipe in native-chromium/ produces a **separate APK** when run on a large dedicated builder. The embedded `chromium-engine.aar` is still absent. |
-| Tested | Pending CI for 0.5.0 | Pure-Java screen breakpoint/TV detection tests added to smoke and JUnit suites; Android APK build and unit tests must still pass in GitHub Actions. |
-| Runtime verified | No | Physical phone, tablet, and TV/emulator tests not run. |
+| Tested | CI green on `8bdc2e53` | JUnit, Java smoke, Kotlin test, both APK builds, package/signature and cleartext manifest checks; 3 API29 instrumentation tests passed. |
+| Runtime verified | API29 emulator smoke only | Compose Activity/WebView startup, single loading progress and cleartext policy tested. Physical phone/TV, lifecycle, redirect and download runtime tests remain. |
 | Released | No production release | CI produces debug APK artifacts only, not a signed production APK. |
 | GitHub repository | Private | `RudyCity/tv-browser`; repository name remains unchanged. |
 
