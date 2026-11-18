@@ -24,6 +24,7 @@ import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
+import org.mozilla.geckoview.MediaSession;
 import org.mozilla.geckoview.StorageController;
 import org.mozilla.geckoview.ScreenLength;
 import org.mozilla.geckoview.WebResponse;
@@ -54,6 +55,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private boolean destroyed;
     private String previousFindText;
     private final boolean privateMode;
+    private MediaSession activeMedia;
+    private boolean mediaPlaying;
+    private boolean mediaMuted;
 
     public GeckoEngine(Activity activity, Listener callback, boolean desktop) {
         this(activity, callback, desktop, false);
@@ -146,6 +150,27 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                 // Save Gecko's authenticated response body through Android SAF; do
                 // not issue an unrelated DownloadManager request without Gecko cookies.
                 documents.offerDownload(response);
+            }
+        });
+        session.setMediaSessionDelegate(new MediaSession.Delegate() {
+            @Override public void onActivated(GeckoSession from, MediaSession media) {
+                if (!destroyed) activeMedia = media;
+            }
+            @Override public void onDeactivated(GeckoSession from, MediaSession media) {
+                if (activeMedia == media) {
+                    activeMedia = null;
+                    mediaPlaying = false;
+                    mediaMuted = false;
+                }
+            }
+            @Override public void onPlay(GeckoSession from, MediaSession media) {
+                if (activeMedia == media) mediaPlaying = true;
+            }
+            @Override public void onPause(GeckoSession from, MediaSession media) {
+                if (activeMedia == media) mediaPlaying = false;
+            }
+            @Override public void onStop(GeckoSession from, MediaSession media) {
+                if (activeMedia == media) mediaPlaying = false;
             }
         });
         // Every site permission remains denied unless a visible user explicitly
@@ -401,6 +426,32 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                 ScreenLength.fromVisualViewportHeight(down ? 0.8 : -0.8));
         return true;
     }
+    @Override public boolean executeMediaCommand(String command) {
+        MediaSession media = activeMedia;
+        if (destroyed || media == null || !media.isActive() ||
+                !isHttps(location) || command == null) return false;
+        // Native Gecko media transport; no untrusted script injection into pages.
+        switch (command) {
+            case "play_pause":
+                if (mediaPlaying) media.pause();
+                else media.play();
+                return true;
+            case "rewind_10":
+                media.seekBackward();
+                return true;
+            case "forward_10":
+                media.seekForward();
+                return true;
+            case "mute":
+                mediaMuted = !mediaMuted;
+                media.muteAudio(mediaMuted);
+                return true;
+            default:
+                // Playback speed is not exposed by Gecko's MediaSession.
+                return false;
+        }
+    }
+
     @Override public boolean savePagePdf() { return documents.savePagePdf(); }
     @Override public boolean onActivityResult(int code, int result, android.content.Intent data) {
         return documents.onActivityResult(code, result, data);
@@ -545,6 +596,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
+        activeMedia = null;
+        mediaPlaying = false;
+        mediaMuted = false;
         documents.destroy();
         if (sitePermissionDialog != null) sitePermissionDialog.dismiss();
         sitePermissionDialog = null;

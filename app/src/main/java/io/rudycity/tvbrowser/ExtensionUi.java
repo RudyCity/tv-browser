@@ -89,33 +89,42 @@ public final class ExtensionUi {
     /** Accessible from extensions and the browser's video menu. */
     public void showVideoControls() {
         final String url = pageUrl();
-        if (!supportedRenderer() || ExtensionPolicy.host(url) == null) {
-            info("HTML5 video controls", "Open an HTTP/HTTPS webpage with an HTML5 video "
-                    + "in System WebView to use playback controls.");
+        final boolean gecko = engine != null &&
+                "Firefox GeckoView".equals(engine.name());
+        if ((!gecko && !supportedRenderer()) || ExtensionPolicy.host(url) == null) {
+            info("HTML5 video controls", "Open a website with playable media " +
+                    "in GeckoView or System WebView first.");
             return;
         }
-        if (!settings.enabledForUrl(ExtensionPolicy.VIDEO_TOOLS, url)) {
-            info("HTML5 video controls", "Enable the HTML5 video controls add-on and "
-                    + "allow it on this website first.");
+        if (!gecko && !settings.enabledForUrl(ExtensionPolicy.VIDEO_TOOLS, url)) {
+            info("HTML5 video controls", "Enable the HTML5 video controls add-on " +
+                    "and allow it on this website first.");
             return;
         }
         final String[] labels = {
-                "Play / pause", "Rewind 10 seconds", "Forward 10 seconds",
+                "Play / pause", "Rewind (engine interval)", "Forward (engine interval)",
                 "Mute / unmute", "Speed 0.75×", "Speed normal (1×)", "Speed 1.5×"
         };
-        new AlertDialog.Builder(activity).setTitle("HTML5 video controls")
-                .setItems(labels, new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface dialog, int index) {
-                        if (index < 0 || index >= VideoTools.COMMANDS.length) return;
-                        boolean sent = ((WebViewEngine) engine)
-                                .executeVideoCommand(VideoTools.COMMANDS[index]);
-                        Toast.makeText(activity, sent
-                                ? "Command sent (requires accessible HTML5 video)"
-                                : "Video controls unavailable on this site", Toast.LENGTH_SHORT).show();
-                    }
-                }).setNegativeButton("Back", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface dialog, int which) { show(); }
-                }).show();
+        new AlertDialog.Builder(activity).setTitle(
+                    gecko ? "Firefox media controls" : "HTML5 video controls")
+                .setMessage(gecko ? "Controls use Gecko's native active MediaSession. " +
+                        "Playback-speed controls are not supported by this API. " +
+                        "No website scripts are injected." : null)
+                .setItems(labels, (dialog, index) -> {
+                    if (index < 0 || index >= VideoTools.COMMANDS.length) return;
+                    boolean sent = gecko
+                            ? engine.executeMediaCommand(VideoTools.COMMANDS[index])
+                            : ((WebViewEngine) engine)
+                                    .executeVideoCommand(VideoTools.COMMANDS[index]);
+                    Toast.makeText(activity, sent
+                            ? "Playback command sent"
+                            : gecko && index >= 4 ?
+                                    "Gecko does not expose playback speed controls" :
+                                    "No controllable media on this site",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Back", (dialog, which) -> show())
+                .show();
     }
 
     private void showTrackerStatus() {
