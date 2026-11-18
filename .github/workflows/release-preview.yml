@@ -1,12 +1,10 @@
 name: Publish Rudy Browser developer pre-release
 
-# One-time audited bootstrap for exact validated beta, then restore manual-only.
-# Releasing a fully tested DEBUG beta only, never production signing or Play deployment.
+# Human-triggered, fail-closed pre-release only. No automatic publication.
+# Four CI workflows must be green for the exact app source SHA.
+# GitHub Actions token requires Contents: write; if repository policy denies
+# the built-in token, the owner may configure a narrowly scoped release token.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/release-preview.yml'
   workflow_dispatch:
     inputs:
       source_sha:
@@ -54,21 +52,11 @@ jobs:
           INPUT_TV_RUN_ID: ${{ inputs.tv_smoke_run_id }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            # Locked one-time bootstrap from all-four-green source commit.
-            # This automation revision itself is NOT the binary source.
-            SOURCE_SHA=29d186a71ce2af9bcadad148a9dea3ac3f60a239
-            APK_RUN_ID=44253354713
-            GECKO_RUN_ID=44253354640
-            PREVIEW_RUN_ID=44253354696
-            TV_RUN_ID=44253354737
-          else
-            SOURCE_SHA="$INPUT_SOURCE_SHA"
-            APK_RUN_ID="$INPUT_APK_RUN_ID"
-            GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
-            PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
-            TV_RUN_ID="$INPUT_TV_RUN_ID"
-          fi
+          SOURCE_SHA="$INPUT_SOURCE_SHA"
+          APK_RUN_ID="$INPUT_APK_RUN_ID"
+          GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
+          PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
+          TV_RUN_ID="$INPUT_TV_RUN_ID"
           if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] ||
              [[ ! "$APK_RUN_ID" =~ ^[0-9]+$ ]] ||
              [[ ! "$GECKO_RUN_ID" =~ ^[0-9]+$ ]] ||
@@ -168,7 +156,7 @@ jobs:
       - name: Create immutable GitHub pre-release with direct APK assets
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RUDY_RELEASE_TOKEN || github.token }}
         run: |
           set -euo pipefail
           title="Rudy Browser 0.8.0 Development Beta (${SOURCE_SHA:0:8})"
@@ -176,8 +164,13 @@ jobs:
             echo "::error::Release $RELEASE_TAG already exists; refusing overwrite."
             exit 1
           fi
-          gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
+          if ! gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
-            --title "$title" --notes-file release-notes.md --prerelease
+            --title "$title" --notes-file release-notes.md --prerelease; then
+            echo "::error::GitHub Release was not published. Check Actions Contents: write"
+            echo "::error::and repository policy. If necessary, the owner may configure"
+            echo "::error::RUDY_RELEASE_TOKEN with only repository Contents: write."
+            exit 1
+          fi
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --json url,isPrerelease,tagName,assets
