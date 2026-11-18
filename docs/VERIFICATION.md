@@ -1,3 +1,26 @@
+## Latest GeckoView implementation and verification — 2026-11-18
+
+The previous sections below are retained as historical 0.5–0.7 milestone reports,
+not as a current feature list. For the current renderer and limitations see
+[GECKOVIEW.md](GECKOVIEW.md) and
+[Release Checklist](RELEASE_CHECKLIST.md).
+
+- Baseline `6778e731` had all three workflows green, including real API29
+  Gecko HTTPS first-contentful paint and the original built-in Firefox extension.
+- `b9d8db89`: data-clear callbacks, normal-tab disk URL persistence,
+  Gecko fullscreen viewport and TV pointer dispatch; all three workflows passed.
+- `3f22a907`: actual private GeckoSession creation without WebView fallback,
+  no private URLs in saved state or history; closes open sessions before Gecko
+  storage deletion. All three workflows passed.
+- `fc0d6ffd`: Android runtime and per-origin site permission prompts,
+  permission viewer/reset and Gecko-only Android manifest. All three workflows
+  passed.
+- `86ae6913`: guarded file upload and PDF export pipeline. Exact SHA CI
+  results and on-device upload/PDF behavior must be checked; compilation is
+  not evidence a remote upload/download actually worked.
+- No physical phone, tablet, TV or production release was verified.
+
+---
 ## M4 secure Material 3 clear-data confirmation — tested
 
 Commit `9b91e4a0`: Android APK workflow `44233938734` succeeded and

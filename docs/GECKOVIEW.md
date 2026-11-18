@@ -1,33 +1,24 @@
-# Real GeckoView engine preview
+# Rudy Browser — real GeckoView (Android API 26+)
 
-The `gecko` flavor packages the official Mozilla GeckoView stable binary; **it is not System WebView**. It is a separate, debug-only install ID `io.rudycity.tvbrowser.gecko159` and requires Android API 26+. System WebView `legacy` API19+ and `preview` API21+ remain separate, unchanged app IDs. This build never migrates cookies between engines, and never claims Chrome CRX compatibility.
+## Engine and build isolation
 
-- Module: `engine-gecko`, implementation: `io.rudycity.tvbrowser.gecko.GeckoEngine`.
-- Runtime: process-wide `GeckoRuntime.getDefault`; per-engine `GeckoSession`, owned `GeckoView`; explicit close and detach.
-- The controller delegates HTTPS navigation, progress, back/forward, title, crash recovery to Gecko. Unsupported schemes and unattended new windows are denied. A user-gesture HTTPS new-window request reaches the existing human-approval UI and opens in the current tab, not a fake new tab.
-- Downloads: only HTTPS external responses can reach the existing approval flow. Gecko cookies are deliberately **not** read using WebView's CookieManager.
-- Default content permissions stay denied until a complete Gecko site permission manager is implemented.
-- Current limitations: extensions/XPI manager not wired yet; per-page Gecko zoom not implemented; independent tab sessions, video fullscreen, TV remote focus, and image/content render evidence still need testing. Do not report these as finished.
-- Preview command: `gradle :app:assembleGeckoDebug`. Emulator: `gradle connectedGeckoDebugAndroidTest`.
+The `gecko` flavor uses the real Mozilla `org.mozilla.geckoview:geckoview:159.0.20261102144711` binary, not Android WebView or a Chrome APK. The independent install ID is `io.rudycity.tvbrowser.gecko159` (debug preview); API 26+ is required. `legacy` (API19) and `preview` (API21) continue using System WebView without changing their IDs or files. Cookies are **never migrated** between engines.
 
-Versions: `org.mozilla.geckoview:geckoview:159.0.20261102144711` pinned from Mozilla Maven. See GeckoView official [quick start](https://firefox-source-docs.mozilla.org/mobile/android/geckoview/consumer/geckoview-quick-start.html) and [WebExtensions documentation](https://firefox-source-docs.mozilla.org/mobile/android/geckoview/consumer/web-extensions.html). Version and minimum API should be verified against resolved AAR manifest in CI, not presumed from a high-level browser release announcement.
+The official Gecko artifact needs Android compile SDK 37 and AGP 9.1+. The `gecko-build/` root uses AGP9.1.1, Gradle9.3.1 and built-in Kotlin2.2.10; the historical root stays on AGP8.6.1 / Gradle8.7 for old TVs. Install `platforms;android-37.0` from SDK preview channel then run `gradle -p gecko-build :app:assembleGeckoDebug`. CI verifies both build paths.
 
-## Separate modern build toolchain (CI finding 2026-11-18)
+## Present capabilities (source implemented; verify each exact SHA with CI)
 
-GeckoView 159.0.20261102144711 declares `compileSdk >=37`. Its transitive AndroidX libraries require AGP 9.1+. The original project uses AGP 8.6.1 and Gradle 8.7 and must continue building API19 legacy without modification. **Do not bypass AAR metadata validation**. A second Gradle root (`gecko-build/`) reuses exactly the same sources with AGP 9.1.1 / Gradle 9.3.1 / compileSdk 37 and Kotlin 2.2.10. The root project preserves the legacy/Preview toolchain. Install Android platform 37; execute `gradle -p gecko-build :app:assembleGeckoDebug`. This is a build migration path, not yet a passing build proof.
+- Real process-wide GeckoRuntime with one GeckoSession and GeckoView per tab. Independent tab switching, closing, memory-conscious 3 TV/old or 6 modern cap, and human-approved HTTPS new tabs.
+- Firefox WebExtensions are installed/listed/managed with Gecko's official WebExtensionController. An original, example.com-only extension is exercised by API29 emulator tests. Remote signed HTTPS XPI installation requires source and permissions approval; arbitrary Chrome CRX is **not** supported.
+- Normal-tab URLs and selected position persist in app-private SharedPreferences and Activity Bundle, without storing forms or cookies. This restores URLs, not full back-forward and form state.
+- Private tabs use `GeckoSessionSettings.Builder.usePrivateMode(true)` and never fall back to WebView. Private URLs are excluded from history, Activity saved state and the disk session list. All private sessions end when the Activity is destroyed; persistent private tab restore is intentionally disabled.
+- Gecko site permission delegate displays the requesting HTTPS origin and prompts before supported content grants, while Android camera/microphone/location require separate OS grants. Unsupported high-risk privileges remain denied. A site permission viewer/reset is available from Tools. On gecko-only source manifests these permissions are declared; no silent OS grants.
+- The TV pointer dispatches real user-triggered MotionEvents to the active Gecko or WebView renderer. Gecko fullscreen uses Mozilla ContentDelegate to hide browser chrome without reparenting the GeckoView.
+- A Gecko website file upload requires an explicit consent prompt followed by Android's system document picker; only selected content:// URIs are passed to the page. Save Page PDF also uses Android's document picker with a background output stream. WebView uses Android PrintManager for Save as PDF.
+- Clear browsing data waits for Gecko StorageController and WebView CookieManager completion callbacks and closes Gecko sessions before clearing. This confirms API completion, **not** forensic deletion from storage hardware.
 
-AGP 9's built-in Kotlin cannot apply old `org.jetbrains.kotlin.android` side-by-side. The modern build instead selects `compose-ui/build-gecko.gradle`, with built-in Kotlin enabled. The original `compose-ui/build.gradle` remains untouched for AGP 8.6.1.
+## Limits — do not misstate these as released
 
-## Firefox WebExtensions (implemented in code, verification pending)
+The on-device TV remote/IME/focus experience, fullscreen video, DRM, signed XPI from a real publisher, protected downloads requiring Gecko cookies, upload picker, PDF export and private cookie isolation still need direct device/runtime proof. Some websites cannot work if they require restricted permissions. Manual zoom buttons for Gecko are not supported by its public programmatic zoom API; user pinch zoom works through native touch and requires device verification. No native Chromium AAR or Chrome Web Store exists.
 
-When Gecko is active, the Extensions UI uses the real `WebExtensionController`, not WebView JavaScript extras. The bundled original `Rudy Page Marker` add-on runs only on `https://example.com/*` without privileged permissions and must be installed by a human. Signed remote `.xpi` install requires first a reviewed HTTPS source URL, then a Mozilla permission-origins-data-collection consent dialog; a canceled dialog denies the install. Gecko validates XPI signatures. Installed add-ons can be listed, disabled/enabled, and uninstalled, with on-device persistence handled by Gecko. This is not Chrome CRX support. No automated tests have passed for this slice at time of commit; emulator extension acceptance evidence is still pending.
-
-## Explicit site permission policy (2026-11-18)
-
-The Gecko flavor sets a `GeckoSession.PermissionDelegate` that denies Android runtime permission requests, audio/video capture, and content permissions. The current preview therefore intentionally **does not support website camera, microphone, geolocation or notification permissions**. A future permission manager must display the exact HTTPS origin, request Android platform permissions separately, respect revocation, and provide a deny-by-default TV remote workflow; never silently grant permissions or claim the feature works. This is a secure preview limitation, not a fully implemented site permission manager.
-
-## Real multi-tab phase slice
-
-The browser controller now owns one independent `BrowserEngine` per tab (and therefore separate GeckoSessions or WebView instances). Selecting another tab pauses and hides the previous renderer without destroying its page state. Background callbacks may update their own tab metadata but **cannot** trigger foreground popups, downloads, fullscreen or progress. Confirmed popup links open a *new* real tab. A low-memory cap applies (3 old/TV, 6 compatible touch). Switching the engine asks for confirmation before discarding other tabs and explicitly warns cookie/session storage is not migrated. Closing all tabs destroys sessions and creates a clean start page.
-
-Current limits: tab thumbnails, private browsing, memory eviction, disk-based session restoration after full process death (only activity Bundle URL restart is provided), and background renderer crash recovery are not completed. Cross-tab global history/data clearing is requested with old tab surfaces closed; Gecko async deletion is **not** yet proven and the UI must never say it was verified. Real Gecko and WebView tab lifecycle tests are in the source tree, with actual runtime status governed by exact-SHA emulator CI rather than the presence of code.
+No production signing, physical Android phone/tablet/TV test, complete API26/29/34/36 matrix, Play policy approval, or GitHub Release has been authorized or verified. CI `Android GeckoView Preview` includes a real API29 emulator, a first-contentful-paint HTTPS check, and Firefox extension smoke coverage. Check the **latest HEAD** GitHub Actions before making a pass claim.

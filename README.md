@@ -5,9 +5,12 @@
 (unchanged, so compatible installs can be upgraded rather than installed as separate apps).
 
 The app adapts to **phone portrait/landscape**, **tablets** and **Android TV/TV boxes**.
-The renderer is Android System WebView (API 19+); a true independent Chromium engine is
-**not bundled**. Chromium integration is available only as an optional interface and
-build variant that remains disabled until a validated native AAR is provided.
+There are three independently installable Android paths: **legacy System WebView**
+(API 19+), **Compose Preview System WebView** (API 21+), and **real Mozilla GeckoView**
+(API 26+, application ID `io.rudycity.tvbrowser.gecko159`). Gecko ships a
+real Firefox rendering engine and Firefox WebExtensions; no Chromium AAR or
+Chrome Web Store runtime is bundled. The Gecko flavor is a debug preview,
+not an approved production release.
 
 ### Native Chromium and Chrome Extensions — separate build route
 
@@ -67,8 +70,8 @@ remain owned by the same controller; the UI does not replace web content.
   until the Compose TV experience has real-device focus testing.
 - If the optional Compose class is unavailable or fails to initialize,
   Java toolbar fallback remains visible, without replacing the engine.
-- Multi-tab, independent embedded Chromium and Chrome .crx extensions
-  are separate, not magically implemented by changing UI frameworks.
+- Real Gecko/WebView multi-tab is now implemented separately; independent embedded
+  Chromium and Chrome .crx extensions are still not bundled.
 
 See [Compose migration QA](docs/COMPOSE_MIGRATION.md).
 
@@ -79,7 +82,8 @@ keeps its own colors and DOM without any injected "design system."
 
 - **Phones under 600 dp** (320/360/390 included): one compact toolbar with Back,
   pill-shaped omnibox and overflow menu. No fake tab counter: true multi-tab
-  management is not implemented. Go works through the Android keyboard action.
+  management is available through the tab menu (independent renderer sessions).
+  Go works through the Android keyboard action.
 - **Tablets at 600 dp and wider:** a single toolbar adds Forward, Reload,
   Bookmark and optional Home/Extensions based on actual available width.
 - **TV:** large, focusable D-pad buttons remain, with two rows on TV widths
@@ -93,11 +97,13 @@ keeps its own colors and DOM without any injected "design system."
 - Overflow groups frequent actions (Reload, Home, Forward, Bookmark,
   Extensions, Bookmarks, History) above advanced tools, engine settings,
   browsing data and native Chromium companion launcher.
-- Rotation reparents existing controls without recreating the WebView or
-  losing history. Full-screen behavior stays TV-only; Android system bars
-  remain visible on touch devices.
+- Rotation reparents existing controls without recreating active renderer sessions.
+  Gecko includes HTML5 fullscreen viewport handling; the touch-device system bars
+  remain visible outside fullscreen.
 - Popup links and downloads still require explicit approval, and unsafe
-  installer links remain blocked. No new Android permissions or SDK dependencies.
+  installer links remain blocked. The Gecko-only flavor declares runtime
+  camera/microphone/location permissions, but a per-origin website prompt and
+  Android OS grant are both required; other flavors remain unchanged.
 
 **Visual implementation:** dark slate toolbar, low-contrast icon surfaces,
 subtle pill-shaped omnibox, purposeful focus state and consistent touch sizes.
