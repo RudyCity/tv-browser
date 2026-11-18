@@ -1,18 +1,12 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
-## Development 0.8.0 Beta — verified CI downloads, not yet GitHub Release
+## Development 0.8.0 Beta — release available, smaller APKs under testing
 
-Four CI gates **passed** for the exact 0.8.0 source commit `29d186a7`, including real Android TV API29. You can [download those test APKs from the Beta 0.8.0 artifact guide](docs/releases/2026-11-18-rudy-browser-0.8.0-beta-candidate.md) (temporary GitHub Actions ZIPs, not public release files). An attempted pre-release publication was blocked by GitHub's **HTTP 403 integration permissions**; no beta GitHub Release was created. The release workflow is manual-only and requires explicit repository Contents-write permission or a narrowly scoped owner-managed release token.
+[Rudy Browser 0.8.0 Beta](https://github.com/RudyCity/tv-browser/releases/tag/v0.8.0-beta.db0f0e71) is published with debug-signed Legacy, Preview and Gecko APKs. **Its Gecko universal APK is still 547.5 MB**; prior releases are immutable and are not replaced by this size optimization.
 
-### Development 0.8.0 Beta (source only)
+**Smaller Gecko per-ABI builds** are implemented in source and validated in the [Gecko build CI](https://github.com/RudyCity/tv-browser/actions/runs/44266897359): 64-bit ARM 213.0 MB, 32-bit ARM 173.7 MB, x86-64 232.5 MB. The [Actions ZIP artifact](https://github.com/RudyCity/tv-browser/actions/runs/44266897359/artifacts/14410463019) contains all three smaller debug APKs (not a new Release). For implementation and remaining gates see [Gecko APK size optimization](docs/GECKO_SIZE_OPTIMIZATION.md).
 
-The Android source version is now **0.8.0** (versionCode **12**) across three compatible application flavors.
-See [Beta 0.8.0 progress and remaining gates](docs/reports/2026-11-18-rudy-browser-beta-0.8.0-progress.md).
-New work includes privacy-safe crash handling and private popups, native Gecko/WebView Find in Page, TV page-up/down, a focusable tab grid, explicit inactive-tab memory cleanup, Gecko native media transport, a persistent light/dark modern UI, and dedicated Android TV emulator tests.
-
-These changes have been committed but **the latest source commit is not automatically a published release**. CI must pass on the exact source SHA, including Android TV, before the [manual beta pre-release workflow](.github/workflows/release-preview.yml) may publish APKs. Physical TV and phone verification is still required for production.
-
-**Do not confuse the existing version 0.7.1 download below with the new 0.8.0 code.**
+VersionName 0.8.0 / versionCode 12 remains unchanged; no native Chromium AAR is bundled. Physical hardware testing, production signing, and full Gecko emulator verification must not be inferred from the successful size build.
 
 ## Download / GitHub Pre-release (18 November 2026)
 
