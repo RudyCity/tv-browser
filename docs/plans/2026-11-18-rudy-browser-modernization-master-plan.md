@@ -19,10 +19,10 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 | Phase | Priority | Work | Definition of done | Status at plan creation |
 | --- | --- | --- | --- | --- |
 | M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Tested in CI; real-device QA pending |
-| M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Emulator startup/progress tested; remaining runtime behaviors pending |
+| M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | API29 startup/home/quick-site tested; rotation/crash/popup/device QA pending |
 | M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | First HTTP security slice tested (CI + API29 emulator); SDK/signing pending |
-| M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Started: dark tokens, 48dp touch targets, emulator screenshot capture; remaining QA pending |
-| M4 | P1 | Complete Material 3 migration | Bookmarks/history, settings, extension manager, downloads and consent dialogs modernized without losing controller security | Main/advanced menus tested on API29; remaining dialogs pending |
+| M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Dark tokens + compact home screenshot tested; accessibility/light/RTL pending |
+| M4 | P1 | Complete Material 3 migration | Bookmarks/history, settings, extension manager, downloads and consent dialogs modernized without losing controller security | Main/bookmark/history/engine/clear-data dialogs tested; extensions/popup/download UI pending |
 | M5 | P1 | Real browser functionality | Genuine multi-tab manager, tabs/session restoration, private data model, better download manager and navigation | Not started |
 | M6 | P1 | Android TV UX | Dedicated D-pad/focus/remote keyboard/fullscreen/pointer QA, Android TV Compose when verified, maintain legacy TV | Not started |
 | M7 | P1/P2 | Chromium + extensions | Build native Chromium with a supported runner, verify APK on real ARM64 Android, install/uninstall MV3 extensions; legal/source obligations | Not started |
@@ -131,3 +131,5 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - M4 secure confirmation slice staged: new Compose Material 3 destructive confirmation for Clear Browsing Data; Cancel/Back/outside tap cannot invoke the clear callback, existing Java/TV AlertDialog retained. Emulator instrumentation covers dismiss without side effects and explicit affirmative execution; CI evidence pending.
 
 - M3 refined home proof: commit `5d31d10c` passed Android APK run `44233234474` and API29 emulator run `44233234693`, **7/7 tests**. The actual screenshot was reviewed: one toolbar omnibox, smaller title, 48dp medium-corner shortcuts; redundant in-home search removed. Android physical/TV screenshot QA remains pending.
+
+- M4 secure clear-data confirmation: commit `9b91e4a0`, Android APK run `44233938734` **SUCCESS** and API29 emulator run `44233938590` **SUCCESS**, **8/8 instrumentation tests**. Test verified that the Material 3 destructive confirmation does not invoke its callback on Back/dismiss and only executes on affirmative tap. Existing legacy/TV dialog unchanged. No production signing or physical-device certification.

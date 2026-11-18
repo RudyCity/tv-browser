@@ -1,3 +1,16 @@
+## M4 secure Material 3 clear-data confirmation — tested
+
+Commit `9b91e4a0`: Android APK workflow `44233938734` succeeded and
+Android API29 emulator workflow `44233938590` succeeded with **8/8**
+instrumentation tests. The additional test verifies that Back/dismiss never
+invokes a destructive callback, whereas an explicit affirmative tap does.
+The Java controller still owns actual cache/history/cookie clearing.
+Android 4.4/TV retain the classic native confirmation until remote focus QA.
+
+The overall M4 phase remains partially complete: Extensions Manager,
+download approvals, new-tab/popup consent, and settings still need
+a complete Material 3 treatment with security regression tests.
+
 ## M3 home refinement — verified API29
 
 Commit `5d31d10c`, workflows `44233234474` (Android APK) and
