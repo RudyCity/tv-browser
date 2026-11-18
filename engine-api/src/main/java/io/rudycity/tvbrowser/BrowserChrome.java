@@ -30,6 +30,8 @@ public interface BrowserChrome {
     void showConfirmation(String title, String message, String actionLabel, Runnable onConfirm);
 
     View view();
+    /** Presentation-only theme, never affects website DOM or renderer settings. */
+    default void setDarkTheme(boolean dark) {}
     /** Open omnibox for text input, including from the old advanced tools menu. */
     void focusAddress();
 

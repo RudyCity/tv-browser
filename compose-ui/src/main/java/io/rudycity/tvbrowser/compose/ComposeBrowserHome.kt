@@ -32,13 +32,17 @@ import io.rudycity.tvbrowser.BrowserHome
 
 /** Real Material 3 home surface. Does not replace or style the browsing WebView. */
 class ComposeBrowserHome(activity: Activity, private val actions: BrowserHome.Actions) : BrowserHome {
+    private var darkMode by androidx.compose.runtime.mutableStateOf(
+        activity.getSharedPreferences("tv_browser", android.content.Context.MODE_PRIVATE)
+            .getBoolean("dark_mode", true))
     private val screen = ComposeView(activity).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         setContent {
-            RudyBrowserTheme { RudyHomeContent(actions) }
+            RudyBrowserTheme(darkMode) { RudyHomeContent(actions) }
         }
     }
     override fun view(): View = screen
+    override fun setDarkTheme(dark: Boolean) { darkMode = dark }
 }
 
 private data class QuickSite(val label: String, val url: String)
@@ -53,7 +57,7 @@ private val quickSites = listOf(
 @Composable
 private fun RudyHomeContent(actions: BrowserHome.Actions) {
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize().background(Color(0xFF0C1524))
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
     ) {
         val wide = maxWidth >= 600.dp
         Column(
@@ -65,21 +69,21 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
             Text(
                 text = "Rudy Browser",
                 style = MaterialTheme.typography.headlineSmall,
-                color = RudyColors.foreground,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(RudySpacing.sm))
             Text(
                 text = "A quieter way to browse.",
                 style = MaterialTheme.typography.bodySmall,
-                color = RudyColors.muted
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             // The browser already has an omnibox. Never duplicate it in the homepage.
             Spacer(Modifier.height(28.dp))
             Text(
                 "Quick access",
                 style = MaterialTheme.typography.titleSmall,
-                color = RudyColors.foreground
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(RudySpacing.md))
             val columns = if (wide) 4 else 2
@@ -96,8 +100,8 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
                                 .semantics { contentDescription = "Open " + site.label + " website" },
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = RudyColors.omnibox,
-                                contentColor = RudyColors.foreground
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) { Text(site.label, maxLines = 1, fontSize = 14.sp) }
                     }
@@ -108,7 +112,7 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
             Text(
                 "Use the address bar above to search or enter a website.",
                 style = MaterialTheme.typography.labelMedium,
-                color = RudyColors.muted
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

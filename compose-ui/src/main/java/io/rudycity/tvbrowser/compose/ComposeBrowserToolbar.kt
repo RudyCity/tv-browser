@@ -75,6 +75,9 @@ class ComposeBrowserToolbar(
     activity: Activity,
     private val actions: BrowserChrome.Actions
 ) : BrowserChrome {
+    private var darkMode by mutableStateOf(
+        activity.getSharedPreferences("tv_browser", android.content.Context.MODE_PRIVATE)
+            .getBoolean("dark_mode", true))
     private var snapshot by mutableStateOf(ChromeSnapshot())
     private var focusSignal by mutableStateOf(0)
     private var actionSheet by mutableStateOf<ActionSheet?>(null)
@@ -83,7 +86,7 @@ class ComposeBrowserToolbar(
     private val composeView = ComposeView(activity).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         setContent {
-            RudyBrowserTheme {
+            RudyBrowserTheme(darkMode) {
                 BrowserChromeContent(snapshot, actions, focusSignal)
                 actionSheet?.let { sheet ->
                     BrowserActionsDialog(
@@ -127,6 +130,8 @@ class ComposeBrowserToolbar(
     }
 
     override fun view(): View = composeView
+
+    override fun setDarkTheme(dark: Boolean) { darkMode = dark }
 
     override fun focusAddress() { focusSignal += 1 }
 
@@ -177,7 +182,7 @@ private fun BrowserChromeContent(
     actions: BrowserChrome.Actions,
     focusSignal: Int
 ) {
-    Surface(color = RudyColors.toolbar) {
+    Surface(color = MaterialTheme.colorScheme.surface) {
         Column {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isTablet = maxWidth >= 600.dp
@@ -219,8 +224,8 @@ private fun BrowserChromeContent(
                 LinearProgressIndicator(
                     progress = { (state.progress.coerceAtLeast(4) / 100f).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(RudyDimensions.progressHeight),
-                    color = RudyColors.accent,
-                    trackColor = RudyColors.toolbar
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surface
                 )
             }
         }
@@ -271,10 +276,10 @@ private fun BrowserOmnibox(
                 else Icons.Default.Search,
                 contentDescription = null,
                 modifier = Modifier.size(RudyDimensions.leadingIconSize),
-                tint = RudyColors.muted
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        textStyle = TextStyle(color = RudyColors.foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+        textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
         keyboardActions = KeyboardActions(onGo = {
             val target = draft.trim()
@@ -286,15 +291,15 @@ private fun BrowserOmnibox(
             }
         }),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = RudyColors.omnibox,
-            unfocusedContainerColor = RudyColors.omnibox,
-            focusedTextColor = RudyColors.foreground,
-            unfocusedTextColor = RudyColors.foreground,
-            focusedPlaceholderColor = RudyColors.muted,
-            unfocusedPlaceholderColor = RudyColors.muted,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
-            cursorColor = RudyColors.accent
+            cursorColor = MaterialTheme.colorScheme.primary
         )
     )
 }
@@ -327,12 +332,12 @@ private fun BrowserOverflow(state: ChromeSnapshot, actions: BrowserChrome.Action
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(RudyColors.toolbar)
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
         ) {
             @Composable
             fun Entry(title: String, click: () -> Unit, icon: @Composable () -> Unit) {
                 DropdownMenuItem(
-                    text = { Text(title, color = RudyColors.foreground) },
+                    text = { Text(title, color = MaterialTheme.colorScheme.onSurface) },
                     leadingIcon = icon,
                     onClick = { expanded = false; click() }
                 )

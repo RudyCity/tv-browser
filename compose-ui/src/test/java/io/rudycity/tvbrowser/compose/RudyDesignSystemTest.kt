@@ -11,6 +11,13 @@ class RudyDesignSystemTest {
         assertTrue(RudySpacing.compact.value < RudySpacing.md.value)
     }
 
+    @Test fun lightAndDarkPalettesAreBothOpaque() {
+        assertTrue(RudyLightColors.foreground.alpha >= 1f)
+        assertTrue(RudyLightColors.toolbar.alpha >= 1f)
+        assertTrue(RudyLightColors.background.alpha >= 1f)
+        assertTrue(RudyLightColors.accent != RudyColors.accent)
+    }
+
     @Test fun browserChromePaletteUsesOpaqueForeground() {
         assertTrue(RudyColors.foreground.alpha >= 1f)
         assertTrue(RudyColors.toolbar.alpha >= 1f)

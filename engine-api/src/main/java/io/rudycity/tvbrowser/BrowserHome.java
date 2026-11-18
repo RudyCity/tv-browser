@@ -13,4 +13,6 @@ public interface BrowserHome {
     }
 
     View view();
+    /** Optional native landing-page theme; legacy engines ignore this. */
+    default void setDarkTheme(boolean dark) {}
 }

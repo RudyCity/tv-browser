@@ -51,6 +51,7 @@ public final class MainActivity extends ComponentActivity {
     private static final String BOOKMARKS = "bookmarks";
     private static final String HISTORY = "history";
     private static final String DESKTOP = "desktop_mode";
+    private static final String DARK_THEME = "dark_mode";
     private static final String ENGINE = "render_engine";
     private static final String RESTORE_TABS = "restorable_tab_urls";
     private static final String RESTORE_SELECTED = "restorable_tab_selected";
@@ -1567,7 +1568,9 @@ public final class MainActivity extends ComponentActivity {
                 "Save page as PDF",
                 "Scroll page down",
                 "Scroll page up",
-                "Memory and inactive tabs"
+                "Memory and inactive tabs",
+                prefs.getBoolean(DARK_THEME, true) ?
+                        "Modern touch theme: DARK" : "Modern touch theme: LIGHT"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1599,6 +1602,14 @@ public final class MainActivity extends ComponentActivity {
                                     toast("Scrolling unavailable");
                                 break;
                             case 15: showMemoryAndTabs(); break;
+                            case 16:
+                                boolean dark = !prefs.getBoolean(DARK_THEME, true);
+                                prefs.edit().putBoolean(DARK_THEME, dark).apply();
+                                if (composeChrome != null) composeChrome.setDarkTheme(dark);
+                                if (composeHome != null) composeHome.setDarkTheme(dark);
+                                toast(dark ? "Dark browser chrome enabled" :
+                                        "Light browser chrome enabled");
+                                break;
                             case 12:
                                 if (engine == null || !engine.savePagePdf())
                                     toast("PDF export unavailable for this page or device");
