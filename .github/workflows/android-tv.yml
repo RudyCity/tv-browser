@@ -60,6 +60,12 @@ jobs:
             adb shell input keyevent KEYCODE_BACK
             adb shell pidof io.rudycity.tvbrowser.previewcompose071
             mkdir -p app/build/reports/tv
+            # Capture *measured* emulator memory/frames for later regressions.
+            # Never pretend this proves physical TV performance.
+            adb shell dumpsys meminfo io.rudycity.tvbrowser.previewcompose071 > app/build/reports/tv/meminfo.txt
+            adb shell dumpsys gfxinfo io.rudycity.tvbrowser.previewcompose071 > app/build/reports/tv/gfxinfo.txt
+            test -s app/build/reports/tv/meminfo.txt
+            test -s app/build/reports/tv/gfxinfo.txt
             adb exec-out screencap -p > app/build/reports/tv/android-tv-remote.png
             test -s app/build/reports/tv/android-tv-remote.png
             adb shell dumpsys activity activities > app/build/reports/tv/activity.txt
