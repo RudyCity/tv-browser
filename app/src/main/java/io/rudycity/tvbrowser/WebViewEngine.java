@@ -309,12 +309,24 @@ public final class WebViewEngine implements BrowserEngine {
         }
     }
     @Override public void clearBrowsingData() {
+        clearBrowsingDataWithResult(completed -> { });
+    }
+    @Override public void clearBrowsingDataWithResult(ClearCallback callback) {
+        if (destroyed) { callback.onResult(false); return; }
+        view.stopLoading();
         view.clearCache(true);
         view.clearHistory();
         view.clearFormData();
         WebStorage.getInstance().deleteAllData();
-        if (Build.VERSION.SDK_INT >= 21) CookieManager.getInstance().removeAllCookies(null);
-        else CookieManager.getInstance().removeAllCookie();
+        if (Build.VERSION.SDK_INT >= 21) {
+            CookieManager.getInstance().removeAllCookies(removed -> {
+                CookieManager.getInstance().flush();
+                callback.onResult(!destroyed);
+            });
+        } else {
+            CookieManager.getInstance().removeAllCookie();
+            callback.onResult(!destroyed);
+        }
     }
     @Override public void onResume() { view.onResume(); }
     @Override public void onPause() { view.onPause(); }

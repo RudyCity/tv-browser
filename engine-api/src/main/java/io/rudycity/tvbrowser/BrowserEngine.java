@@ -13,6 +13,7 @@ public interface BrowserEngine {
         void onFullscreenEnded();
         void onDownloadRequested(String url, String userAgent, String contentDisposition, String mimeType);
         void onEngineCrashed(String message);
+        default void onFullscreenChanged(boolean fullscreen) {}
         /** Called only when a new-window destination has been captured without loading it. */
         void onPopupRequested(String openerUrl, String destinationUrl);
     }
@@ -35,6 +36,12 @@ public interface BrowserEngine {
     void setDesktopMode(boolean enabled);
     void executeDpadCommand(String command);
     void clearBrowsingData();
+    interface ClearCallback { void onResult(boolean completed); }
+    default void clearBrowsingDataWithResult(ClearCallback callback) {
+        clearBrowsingData();
+        callback.onResult(false);
+    }
+    default void exitFullscreen() {}
     void onResume();
     void onPause();
     void destroy();

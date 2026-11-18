@@ -99,6 +99,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
             @Override public void onTitleChange(GeckoSession from, String title) {
                 pageTitle = title;
             }
+            @Override public void onFullScreen(GeckoSession from, boolean fullScreen) {
+                if (!destroyed) listener.onFullscreenChanged(fullScreen);
+            }
             @Override public void onFirstContentfulPaint(GeckoSession from) {
                 firstContentfulPaint = true;
             }
@@ -200,13 +203,24 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         // GeckoView handles native key events itself; we do not inject JavaScript into pages.
     }
     @Override public void clearBrowsingData() {
-        if (destroyed) return;
+        clearBrowsingDataWithResult(completed -> {
+            if (!completed && !destroyed) listener.onError("Firefox data clearing failed");
+        });
+    }
+    @Override public void clearBrowsingDataWithResult(ClearCallback callback) {
+        if (destroyed) { callback.onResult(false); return; }
         session.purgeHistory();
         runtime.getStorageController().clearData(StorageController.ClearFlags.ALL)
-                .then(ignored -> null, error -> {
-                    listener.onError("Firefox data clearing failed");
+                .then(ignored -> {
+                    callback.onResult(true);
+                    return null;
+                }, error -> {
+                    callback.onResult(false);
                     return null;
                 });
+    }
+    @Override public void exitFullscreen() {
+        if (!destroyed) session.exitFullScreen();
     }
     @Override public void onResume() { if (!destroyed) session.setActive(true); }
     @Override public void onPause() { if (!destroyed) session.setActive(false); }

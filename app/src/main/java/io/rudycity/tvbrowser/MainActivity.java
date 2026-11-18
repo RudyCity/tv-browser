@@ -48,6 +48,8 @@ public final class MainActivity extends ComponentActivity {
     private static final String HISTORY = "history";
     private static final String DESKTOP = "desktop_mode";
     private static final String ENGINE = "render_engine";
+    private static final String RESTORE_TABS = "restorable_tab_urls";
+    private static final String RESTORE_SELECTED = "restorable_tab_selected";
     // Restrained browser chrome: pages keep their own styling and full viewport.
     private static final int TOOLBAR_BG = Color.rgb(23, 30, 41);
     private static final int OMNIBOX_BG = Color.rgb(39, 49, 64);
@@ -100,6 +102,10 @@ public final class MainActivity extends ComponentActivity {
     private AlertDialog downloadDialog;
     private TvCursorOverlay cursorOverlay;
     private boolean cursorMode;
+    private View toolbarStack;
+    private boolean geckoFullscreen;
+    private boolean restoringSession = true;
+    private boolean clearingBrowserData;
 
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -129,6 +135,9 @@ public final class MainActivity extends ComponentActivity {
                         savedInstanceState.getInt("selected_tab", 0), tabs.size() - 1));
             }
         } else if (UrlTools.isWebUrl(restored)) open(restored);
+        else if (savedInstanceState == null) restorePersistedTabs();
+        restoringSession = false;
+        persistTabs();
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -151,6 +160,37 @@ public final class MainActivity extends ComponentActivity {
         super.onSaveInstanceState(outState);
     }
 
+    /** Persists only eligible URLs; never form inputs, cookies or engine state. */
+    private void persistTabs() {
+        if (restoringSession || clearingBrowserData || tabs.isEmpty()) return;
+        JSONArray urls = new JSONArray();
+        for (BrowserTab tab : tabs) {
+            String url = tab.browser == null ? null : tab.browser.currentUrl();
+            if (!UrlTools.isWebUrl(url)) url = tab.url;
+            urls.put(UrlTools.isWebUrl(url) ? url : "");
+        }
+        prefs.edit().putString(RESTORE_TABS, urls.toString())
+                .putInt(RESTORE_SELECTED, Math.max(0, tabs.indexOf(activeTab))).apply();
+    }
+
+    private void restorePersistedTabs() {
+        try {
+            JSONArray urls = new JSONArray(prefs.getString(RESTORE_TABS, "[]"));
+            if (urls.length() == 0) return;
+            clearAllTabSessions();
+            int count = Math.min(urls.length(), maxTabs());
+            for (int i = 0; i < count; i++) {
+                String url = urls.optString(i, "");
+                if (!createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO),
+                        UrlTools.isWebUrl(url) ? url : null)) break;
+            }
+            if (!tabs.isEmpty()) switchBrowserTab(Math.min(
+                    Math.max(0, prefs.getInt(RESTORE_SELECTED, 0)), tabs.size() - 1));
+        } catch (JSONException corrupt) {
+            prefs.edit().remove(RESTORE_TABS).remove(RESTORE_SELECTED).apply();
+        }
+    }
+
     @Override public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         tvDevice = detectTvDevice();
@@ -170,7 +210,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void updateSystemBars() {
-        if (tvDevice) getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        if (tvDevice || geckoFullscreen) getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
     }
 
@@ -229,6 +269,7 @@ public final class MainActivity extends ComponentActivity {
         root.addView(layout, new FrameLayout.LayoutParams(-1, -1));
 
         LinearLayout toolbarStack = new LinearLayout(this);
+        this.toolbarStack = toolbarStack;
         toolbarStack.setOrientation(LinearLayout.VERTICAL);
         toolbarStack.setBackgroundColor(TOOLBAR_BG);
         toolbarStack.setPadding(dp(tvDevice ? 6 : 8), dp(tvDevice ? 5 : 3),
@@ -580,6 +621,9 @@ public final class MainActivity extends ComponentActivity {
             view.requestFocus();
         }
         @Override public void onFullscreenEnded() { hideFullscreen(); }
+        @Override public void onFullscreenChanged(boolean fullscreen) {
+            setGeckoFullscreen(fullscreen);
+        }
         @Override public void onDownloadRequested(String url, String agent, String disposition, String mimeType) {
             download(url, agent, disposition, mimeType);
         }
@@ -622,6 +666,7 @@ public final class MainActivity extends ComponentActivity {
                 tab.home = !UrlTools.isWebUrl(url);
                 tab.loading = true;
                 tab.progress = 5;
+                persistTabs();
                 if (active()) rendererEvents.onPageStarted(url);
             }
             @Override public void onPageFinished(String url, String title) {
@@ -629,6 +674,7 @@ public final class MainActivity extends ComponentActivity {
                 tab.title = title;
                 tab.loading = false;
                 tab.progress = 100;
+                persistTabs();
                 if (active()) rendererEvents.onPageFinished(url, title);
             }
             @Override public void onProgress(int progress) {
@@ -646,6 +692,10 @@ public final class MainActivity extends ComponentActivity {
             }
             @Override public void onFullscreenEnded() {
                 if (active()) rendererEvents.onFullscreenEnded();
+            }
+            @Override public void onFullscreenChanged(boolean fullscreen) {
+                if (active()) rendererEvents.onFullscreenChanged(fullscreen);
+                else if (fullscreen) tab.browser.exitFullscreen();
             }
             @Override public void onDownloadRequested(
                     String url, String agent, String disposition, String mimeType) {
@@ -720,6 +770,7 @@ public final class MainActivity extends ComponentActivity {
         syncComposeChrome();
         status.setText(engine.name() + " • tab " + tabs.size() + "/" + maxTabs());
         engine.onResume();
+        persistTabs();
         return true;
     }
 
@@ -766,6 +817,7 @@ public final class MainActivity extends ComponentActivity {
         syncComposeChrome();
         status.setText(engine.name() + " • tab " + (index + 1) + "/" + tabs.size());
         engine.view().requestFocus();
+        persistTabs();
     }
 
     private void closeBrowserTab(int index) {
@@ -787,6 +839,7 @@ public final class MainActivity extends ComponentActivity {
         } else if (wasActive) {
             switchBrowserTab(Math.min(index, tabs.size() - 1));
         }
+        persistTabs();
     }
 
     private void showBrowserTabs() {
@@ -1168,10 +1221,7 @@ public final class MainActivity extends ComponentActivity {
             toast("Remote pointer is only needed on TV devices");
             return;
         }
-        if (!(engine instanceof WebViewEngine)) {
-            toast("Remote pointer requires System WebView");
-            return;
-        }
+        if (engine == null) return;
         cursorMode = !cursorMode;
         cursorOverlay.setVisibility(cursorMode ? View.VISIBLE : View.GONE);
         if (cursorMode) {
@@ -1196,7 +1246,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void tapCursor() {
-        if (!(engine instanceof WebViewEngine) || cursorOverlay.getWidth() == 0) return;
+        if (engine == null || cursorOverlay.getWidth() == 0) return;
         View target = engine.view();
         long now = SystemClock.uptimeMillis();
         int x = cursorOverlay.cursorX();
@@ -1394,23 +1444,46 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void clearBrowsingDataNow() {
-        // All live tabs must relinquish their independent history and caches.
-        // GeckoStorageController.clearData is asynchronous; never claim completion
-        // until a future callback-based privacy gate actually verifies deletion.
-        for (BrowserTab tab : new ArrayList<>(tabs)) {
-            if (tab.browser != null) tab.browser.clearBrowsingData();
+        if (clearingBrowserData) return;
+        clearingBrowserData = true;
+        // A Gecko runtime owns shared storage; other Gecko tabs will be closed.
+        List<BrowserEngine> clearing = new ArrayList<>();
+        boolean geckoAdded = false;
+        for (BrowserTab tab : tabs) {
+            if (tab.browser == null) continue;
+            if ("Firefox GeckoView".equals(tab.browser.name())) {
+                if (geckoAdded) continue;
+                geckoAdded = true;
+            }
+            clearing.add(tab.browser);
         }
-        prefs.edit().remove(HISTORY).apply();
+        if (clearing.isEmpty()) { finishClearBrowsingData(false); return; }
+        final int[] pending = {clearing.size()};
+        final boolean[] completed = {true};
+        status.setText("Clearing browser storage…");
+        for (BrowserEngine browser : clearing) {
+            browser.clearBrowsingDataWithResult(ok -> runOnUiThread(() -> {
+                completed[0] &= ok;
+                if (--pending[0] == 0) finishClearBrowsingData(completed[0]);
+            }));
+        }
+    }
+
+    private void finishClearBrowsingData(boolean completed) {
+        if (!clearingBrowserData || isFinishing() || isDestroyed()) return;
+        prefs.edit().remove(HISTORY).remove(RESTORE_TABS).remove(RESTORE_SELECTED).apply();
         clearAllTabSessions();
+        clearingBrowserData = false;
         createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
-        toast("Browser storage deletion requested; all old tabs closed");
+        toast(completed ? "Browser clear APIs completed; old tabs closed"
+                : "Some browser data could not be cleared; check storage and retry");
     }
 
     private void confirmClear() {
         final String title = "Clear browsing data?";
         final String detail = "Closes all tabs and requests deletion of browser cache, " +
-                "history, cookies and web storage. Gecko deletion is asynchronous; " +
-                "the browser will not claim verification until complete. Bookmarks stay saved.";
+                "history, cookies and web storage. Waits for renderer callbacks; " +
+                "storage erasure cannot be independently guaranteed. Bookmarks stay saved.";
         if (composeChrome != null) {
             composeChrome.showConfirmation(title, detail, "Clear data", new Runnable() {
                 @Override public void run() { clearBrowsingDataNow(); }
@@ -1545,7 +1618,22 @@ public final class MainActivity extends ComponentActivity {
         }
     }
 
+    private void setGeckoFullscreen(boolean fullscreen) {
+        if (geckoFullscreen == fullscreen) return;
+        geckoFullscreen = fullscreen;
+        if (toolbarStack != null) toolbarStack.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
+        if (status != null) status.setVisibility(fullscreen ? View.GONE
+                : (tvDevice ? View.VISIBLE : View.GONE));
+        if (fullscreen && loadingProgress != null) loadingProgress.setVisibility(View.GONE);
+        updateSystemBars();
+        if (!fullscreen) updateJavaProgress();
+    }
+
     private void hideFullscreen() {
+        if (geckoFullscreen) {
+            if (engine != null) engine.exitFullscreen();
+            setGeckoFullscreen(false);
+        }
         if (fullscreenView == null) return;
         View old = fullscreenView;
         Runnable closeAction = fullscreenClose;
@@ -1565,7 +1653,7 @@ public final class MainActivity extends ComponentActivity {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_MENU) { showMenu(); return true; }
             if (key == KeyEvent.KEYCODE_SEARCH) { focusAddress(); return true; }
-            if (tvDevice && cursorMode && fullscreenView == null && engine instanceof WebViewEngine
+            if (tvDevice && cursorMode && fullscreenView == null && !geckoFullscreen
                     && engine.view().hasFocus()) {
                 switch (key) {
                     case KeyEvent.KEYCODE_DPAD_LEFT: moveCursor(-1, 0); return true;
@@ -1600,7 +1688,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     @Override public void onBackPressed() {
-        if (fullscreenView != null) hideFullscreen();
+        if (fullscreenView != null || geckoFullscreen) hideFullscreen();
         else if (cursorMode) toggleCursorMode();
         else if (engine != null && engine.canGoBack()) engine.goBack();
         else super.onBackPressed();
