@@ -1566,7 +1566,8 @@ public final class MainActivity extends ComponentActivity {
                 "Site permissions for current page",
                 "Save page as PDF",
                 "Scroll page down",
-                "Scroll page up"
+                "Scroll page up",
+                "Memory and inactive tabs"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1597,6 +1598,7 @@ public final class MainActivity extends ComponentActivity {
                                 if (engine == null || !engine.scrollPage(false))
                                     toast("Scrolling unavailable");
                                 break;
+                            case 15: showMemoryAndTabs(); break;
                             case 12:
                                 if (engine == null || !engine.savePagePdf())
                                     toast("PDF export unavailable for this page or device");
@@ -1631,6 +1633,49 @@ public final class MainActivity extends ComponentActivity {
                         }
                     }).show();
         }
+    }
+
+    /** Explicit resource reclamation: never discard unsaved forms silently. */
+    private void showMemoryAndTabs() {
+        final int inactive = Math.max(0, tabs.size() - (activeTab == null ? 0 : 1));
+        String memory = "Unavailable";
+        try {
+            android.app.ActivityManager manager = (android.app.ActivityManager)
+                    getSystemService(Context.ACTIVITY_SERVICE);
+            if (manager != null) {
+                android.os.Debug.MemoryInfo[] process =
+                        manager.getProcessMemoryInfo(new int[]{android.os.Process.myPid()});
+                if (process != null && process.length == 1)
+                    memory = process[0].getTotalPss() / 1024 + " MiB";
+            }
+        } catch (RuntimeException unsupported) {
+            // No private URLs, process IDs, or crash diagnostics in UI errors.
+        }
+        String details = "Open tabs: " + tabs.size() +
+                "\nInactive tabs: " + inactive +
+                "\nApp main-process memory (PSS): " + memory +
+                "\n\nFirefox Gecko content subprocesses are not included " +
+                "in this single-process figure. Inactive tab renderers stay " +
+                "paused to preserve unsaved form state. You may explicitly " +
+                "close them to reclaim their memory.";
+        final AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setTitle("Memory and browser tabs")
+                .setMessage(details)
+                .setNegativeButton("Back", null);
+        if (inactive > 0) dialog.setPositiveButton("Close inactive tabs",
+                (ignored, which) -> new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Close " + inactive + " inactive tabs?")
+                        .setMessage("Inactive pages and unsaved form input will be lost. " +
+                                "The current page and its session remain open.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Close inactive tabs", (d, button) -> {
+                            final BrowserTab keep = activeTab;
+                            for (int i = tabs.size() - 1; i >= 0; i--) {
+                                if (tabs.get(i) != keep) closeBrowserTab(i);
+                            }
+                            toast("Inactive browser tabs closed");
+                        }).show());
+        dialog.show();
     }
 
     private void chooseEngine() {
