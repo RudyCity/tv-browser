@@ -123,3 +123,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - M4 next slice: bookmarks/history and rendering-engine choice dialogs now use Material 3 `BrowserChrome.showActions` on touch Preview, retaining Java's underlying storage and engine controller; legacy/TV stay on native dialogs. API29 instrumentation verifies both dialogs, dismiss without side effects. Source staged; CI pending.
 
 - M1/M3 0.7.1 proof: commit `ce5cffce` passed Android APK `44231925678` and Android API29 emulator `44231925662`, **6/6 instrumentation tests**, including Compose homepage quick-site navigation, WebView presence, Material 3 menu selection and cleartext enforcement. External webpage font rendering and physical devices remain unverified.
+
+- M3 emulator screenshot review: 0.7.1 on API29 shows native homepage and toolbar correctly, but revealed a duplicated search affordance and oversized pill shortcut buttons. UI refinement staged: remove redundant home search, use smaller typography and 48dp medium-shaped quick-access buttons. Pending new CI/screenshots.
+
+- M4 continued evidence: commit `fd243442`, Android APK run `44232578952` SUCCESS and Android API29 emulator run `44232578953` SUCCESS, **7/7 tests** including bookmarks and engine Material 3 dialogs. Remaining M4: extensions manager, full settings, secure consent and download dialogs.

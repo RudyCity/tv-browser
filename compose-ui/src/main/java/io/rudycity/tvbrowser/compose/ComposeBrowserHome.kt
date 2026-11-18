@@ -11,16 +11,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,40 +59,26 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
         Column(
             modifier = Modifier.fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = if (wide) 36.dp else 24.dp, vertical = 34.dp),
+                .padding(horizontal = if (wide) 32.dp else 20.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.Top
         ) {
             Text(
                 text = "Rudy Browser",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = RudyColors.foreground,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(RudySpacing.sm))
             Text(
-                text = "A simpler way to explore the web.",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "A quieter way to browse.",
+                style = MaterialTheme.typography.bodySmall,
                 color = RudyColors.muted
             )
+            // The browser already has an omnibox. Never duplicate it in the homepage.
             Spacer(Modifier.height(28.dp))
-            Button(
-                onClick = { actions.focusAddress() },
-                modifier = Modifier.fillMaxWidth()
-                    .height(RudyDimensions.omniboxHeight)
-                    .semantics { contentDescription = "Search or enter a website address" },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RudyColors.omnibox,
-                    contentColor = RudyColors.foreground
-                )
-            ) {
-                Icon(Icons.Default.Search, contentDescription = null)
-                Spacer(Modifier.width(RudySpacing.sm))
-                Text("Search or enter address", fontSize = 14.sp)
-            }
-            Spacer(Modifier.height(30.dp))
             Text(
                 "Quick access",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = RudyColors.foreground
             )
             Spacer(Modifier.height(RudySpacing.md))
@@ -111,20 +92,21 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
                         FilledTonalButton(
                             onClick = { actions.openWebsite(site.url) },
                             modifier = Modifier.weight(1f)
-                                .height(RudyDimensions.omniboxHeight)
+                                .height(RudyDimensions.touchTarget)
                                 .semantics { contentDescription = "Open " + site.label + " website" },
+                            shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = RudyColors.omnibox,
                                 contentColor = RudyColors.foreground
                             )
-                        ) { Text(site.label, maxLines = 1, fontSize = 13.sp) }
+                        ) { Text(site.label, maxLines = 1, fontSize = 14.sp) }
                     }
                 }
                 Spacer(Modifier.height(RudySpacing.sm))
             }
             Spacer(Modifier.height(RudySpacing.lg))
             Text(
-                "Your websites open in the browser above. No account required.",
+                "Use the address bar above to search or enter a website.",
                 style = MaterialTheme.typography.labelMedium,
                 color = RudyColors.muted
             )

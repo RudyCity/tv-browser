@@ -39,3 +39,11 @@ Source: `compose-ui/src/main/java/io/rudycity/tvbrowser/compose/RudyDesignSystem
 - M3 still requires font scaling and contrast verification, RTL, light mode,
   accessible focus/keyboard behavior, and unification of bookmarks, settings,
   download and consent dialogs in M4.
+
+## Native home composition (0.7.1 refinement)
+
+- Keep exactly one editable omnibox in the browser toolbar; the homepage must not duplicate search input.
+- Use a concise brand heading and subdued helper text.
+- Quick-access shortcuts are labeled Material 3 buttons, 48dp minimum height, medium corner radius and explicit accessibility descriptions.
+- Do not add a fake tab count or fill unused viewport space with decorative widgets.
+- Validate a real rendered screenshot from the Android emulator, not just layout source.

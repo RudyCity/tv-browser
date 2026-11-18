@@ -1,3 +1,18 @@
+## M4 bookmark/engine dialogs — tested
+
+Commit `fd243442` passed Android APK workflow `44232578952` and API29
+emulator workflow `44232578953`, all **7/7** instrumentation tests
+successful, including bookmark list and engine selection modal. Full UI
+migration, physical-device QA and production signing remain pending.
+
+## M3 native home UI refinement (CI pending)
+
+An actual API29 screenshot from successful run `44231925662` was reviewed.
+The first native home had redundant search controls (toolbar omnibox plus
+homepage search button) and oversized pill shortcuts. Refinement removes
+the duplicate search, reduces headings, and uses 48dp Material 3 medium-shape
+quick-access buttons. Accessibility labels and WebView navigation remain.
+
 ## Native Compose 0.7.1 verified in emulator
 
 Commit `ce5cffce`: Android APK run `44231925678` succeeded; API29
