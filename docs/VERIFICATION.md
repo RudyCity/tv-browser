@@ -1,3 +1,15 @@
+## Native Material 3 homepage (0.7.1; CI pending)
+
+A Compose-backed homepage surface displays the landing title, search focus
+shortcut, and HTTPS quick-access buttons on Preview phones/tablets.
+It overlays the internal WebView HTML home, and hides on web navigation,
+keeping the WebView engine and its data/history unchanged. Android TV and
+legacy retain their original home implementation. Instrumentation now checks
+landing visibility, quick-site navigation, fallback DOM content, and visible
+foreground pixels. This does **not** resolve the API29 emulator Chromium
+`glRasterCHROMIUM: Invalid font buffer` glyph-raster issue affecting
+WebView HTML itself; external website rendering still needs separate QA.
+
 ## M1 home-page DOM/render regression test (CI pending)
 
 New Android API29 instrumentation checks both the local homepage's WebView

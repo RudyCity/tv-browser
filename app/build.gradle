@@ -13,8 +13,8 @@ android {
         applicationId 'io.rudycity.tvbrowser'
         minSdk 19
         targetSdk 28
-        versionCode 10
-        versionName '0.7.0'
+        versionCode 11
+        versionName '0.7.1'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
         manifestPlaceholders = [browserLabel: '@string/app_name', cleartextPolicy: 'true']
     }
@@ -31,7 +31,7 @@ android {
             dimension 'renderer'
             minSdk 21
             testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-            applicationIdSuffix '.previewcompose07'
+            applicationIdSuffix '.previewcompose071'
             versionNameSuffix '-preview'
             manifestPlaceholders = [browserLabel: '@string/app_name_preview', cleartextPolicy: 'false']
         }

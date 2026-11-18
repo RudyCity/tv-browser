@@ -72,6 +72,7 @@ public final class MainActivity extends ComponentActivity {
     private TextView status;
     private ProgressBar loadingProgress;
     private BrowserChrome composeChrome;
+    private BrowserHome composeHome;
     private boolean pageLoading;
     private int pageProgress;
     private Button bookmarkButton;
@@ -276,6 +277,7 @@ public final class MainActivity extends ComponentActivity {
         engineSlot.setBackgroundColor(Color.rgb(12, 20, 30));
         cursorOverlay = new TvCursorOverlay(this);
         engineSlot.addView(cursorOverlay, new FrameLayout.LayoutParams(-1, -1));
+        attachComposeHome();
         loadingProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         loadingProgress.setMax(100);
         loadingProgress.setVisibility(View.GONE);
@@ -356,6 +358,37 @@ public final class MainActivity extends ComponentActivity {
                 composeChrome != null, pageLoading);
         loadingProgress.setVisibility(visible ? View.VISIBLE : View.GONE);
         if (visible) loadingProgress.setProgress(Math.max(1, pageProgress));
+    }
+
+    /** Draw the homepage with Material 3 instead of relying on flaky old WebView glyphs. */
+    private void attachComposeHome() {
+        if (composeChrome == null || tvDevice || Build.VERSION.SDK_INT < 21) return;
+        try {
+            Class<?> implementation = Class.forName(
+                    "io.rudycity.tvbrowser.compose.ComposeBrowserHome");
+            BrowserHome home = (BrowserHome) implementation
+                    .getConstructor(Activity.class, BrowserHome.Actions.class)
+                    .newInstance(this, new BrowserHome.Actions() {
+                        @Override public void openWebsite(String httpsUrl) {
+                            if (UrlTools.isWebUrl(httpsUrl)) open(httpsUrl);
+                        }
+                        @Override public void focusAddress() {
+                            MainActivity.this.focusAddress();
+                        }
+                    });
+            View landing = home.view();
+            landing.setVisibility(View.GONE);
+            engineSlot.addView(landing, new FrameLayout.LayoutParams(-1, -1));
+            composeHome = home;
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException problem) {
+            android.util.Log.w("RudyBrowser", "Native Compose landing unavailable", problem);
+            composeHome = null; // WebView home remains usable as a fallback.
+        }
+    }
+
+    private void showComposeHome(boolean visible) {
+        if (composeHome != null) composeHome.view().setVisibility(
+                visible ? View.VISIBLE : View.GONE);
     }
 
     private void navigateFromCompose(String input) {
@@ -450,6 +483,7 @@ public final class MainActivity extends ComponentActivity {
 
     private final BrowserEngine.Listener rendererEvents = new BrowserEngine.Listener() {
         @Override public void onPageStarted(String url) {
+            if (UrlTools.isWebUrl(url)) showComposeHome(false);
             pageLoading = true;
             pageProgress = 5;
             updateJavaProgress();
@@ -457,6 +491,7 @@ public final class MainActivity extends ComponentActivity {
             syncComposeChrome();
         }
         @Override public void onPageFinished(String url, String title) {
+            showComposeHome(!UrlTools.isWebUrl(url));
             if (UrlTools.isWebUrl(url)) {
                 if (!address.hasFocus()) {
                     address.setText(url);
@@ -594,6 +629,7 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         if (engine == null) { toast("Browser engine unavailable"); return; }
+        showComposeHome(false);
         engine.loadUrl(url);
         address.setText(url);
         if (engine != null) engine.view().requestFocus();
@@ -622,7 +658,8 @@ public final class MainActivity extends ComponentActivity {
                 "<p>Enter a website or search above. The menu has bookmarks, history and settings.</p>" +
                 "</main></body></html>";
         if (engine != null) engine.loadHomeHtml(html);
-        if (engine != null) engine.view().requestFocus();
+        showComposeHome(true);
+        if (engine != null && composeHome == null) engine.view().requestFocus();
     }
 
     private JSONArray loadList(String key) {

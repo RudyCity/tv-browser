@@ -134,7 +134,36 @@ public final class BrowserLaunchSmokeTest {
             hasBrightText = bright > 40;
             if (!hasBrightText) SystemClock.sleep(700);
         }
-        assertTrue("Browser home page appears blank even when DOM has text", hasBrightText);
+        assertTrue("Browser home surface is blank despite fallback HTML being available", hasBrightText);
+    }
+
+    @Test public void nativeComposeLandingIsVisibleAndQuickSiteOpensWebView() {
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserHome home = (BrowserHome) field(activity, "composeHome");
+                assertNotNull("Preview must attach native Compose landing", home);
+                assertNotNull(home.view().getParent());
+                assertEquals("Compose landing should be visible on home",
+                        View.VISIBLE, home.view().getVisibility());
+            } catch (Exception exception) {
+                throw new AssertionError(exception);
+            }
+        });
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertTrue("Native home quick-access UI must render",
+                device.wait(Until.hasObject(By.text("Quick access")), 7000));
+        assertTrue("Google quick-access link missing",
+                device.wait(Until.hasObject(By.text("Google")), 5000));
+        device.findObject(By.text("Google")).click();
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserHome home = (BrowserHome) field(activity, "composeHome");
+                assertEquals("Navigating to an HTTPS site must reveal WebView",
+                        View.GONE, home.view().getVisibility());
+            } catch (Exception exception) {
+                throw new AssertionError(exception);
+            }
+        });
     }
 
     @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {

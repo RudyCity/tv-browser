@@ -32,6 +32,22 @@ HTTP-compatible for old TV firmware; use HTTPS whenever available.
 This is a security milestone, not a completed release/security certification.
 See [network security decisions](docs/NETWORK_SECURITY.md).
 
+## Native Compose home screen (0.7.1)
+
+The Preview's startup/empty browser home is now rendered using Jetpack Compose
+and Rudy Material 3 tokens, with real actions for omnibox focus and four HTTPS
+quick-access sites. The WebView stays behind the landing surface and remains
+the renderer for all external websites. It reappears when the user navigates
+to a website; Back to the internal homepage reveals Compose again. This
+prevents an empty startup page if the emulator's old WebView renderer fails
+to rasterize local HTML text. It **does not assert that webpage font raster
+errors are fixed on that emulator**.
+
+The 0.7.1 clean-install Preview uses a new package ID
+`io.rudycity.tvbrowser.previewcompose071` to avoid debug signing conflicts
+with previous 0.7.0 previews. Android 4.4/TV use the existing Java/WebView
+home until their own UI and focus validation is complete.
+
 ## Kotlin + Jetpack Compose + Material 3 UI (0.7.0)
 
 The phone/tablet **Preview** variant now uses Kotlin Jetpack Compose and
