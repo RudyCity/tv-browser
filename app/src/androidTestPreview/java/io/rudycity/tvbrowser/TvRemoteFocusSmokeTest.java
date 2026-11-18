@@ -1,9 +1,13 @@
 package io.rudycity.tvbrowser;
 
+import android.content.Context;
 import android.content.res.Configuration;
 import android.view.KeyEvent;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import org.junit.Assume;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import java.lang.reflect.Field;
@@ -13,6 +17,17 @@ import static org.junit.Assert.*;
 /** Must be executed on an Android TV system image, never a Pixel phone fake. */
 @RunWith(AndroidJUnit4.class)
 public final class TvRemoteFocusSmokeTest {
+    /**
+     * Android phone API29 runs the whole Preview suite. Only Android TV images
+     * expose Leanback; skip TV-only assertions on phones but keep full Android
+     * TV coverage in the dedicated android-tv.yml emulator job.
+     */
+    @Before public void requireRealAndroidTv() {
+        Context target = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        Assume.assumeTrue("Android TV-only instrumentation; use android-tv.yml",
+                target.getPackageManager().hasSystemFeature("android.software.leanback"));
+    }
+
     private static boolean boolField(MainActivity activity, String name) throws Exception {
         Field field = MainActivity.class.getDeclaredField(name);
         field.setAccessible(true);
