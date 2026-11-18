@@ -141,13 +141,30 @@ def do_build(workspace, output, lock):
     if not aapts:
         raise RuntimeError("No aapt: unable to validate native package")
     from verify_apk import verify
-    digest = verify(apks[0], lock["native_package"], str(aapts[-1]))
+    apksigner = aapts[-1].with_name("apksigner")
+    if not apksigner.exists():
+        raise RuntimeError("Missing apksigner: cannot verify native APK signature")
+    digest = verify(apks[0], lock["native_package"], str(aapts[-1]),
+                    str(apksigner))
     output.mkdir(parents=True, exist_ok=True)
     apk = output / "tv-browser-chromium-arm64-debug.apk"
     if apk.exists():
         raise RuntimeError("Refusing to overwrite pre-existing native APK")
     shutil.copyfile(apks[0], apk)
     (output / "SHA256SUMS").write_text(digest + "  " + apk.name + "\n")
+    provenance = {
+        "build_kind": "debug-only; separate Chromium APK; NOT production-signed",
+        "source_repo": lock["upstream_repo"],
+        "source_sha": lock["upstream_commit"],
+        "vanadium_sha": lock["vanadium_commit"],
+        "chromium_version": lock["chromium_version"],
+        "extension_sha256": lock["extension_sha256"],
+        "apk_sha256": digest,
+        "package": lock["native_package"],
+        "minimum_android_api": lock["minimum_android_api"],
+    }
+    (output / "build-provenance.json").write_text(
+        json.dumps(provenance, indent=2, sort_keys=True) + "\n")
     print("Native Chromium debug APK:", apk, "SHA256:", digest)
 
 def main():

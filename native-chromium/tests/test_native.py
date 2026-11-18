@@ -13,6 +13,14 @@ import build_native
 import configure_tv
 import verify_apk
 
+def elf_arm64_fixture():
+    header = bytearray(64)
+    header[:4] = b"\x7fELF"
+    header[4:7] = bytes([2, 1, 1])
+    header[18:20] = (183).to_bytes(2, "little")
+    return bytes(header)
+
+
 class BuildPolicyTests(unittest.TestCase):
     def test_pinned_upstream(self):
         v = build_native.locked()
@@ -65,15 +73,31 @@ class BuildPolicyTests(unittest.TestCase):
             with ZipFile(apk, "w") as z:
                 z.writestr("AndroidManifest.xml", b"xml")
                 z.writestr("classes.dex", b"dex")
-                z.writestr("lib/arm64-v8a/libmonochrome.so", b"native")
+                z.writestr("lib/arm64-v8a/libmonochrome.so", elf_arm64_fixture())
             with patch.object(verify_apk.subprocess, "run", return_value=SimpleNamespace(
-                    stdout="package: name='io.rudycity.tvbrowser.chromium'\nleanback\n")):
+                    stdout="package: name='io.rudycity.tvbrowser.chromium'\nsdkVersion:'29'\nleanback\n")):
                 sha = verify_apk.verify(apk, "io.rudycity.tvbrowser.chromium", "aapt")
             self.assertEqual(sha, hashlib.sha256(apk.read_bytes()).hexdigest())
             with patch.object(verify_apk.subprocess, "run", return_value=SimpleNamespace(
-                    stdout="package: name='wrong.package'\nleanback\n")):
+                    stdout="package: name='wrong.package'\nsdkVersion:'29'\nleanback\n")):
                 with self.assertRaises(ValueError):
                     verify_apk.verify(apk, "io.rudycity.tvbrowser.chromium", "aapt")
+
+    def test_reject_fake_or_wrong_architecture_native_binaries(self):
+        self.assertTrue(verify_apk.valid_arm64_elf(elf_arm64_fixture()))
+        for invalid in [b"native", b"\\x7fELF", elf_arm64_fixture()[:63]]:
+            self.assertFalse(verify_apk.valid_arm64_elf(invalid))
+        x86_64 = bytearray(elf_arm64_fixture())
+        x86_64[18:20] = (62).to_bytes(2, "little")
+        self.assertFalse(verify_apk.valid_arm64_elf(x86_64))
+        with tempfile.TemporaryDirectory() as tmp:
+            apk = Path(tmp) / "fake-native.apk"
+            with ZipFile(apk, "w") as z:
+                z.writestr("AndroidManifest.xml", b"xml")
+                z.writestr("classes.dex", b"dex")
+                z.writestr("lib/arm64-v8a/libfake.so", b"not-an-elf")
+            with self.assertRaisesRegex(ValueError, "ELF64 AArch64"):
+                verify_apk.verify(apk, "io.rudycity.tvbrowser.chromium", "aapt")
 
     def test_reject_fake_apk_without_native_engine(self):
         with tempfile.TemporaryDirectory() as tmp:

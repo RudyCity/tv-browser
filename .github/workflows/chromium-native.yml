@@ -45,5 +45,6 @@ jobs:
           path: |
             native-chromium/artifacts/tv-browser-chromium-arm64-debug.apk
             native-chromium/artifacts/SHA256SUMS
+            native-chromium/artifacts/build-provenance.json
           if-no-files-found: error
           retention-days: 14
