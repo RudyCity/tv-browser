@@ -1,6 +1,10 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
-## Development 0.8.0 Beta (code on main; no new published beta APK yet)
+## Development 0.8.0 Beta — verified CI downloads, not yet GitHub Release
+
+Four CI gates **passed** for the exact 0.8.0 source commit `29d186a7`, including real Android TV API29. You can [download those test APKs from the Beta 0.8.0 artifact guide](docs/releases/2026-11-18-rudy-browser-0.8.0-beta-candidate.md) (temporary GitHub Actions ZIPs, not public release files). An attempted pre-release publication was blocked by GitHub's **HTTP 403 integration permissions**; no beta GitHub Release was created. The release workflow is manual-only and requires explicit repository Contents-write permission or a narrowly scoped owner-managed release token.
+
+### Development 0.8.0 Beta (source only)
 
 The Android source version is now **0.8.0** (versionCode **12**) across three compatible application flavors.
 See [Beta 0.8.0 progress and remaining gates](docs/reports/2026-11-18-rudy-browser-beta-0.8.0-progress.md).
