@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import io.rudycity.tvbrowser.BrowserEngine;
 import io.rudycity.tvbrowser.BrowserExtensions;
+import io.rudycity.tvbrowser.BrowserSiteConsentPolicy;
 import org.mozilla.geckoview.AllowOrDeny;
 import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoRuntime;
@@ -43,6 +44,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private int pendingAndroidRequestCode = -1;
     private GeckoResult<Integer> pendingLocationSiteResult;
     private int pendingLocationRequestCode = -1;
+    private int pendingLocationEpoch = -1;
+    private int pendingAndroidEpoch = -1;
+    private int navigationEpoch;
     private final GeckoExtensionManager extensions;
     private final GeckoSession session;
     private final GeckoView view;
@@ -106,6 +110,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     GeckoSession from, String url,
                     List<GeckoSession.PermissionDelegate.ContentPermission> perms,
                     Boolean hasUserGesture) {
+                if (location != null && url != null && !location.equals(url)) navigationEpoch++;
                 location = url;
                 documents.setPageUrl(url);
             }
@@ -117,6 +122,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         });
         session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
             @Override public void onPageStart(GeckoSession from, String url) {
+                navigationEpoch++;
                 location = url;
                 documents.setPageUrl(url);
                 firstContentfulPaint = false;
@@ -214,6 +220,13 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
 
     private interface Decision { void complete(boolean approved); }
 
+    /** Disallow stale approvals when a page changes, a tab is hidden or the app exits. */
+    private boolean consentStillCurrent(int capturedEpoch) {
+        return BrowserSiteConsentPolicy.mayHonorConsent(
+                !destroyed && !activity.isFinishing() && !activity.isDestroyed(),
+                view.getVisibility() == View.VISIBLE, capturedEpoch, navigationEpoch);
+    }
+
     private boolean hasAndroidPermission(String name) {
         return activity.checkSelfPermission(name) == PackageManager.PERMISSION_GRANTED;
     }
@@ -243,13 +256,15 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
             return;
         }
         final AtomicBoolean settled = new AtomicBoolean(false);
+        final int capturedEpoch = navigationEpoch;
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(title).setMessage(message)
                 .setNegativeButton("Block", (ignored, which) -> {
                     if (settled.compareAndSet(false, true)) decision.complete(false);
                 })
                 .setPositiveButton("Allow", (ignored, which) -> {
-                    if (settled.compareAndSet(false, true)) decision.complete(true);
+                    if (settled.compareAndSet(false, true))
+                        decision.complete(consentStillCurrent(capturedEpoch) && isHttps(location));
                 })
                 .create();
         sitePermissionDialog = dialog;
@@ -310,6 +325,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                         return;
                     }
                     pendingLocationSiteResult = outcome;
+                    pendingLocationEpoch = navigationEpoch;
                     int code = NEXT_PERMISSION_ID.getAndIncrement();
                     pendingLocationRequestCode = code;
                     try {
@@ -319,6 +335,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     } catch (RuntimeException unable) {
                         pendingLocationSiteResult = null;
                         pendingLocationRequestCode = -1;
+                        pendingLocationEpoch = -1;
                         outcome.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
                     }
                 });
@@ -350,12 +367,14 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     if (!approved || destroyed) { callback.reject(); return; }
                     int requestCode = NEXT_PERMISSION_ID.getAndIncrement();
                     pendingAndroidPermission = callback;
+                    pendingAndroidEpoch = navigationEpoch;
                     pendingAndroidRequestCode = requestCode;
                     try {
                         activity.requestPermissions(missing.toArray(new String[0]), requestCode);
                     } catch (RuntimeException error) {
                         pendingAndroidPermission = null;
                         pendingAndroidRequestCode = -1;
+                        pendingAndroidEpoch = -1;
                         callback.reject();
                     }
                 });
@@ -367,7 +386,8 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
             GeckoResult<Integer> response = pendingLocationSiteResult;
             pendingLocationSiteResult = null;
             pendingLocationRequestCode = -1;
-            boolean granted = !destroyed;
+            boolean granted = consentStillCurrent(pendingLocationEpoch);
+            pendingLocationEpoch = -1;
             boolean anyLocation = false;
             for (int i = 0; i < Math.min(permissions.length, grants.length); i++) {
                 if (Manifest.permission.ACCESS_FINE_LOCATION.equals(permissions[i]) ||
@@ -386,7 +406,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         GeckoSession.PermissionDelegate.Callback callback = pendingAndroidPermission;
         pendingAndroidPermission = null;
         pendingAndroidRequestCode = -1;
-        boolean allGranted = !destroyed && grants.length == permissions.length && grants.length > 0;
+        boolean allGranted = consentStillCurrent(pendingAndroidEpoch) &&
+                grants.length == permissions.length && grants.length > 0;
+        pendingAndroidEpoch = -1;
         for (int result : grants) allGranted &= result == PackageManager.PERMISSION_GRANTED;
         if (allGranted) callback.grant();
         else callback.reject();
@@ -592,7 +614,11 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         if (!destroyed) session.exitFullScreen();
     }
     @Override public void onResume() { if (!destroyed) session.setActive(true); }
-    @Override public void onPause() { if (!destroyed) session.setActive(false); }
+    @Override public void onPause() {
+        // A permission dialog must not outlive its visible tab or app window.
+        if (sitePermissionDialog != null) sitePermissionDialog.dismiss();
+        if (!destroyed) session.setActive(false);
+    }
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
@@ -606,9 +632,11 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
             pendingLocationSiteResult.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
         pendingLocationSiteResult = null;
         pendingLocationRequestCode = -1;
+        pendingLocationEpoch = -1;
         if (pendingAndroidPermission != null) pendingAndroidPermission.reject();
         pendingAndroidPermission = null;
         pendingAndroidRequestCode = -1;
+        pendingAndroidEpoch = -1;
         extensions.destroy();
         view.releaseSession();
         session.close();
