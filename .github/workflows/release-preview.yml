@@ -1,0 +1,173 @@
+name: Publish Rudy Browser developer pre-release
+
+# First publication: a path-scoped push bootstraps the audited CI artifacts.
+# Later publications: workflow_dispatch with an exact tested commit + three CI run IDs.
+# NEVER publishes production-signed APKs or changes Android app identifiers.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/release-preview.yml
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Full SHA of tested browser sources (must match all CI runs)'
+        required: true
+        type: string
+      apk_run_id:
+        description: 'Successful Android APK workflow run ID'
+        required: true
+        type: string
+      gecko_run_id:
+        description: 'Successful Android GeckoView Preview workflow run ID'
+        required: true
+        type: string
+      preview_smoke_run_id:
+        description: 'Successful Android Compose Emulator Smoke workflow run ID'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: rudy-browser-preview-release
+  cancel-in-progress: false
+
+jobs:
+  publish-tested-preview:
+    if: github.repository == 'RudyCity/tv-browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Resolve tested commit and CI run IDs
+        shell: bash
+        env:
+          INPUT_SOURCE_SHA: ${{ inputs.source_sha }}
+          INPUT_APK_RUN_ID: ${{ inputs.apk_run_id }}
+          INPUT_GECKO_RUN_ID: ${{ inputs.gecko_run_id }}
+          INPUT_PREVIEW_RUN_ID: ${{ inputs.preview_smoke_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            # The initial snapshot's three workflows passed before this release
+            # automation file was added. Do not retarget to the automation commit.
+            SOURCE_SHA=67001288ba57b64ec945194c37319e6d71d25078
+            APK_RUN_ID=44247259523
+            GECKO_RUN_ID=44247259589
+            PREVIEW_RUN_ID=44247259608
+          else
+            SOURCE_SHA="$INPUT_SOURCE_SHA"
+            APK_RUN_ID="$INPUT_APK_RUN_ID"
+            GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
+            PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
+          fi
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] ||
+             [[ ! "$APK_RUN_ID" =~ ^[0-9]+$ ]] ||
+             [[ ! "$GECKO_RUN_ID" =~ ^[0-9]+$ ]] ||
+             [[ ! "$PREVIEW_RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "Invalid source SHA or CI run ID"; exit 1
+          fi
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "APK_RUN_ID=$APK_RUN_ID" >> "$GITHUB_ENV"
+          echo "GECKO_RUN_ID=$GECKO_RUN_ID" >> "$GITHUB_ENV"
+          echo "PREVIEW_RUN_ID=$PREVIEW_RUN_ID" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v0.7.1-preview.${SOURCE_SHA:0:8}" >> "$GITHUB_ENV"
+
+      - name: Verify the same exact commit passed all three CI workflows
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh api "repos/$repo/commits/$SOURCE_SHA" --jq '.sha' |
+            grep -Fx "$SOURCE_SHA"
+          check_run() {
+            local id="$1" name="$2"
+            echo "Checking $name run $id for $SOURCE_SHA"
+            gh api "repos/$repo/actions/runs/$id" |
+              jq -e --arg sha "$SOURCE_SHA" --arg name "$name" '
+                .head_sha == $sha and .name == $name and
+                .status == "completed" and .conclusion == "success"
+              ' >/dev/null
+          }
+          check_run "$APK_RUN_ID" "Android APK"
+          check_run "$GECKO_RUN_ID" "Android GeckoView Preview"
+          check_run "$PREVIEW_RUN_ID" "Android Compose Emulator Smoke"
+
+      - name: Download exact-run APK artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p incoming/{legacy,preview,gecko} dist
+          gh run download "$APK_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name rudy-browser-legacy-debug-apk --dir incoming/legacy
+          gh run download "$APK_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name rudy-browser-preview-installable-apk --dir incoming/preview
+          gh run download "$GECKO_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name rudy-browser-gecko-debug-apk --dir incoming/gecko
+          install -m 0644 incoming/legacy/app-legacy-debug.apk dist/RudyBrowser-Legacy-Android4-debug.apk
+          install -m 0644 incoming/preview/app-preview-debug.apk dist/RudyBrowser-Preview-Android5-debug.apk
+          install -m 0644 incoming/gecko/app-gecko-debug.apk dist/RudyBrowser-GeckoView-Android8-debug.apk
+
+      - name: Verify APK structure and generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          for apk in dist/*.apk; do
+            test -s "$apk"
+            unzip -tq "$apk" >/dev/null
+            unzip -Z -1 "$apk" | grep -Fx 'AndroidManifest.xml' >/dev/null
+          done
+          ( cd dist && sha256sum ./*.apk > SHA256SUMS.txt )
+          cat dist/SHA256SUMS.txt
+
+      - name: Compose accurate preview release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          # Rudy Browser — Development Preview 0.7.1
+
+          **This is a pre-release with debug-signed APKs, not a production/App Store release.**
+          Original app source commit: \`$SOURCE_SHA\`
+
+          Download **one APK** for your device from the release assets:
+          - **RudyBrowser-Legacy-Android4-debug.apk** — Android 4.4+ (API19+), System WebView, designed for older TVs.
+          - **RudyBrowser-Preview-Android5-debug.apk** — Android 5.0+ (API21+), System WebView + Compose UI.
+          - **RudyBrowser-GeckoView-Android8-debug.apk** — Android 8.0+ (API26+), real Firefox GeckoView, Firefox WebExtensions, private tabs and modern site permission controls.
+
+          All three APKs have **different package IDs** and can coexist. A true embedded Chromium build and Chrome CRX/Web Store are **not included**.
+
+          **Verified CI for exact source SHA:**
+          - [Legacy + Compose build and tests](https://github.com/$GITHUB_REPOSITORY/actions/runs/$APK_RUN_ID)
+          - [Gecko build + Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GECKO_RUN_ID)
+          - [Compose Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$PREVIEW_RUN_ID)
+
+          See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
+          EOF
+
+      - name: Create or update GitHub pre-release with direct APK assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="Rudy Browser 0.7.1 Development Preview (${SOURCE_SHA:0:8})"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Pre-release exists; updating only its assets and notes"
+            gh release upload "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$title" --notes-file release-notes.md --prerelease
+          else
+            gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+              --title "$title" --notes-file release-notes.md --prerelease
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json url,isPrerelease,tagName,assets
