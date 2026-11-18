@@ -60,6 +60,12 @@ jobs:
             sleep 4
             # Fail the workflow if the browser is not actually resumed/foreground.
             adb shell pidof io.rudycity.tvbrowser.previewcompose071
+            mkdir -p app/build/reports/emulator
+            # Collect actual API29 startup memory and frame-stat evidence.
+            adb shell dumpsys meminfo io.rudycity.tvbrowser.previewcompose071 > app/build/reports/emulator/meminfo.txt
+            adb shell dumpsys gfxinfo io.rudycity.tvbrowser.previewcompose071 > app/build/reports/emulator/gfxinfo.txt
+            test -s app/build/reports/emulator/meminfo.txt
+            test -s app/build/reports/emulator/gfxinfo.txt
             adb shell dumpsys activity activities > app/build/activity-after-launch.txt
             grep -E 'mResumedActivity:.*io.rudycity.tvbrowser.previewcompose071' app/build/activity-after-launch.txt
             mkdir -p app/build/reports/emulator
@@ -73,6 +79,6 @@ jobs:
           name: rudy-browser-api29-instrumentation-results
           path: |
             app/build/outputs/androidTest-results/connected/
-            app/build/reports/emulator/compose-startup.png
+            app/build/reports/emulator/
           if-no-files-found: ignore
           retention-days: 14
