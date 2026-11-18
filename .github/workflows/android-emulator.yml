@@ -51,10 +51,22 @@ jobs:
           emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -eu
-            gradle --no-daemon connectedPreviewDebugAndroidTest
-            # connectedAndroidTest removes the target app when the test runner exits.
-            # Reinstall before attempting a *standalone* runtime screenshot.
+            set -euo pipefail
+            # Drive the AndroidJUnitRunner directly. The previous Gradle UTP
+            # AndroidTestApkInstallerPlugin sometimes failed during onAfterAll
+            # because ADB lost an already-finished emulator. Never ignore a
+            # failing instrumentation run: require the runner's OK summary.
+            gradle --no-daemon :app:assemblePreviewDebug :app:assemblePreviewDebugAndroidTest
+            adb wait-for-device
+            adb install -r app/build/outputs/apk/preview/debug/app-preview-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/preview/debug/app-preview-debug-androidTest.apk
+            mkdir -p app/build/reports/emulator
+            adb shell am instrument -w io.rudycity.tvbrowser.previewcompose071.test/androidx.test.runner.AndroidJUnitRunner \
+              | tee app/build/reports/emulator/instrumentation.txt
+            grep -Eq '^OK \([1-9][0-9]* tests?\)' app/build/reports/emulator/instrumentation.txt
+            ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED' app/build/reports/emulator/instrumentation.txt
+            # Reinstall before the independent foreground launch proof to
+            # ensure no instrumentation cleanup/teardown state is reused.
             adb install -r app/build/outputs/apk/preview/debug/app-preview-debug.apk
             adb shell am start -W -n io.rudycity.tvbrowser.previewcompose071/io.rudycity.tvbrowser.MainActivity
             sleep 4
@@ -72,13 +84,12 @@ jobs:
             adb exec-out screencap -p > app/build/reports/emulator/compose-startup.png
             test -s app/build/reports/emulator/compose-startup.png
             cp app/build/activity-after-launch.txt app/build/reports/emulator/activity-after-launch.txt
-      - name: Preserve instrumentation XML reports
+      - name: Preserve direct instrumentation and emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rudy-browser-api29-instrumentation-results
           path: |
-            app/build/outputs/androidTest-results/connected/
             app/build/reports/emulator/
           if-no-files-found: ignore
           retention-days: 14
