@@ -15,3 +15,5 @@ Versions: `org.mozilla.geckoview:geckoview:159.0.20261102144711` pinned from Moz
 ## Separate modern build toolchain (CI finding 2026-11-18)
 
 GeckoView 159.0.20261102144711 declares `compileSdk >=37`. Its transitive AndroidX libraries require AGP 9.1+. The original project uses AGP 8.6.1 and Gradle 8.7 and must continue building API19 legacy without modification. **Do not bypass AAR metadata validation**. A second Gradle root (`gecko-build/`) reuses exactly the same sources with AGP 9.1.1 / Gradle 9.3.1 / compileSdk 37 and Kotlin 2.2.10. The root project preserves the legacy/Preview toolchain. Install Android platform 37; execute `gradle -p gecko-build :app:assembleGeckoDebug`. This is a build migration path, not yet a passing build proof.
+
+AGP 9's built-in Kotlin cannot apply old `org.jetbrains.kotlin.android` side-by-side. The modern build instead selects `compose-ui/build-gecko.gradle`, with built-in Kotlin enabled. The original `compose-ui/build.gradle` remains untouched for AGP 8.6.1.

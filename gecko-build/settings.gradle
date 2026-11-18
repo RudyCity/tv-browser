@@ -19,3 +19,5 @@ project(':app').projectDir = file('../app')
 project(':engine-api').projectDir = file('../engine-api')
 project(':compose-ui').projectDir = file('../compose-ui')
 project(':engine-gecko').projectDir = file('../engine-gecko')
+// AGP 9 has built-in Kotlin. Keep old Compose/KGP build script on legacy root.
+project(':compose-ui').buildFileName = 'build-gecko.gradle'
