@@ -51,6 +51,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private boolean forward;
     private boolean firstContentfulPaint;
     private boolean destroyed;
+    private String previousFindText;
     private final boolean privateMode;
 
     public GeckoEngine(Activity activity, Listener callback, boolean desktop) {
@@ -366,6 +367,33 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         return true;
     }
 
+    @Override public boolean findInPage(String text, boolean backwards,
+                                             FindCallback callback) {
+        if (destroyed || text == null || text.isEmpty() || text.length() > 256)
+            return false;
+        final boolean subsequent = text.equals(previousFindText);
+        previousFindText = text;
+        session.getFinder().setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL);
+        int direction = backwards ? GeckoSession.FINDER_FIND_BACKWARDS :
+                GeckoSession.FINDER_FIND_FORWARD;
+        // A fresh term begins at the first match; repeating the same term
+        // finds the next occurrence from the previous current selection.
+        if (!subsequent) session.getFinder().clear();
+        session.getFinder().find(text, direction).accept(result -> {
+            if (!destroyed && text.equals(previousFindText) && result != null)
+                activity.runOnUiThread(() -> {
+                    if (!destroyed) callback.onMatches(result.current, result.total);
+                });
+        }, error -> activity.runOnUiThread(() -> {
+            if (!destroyed && text.equals(previousFindText))
+                callback.onMatches(0, 0);
+        }));
+        return true;
+    }
+    @Override public void clearFindInPage() {
+        previousFindText = null;
+        if (!destroyed) session.getFinder().clear();
+    }
     @Override public boolean savePagePdf() { return documents.savePagePdf(); }
     @Override public boolean onActivityResult(int code, int result, android.content.Intent data) {
         return documents.onActivityResult(code, result, data);

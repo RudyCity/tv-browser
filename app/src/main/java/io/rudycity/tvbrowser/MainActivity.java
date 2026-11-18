@@ -1375,6 +1375,7 @@ public final class MainActivity extends ComponentActivity {
                         "WebView extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)"),
                 "Bookmarks",
                 "Recent history",
+                "Find in page",
                 "More tools and settings"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
@@ -1389,7 +1390,8 @@ public final class MainActivity extends ComponentActivity {
                             case 5: showExtensions(); break;
                             case 6: showSavedList(BOOKMARKS, false); break;
                             case 7: showSavedList(HISTORY, false); break;
-                            case 8: showToolsMenu(); break;
+                            case 8: showFindInPage(); break;
+                            case 9: showToolsMenu(); break;
                         }
                     }
                 };
@@ -1401,6 +1403,50 @@ public final class MainActivity extends ComponentActivity {
             new AlertDialog.Builder(this).setTitle("Rudy Browser")
                     .setItems(options, selection).setNegativeButton("Close", null).show();
         }
+    }
+
+    private void showFindInPage() {
+        if (engine == null || !UrlTools.isWebUrl(engine.currentUrl())) {
+            toast("Open a website before finding page text");
+            return;
+        }
+        final BrowserEngine target = engine;
+        final EditText search = new EditText(this);
+        search.setSingleLine(true);
+        search.setHint("Text to find");
+        search.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        search.setFilters(new android.text.InputFilter[]{
+                new android.text.InputFilter.LengthFilter(256)});
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Find in page")
+                .setView(search)
+                .setNegativeButton("Done", (ignored, which) -> target.clearFindInPage())
+                .setNeutralButton("Previous", null)
+                .setPositiveButton("Find / Next", null).create();
+        final java.util.function.Consumer<Boolean> find = backwards -> {
+            if (engine != target || !UrlTools.isWebUrl(target.currentUrl())) {
+                dialog.dismiss();
+                return;
+            }
+            String query = search.getText().toString();
+            if (query.trim().isEmpty()) {
+                search.setError("Enter text");
+                return;
+            }
+            if (!target.findInPage(query, backwards, (current, total) ->
+                    dialog.setTitle(total == 0 ? "No matches" :
+                            "Find in page • " + current + "/" + total)))
+                search.setError("Search not supported by this engine");
+        };
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v ->
+                    find.accept(false));
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
+                    find.accept(true));
+            search.requestFocus();
+        });
+        dialog.setOnDismissListener(ignored -> target.clearFindInPage());
+        dialog.show();
     }
 
     private void showToolsMenu() {

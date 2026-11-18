@@ -35,6 +35,7 @@ public final class WebViewEngine implements BrowserEngine {
     private volatile String documentUrl;
     private final AtomicInteger blockedTrackers = new AtomicInteger();
     private volatile boolean destroyed;
+    private String previousFindText;
     private final Handler popupHandler = new Handler(Looper.getMainLooper());
     private final boolean allowPlainHttp =
             BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR);
@@ -309,6 +310,25 @@ public final class WebViewEngine implements BrowserEngine {
         if (command.matches("move\\(-?1,-?1\\)|move\\(-?1,0\\)|move\\(0,-?1\\)|select\\(\\)")) {
             view.evaluateJavascript("if(window.__tvNav)window.__tvNav." + command + ";", null);
         }
+    }
+    @Override public boolean findInPage(String text, boolean backwards,
+                                             FindCallback callback) {
+        if (destroyed || text == null || text.isEmpty() || text.length() > 256)
+            return false;
+        view.setFindListener((active, total, finished) -> {
+            if (finished && !destroyed)
+                callback.onMatches(total == 0 ? 0 : active + 1, total);
+        });
+        if (text.equals(previousFindText)) view.findNext(!backwards);
+        else {
+            previousFindText = text;
+            view.findAllAsync(text);
+        }
+        return true;
+    }
+    @Override public void clearFindInPage() {
+        previousFindText = null;
+        if (!destroyed) view.clearMatches();
     }
     @Override public boolean savePagePdf() {
         if (destroyed || Build.VERSION.SDK_INT < 19) return false;

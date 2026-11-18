@@ -43,6 +43,14 @@ public interface BrowserEngine {
     }
     default void exitFullscreen() {}
     default boolean showSitePermissions() { return false; }
+    interface FindCallback {
+        void onMatches(int current, int total);
+    }
+    /** Searches the owned renderer without DOM JavaScript injection. */
+    default boolean findInPage(String text, boolean backwards, FindCallback callback) {
+        return false;
+    }
+    default void clearFindInPage() {}
     default boolean savePagePdf() { return false; }
     default boolean onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         return false;
