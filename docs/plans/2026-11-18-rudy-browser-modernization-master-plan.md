@@ -18,7 +18,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 
 | Phase | Priority | Work | Definition of done | Status at plan creation |
 | --- | --- | --- | --- | --- |
-| M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | In progress |
+| M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Implemented in source; CI pending |
 | M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Not started |
 | M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | Not started |
 | M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Not started |
@@ -90,3 +90,5 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 
 - 2026-11-18 baseline: CI `44216420225` **success** for 0.7.0 Kotlin Compose Preview + Java legacy. No reported physical runtime verification.
 - M0 implementation: record exact commit/run URL and results below, including any red runs and fixes.
+
+- M0 code: presentation policy with JUnit + smoke assertions, fallback cleanup + user notice, progress visibility owned by exactly one toolbar. Recheck CI and record its run before changing status to Tested.

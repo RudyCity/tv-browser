@@ -304,7 +304,9 @@ public final class MainActivity extends ComponentActivity {
 
     /** Modern variants load the Kotlin/Compose module; legacy API 19 never loads it. */
     private void attachComposeChrome(LinearLayout legacyToolbar, LinearLayout parent) {
-        if (tvDevice || Build.VERSION.SDK_INT < 21) return;
+        if (!BrowserPresentationPolicy.shouldTryCompose(tvDevice,
+                Build.VERSION.SDK_INT, !"legacy".equals(BuildConfig.FLAVOR))) return;
+        View candidateView = null;
         try {
             Class<?> implementation = Class.forName(
                     "io.rudycity.tvbrowser.compose.ComposeBrowserToolbar");
@@ -326,15 +328,34 @@ public final class MainActivity extends ComponentActivity {
                         @Override public void extensions() { showExtensions(); }
                         @Override public void menu() { showMenu(); }
                     });
-            parent.addView(chrome.view(), 1, new LinearLayout.LayoutParams(-1, -2));
+            candidateView = chrome.view();
+            parent.addView(candidateView, 1, new LinearLayout.LayoutParams(-1, -2));
             composeChrome = chrome;
             legacyToolbar.setVisibility(View.GONE);
+            updateJavaProgress();
         } catch (ReflectiveOperationException | LinkageError | RuntimeException failure) {
-            // Never replace a working WebView with a broken UI; only the chrome changes.
+            // A partial Compose view must never obscure the working Java fallback.
+            if (candidateView != null && candidateView.getParent() == parent) {
+                parent.removeView(candidateView);
+            }
             android.util.Log.w("RudyBrowser", "Compose presentation unavailable; legacy UI used", failure);
             composeChrome = null;
             legacyToolbar.setVisibility(View.VISIBLE);
+            root.post(new Runnable() {
+                @Override public void run() {
+                    toast("Modern UI unavailable. Using classic browser controls.");
+                }
+            });
         }
+    }
+
+    /** Never show the legacy progress strip underneath Compose's own loading line. */
+    private void updateJavaProgress() {
+        if (loadingProgress == null) return;
+        boolean visible = BrowserPresentationPolicy.showJavaProgress(
+                composeChrome != null, pageLoading);
+        loadingProgress.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (visible) loadingProgress.setProgress(Math.max(1, pageProgress));
     }
 
     private void navigateFromCompose(String input) {
@@ -431,8 +452,7 @@ public final class MainActivity extends ComponentActivity {
         @Override public void onPageStarted(String url) {
             pageLoading = true;
             pageProgress = 5;
-            loadingProgress.setProgress(5);
-            loadingProgress.setVisibility(View.VISIBLE);
+            updateJavaProgress();
             status.setText("Loading…");
             syncComposeChrome();
         }
@@ -444,11 +464,10 @@ public final class MainActivity extends ComponentActivity {
                 }
                 saveHistory(url, title);
             }
-            refreshBookmarkButton();
             pageLoading = false;
             pageProgress = 100;
-            loadingProgress.setVisibility(View.GONE);
-            syncComposeChrome();
+            updateJavaProgress();
+            refreshBookmarkButton();
             status.setText(cursorMode ? "Remote pointer: arrows move, OK clicks, Back exits"
                     : engine.name() + (tvDevice ? "  •  D-pad: navigate  •  Menu: options" :
                     "  •  Swipe to browse  •  Menu: options"));
@@ -457,17 +476,14 @@ public final class MainActivity extends ComponentActivity {
             pageProgress = progress;
             pageLoading = progress < 100;
             if (progress < 100) {
-                loadingProgress.setVisibility(View.VISIBLE);
-                loadingProgress.setProgress(Math.max(1, progress));
                 if (engine != null) status.setText("Loading " + progress + "%  •  " + engine.name());
-            } else {
-                loadingProgress.setVisibility(View.GONE);
             }
+            updateJavaProgress();
             syncComposeChrome();
         }
         @Override public void onError(String message) {
             pageLoading = false;
-            loadingProgress.setVisibility(View.GONE);
+            updateJavaProgress();
             syncComposeChrome();
             status.setText(message);
             toast(message);
@@ -512,6 +528,7 @@ public final class MainActivity extends ComponentActivity {
         cursorMode = false;
         pageLoading = false;
         pageProgress = 0;
+        updateJavaProgress();
         if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
         hideFullscreen();
         BrowserEngine previous = engine;

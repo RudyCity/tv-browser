@@ -10,7 +10,8 @@ javac -d "$temp_dir" \
   app/src/main/java/io/rudycity/tvbrowser/ExtensionPolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/CursorPolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/VideoTools.java \
-  app/src/main/java/io/rudycity/tvbrowser/BrowserLayoutPolicy.java
+  app/src/main/java/io/rudycity/tvbrowser/BrowserLayoutPolicy.java \
+  app/src/main/java/io/rudycity/tvbrowser/BrowserPresentationPolicy.java
 cat > "$temp_dir/EngineSmokeTest.java" <<'JAVA'
 import io.rudycity.tvbrowser.EnginePolicy;
 import io.rudycity.tvbrowser.UrlTools;
@@ -19,6 +20,7 @@ import io.rudycity.tvbrowser.PopupPolicy;
 import io.rudycity.tvbrowser.CursorPolicy;
 import io.rudycity.tvbrowser.VideoTools;
 import io.rudycity.tvbrowser.BrowserLayoutPolicy;
+import io.rudycity.tvbrowser.BrowserPresentationPolicy;
 public class EngineSmokeTest {
     static int n;
     static void check(boolean result) { n++; if (!result) throw new AssertionError("Check #" + n); }
@@ -73,6 +75,13 @@ public class EngineSmokeTest {
         check(!BrowserLayoutPolicy.hasSecondRow(BrowserLayoutPolicy.MOBILE));
         check(!BrowserLayoutPolicy.hasStatusFooter(BrowserLayoutPolicy.TABLET));
         check(BrowserLayoutPolicy.hasSecondRow(BrowserLayoutPolicy.TV_COMPACT));
+        check(!BrowserPresentationPolicy.showJavaProgress(true, true));
+        check(BrowserPresentationPolicy.showJavaProgress(false, true));
+        check(!BrowserPresentationPolicy.showJavaProgress(false, false));
+        check(!BrowserPresentationPolicy.shouldTryCompose(false, 19, true));
+        check(!BrowserPresentationPolicy.shouldTryCompose(true, 35, true));
+        check(!BrowserPresentationPolicy.shouldTryCompose(false, 35, false));
+        check(BrowserPresentationPolicy.shouldTryCompose(false, 21, true));
         check(!BrowserLayoutPolicy.isTelevision(false, false, false, true));
         check(BrowserLayoutPolicy.isTelevision(true, false, false, true));
         check(BrowserLayoutPolicy.isTelevision(false, false, false, false));
