@@ -14,6 +14,7 @@ import org.mozilla.geckoview.AllowOrDeny;
 
 import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoSession;
+import org.mozilla.geckoview.WebResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +39,9 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
     private GeckoResult<PromptResponse> uploadResponse;
     private int uploadCode = -1;
     private int pdfCode = -1;
+    private WebResponse pendingDownload;
+    private int downloadCode = -1;
+    private AlertDialog downloadConsent;
 
     GeckoDocumentGateway(Activity activity, GeckoSession session, View view) {
         this.activity = activity;
@@ -55,6 +59,102 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
     }
 
     private static int newCode() { return NEXT_REQUEST.getAndIncrement(); }
+
+    private static void closeResponse(WebResponse response) {
+        if (response == null || response.body == null) return;
+        try { response.body.close(); }
+        catch (IOException ignored) { /* closing a response must not crash UI */ }
+    }
+
+    private static String downloadName(String url) {
+        String segment;
+        try { segment = Uri.parse(url).getLastPathSegment(); }
+        catch (RuntimeException invalid) { segment = null; }
+        if (segment == null || segment.isEmpty()) segment = "download.bin";
+        segment = segment.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (segment.isEmpty() || segment.equals(".") || segment.equals(".."))
+            segment = "download.bin";
+        return segment.length() > 120 ? segment.substring(0, 120) : segment;
+    }
+
+    /** Preserve Gecko's authenticated HTTPS response body; never re-fetch its URL. */
+    void offerDownload(WebResponse response) {
+        if (response == null) return;
+        Uri uri;
+        try { uri = Uri.parse(response.uri); }
+        catch (RuntimeException invalid) { closeResponse(response); return; }
+        if (destroyed || pendingDownload != null || downloadConsent != null ||
+                response.body == null || !response.isSecure ||
+                !"https".equalsIgnoreCase(uri.getScheme()) ||
+                uri.getHost() == null || !eligible()) {
+            closeResponse(response);
+            return;
+        }
+        pendingDownload = response;
+        String name = downloadName(response.uri);
+        boolean installer = name.toLowerCase(java.util.Locale.ROOT).endsWith(".apk") ||
+                name.toLowerCase(java.util.Locale.ROOT).endsWith(".exe") ||
+                name.toLowerCase(java.util.Locale.ROOT).endsWith(".msi");
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("Save downloaded file?")
+                .setMessage("Source domain: " + uri.getHost() +
+                        "\n\nFull link:\n" + limit(response.uri, 1200) +
+                        "\n\nFile name: " + name +
+                        (installer ? "\n\nWARNING: Executable/installer file. Never install untrusted apps." : "") +
+                        "\n\nThis uses the original HTTPS response. The file will not be opened automatically.")
+                .setNegativeButton("Block", (ignored, which) -> rejectDownload())
+                .setPositiveButton("Choose save location", (ignored, which) -> {
+                    if (destroyed || pendingDownload != response) {
+                        rejectDownload();
+                        return;
+                    }
+                    Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    create.addCategory(Intent.CATEGORY_OPENABLE);
+                    create.setType("application/octet-stream");
+                    create.putExtra(Intent.EXTRA_TITLE, name);
+                    downloadCode = newCode();
+                    try { activity.startActivityForResult(create, downloadCode); }
+                    catch (RuntimeException error) { rejectDownload(); }
+                })
+                .create();
+        downloadConsent = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (downloadConsent == dialog) downloadConsent = null;
+            if (downloadCode == -1) rejectDownload();
+        });
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
+    }
+
+    private void rejectDownload() {
+        WebResponse response = pendingDownload;
+        pendingDownload = null;
+        downloadCode = -1;
+        closeResponse(response);
+    }
+
+    private void copyToDocument(InputStream source, Uri destination, String label) {
+        new Thread(() -> {
+            boolean completed = false;
+            try (InputStream input = source;
+                 OutputStream output = activity.getContentResolver().openOutputStream(destination)) {
+                if (output == null) throw new IOException("No output stream");
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+                output.flush();
+                completed = true;
+            } catch (IOException | RuntimeException error) {
+                // Do not log authenticated bytes, source URL or user document.
+            }
+            final boolean success = completed;
+            activity.runOnUiThread(() -> {
+                if (!activity.isFinishing() && !activity.isDestroyed())
+                    Toast.makeText(activity, success ? label + " saved" : label + " failed",
+                            Toast.LENGTH_LONG).show();
+            });
+        }, "rudy-document-save").start();
+    }
 
     private interface WebChoice {
         PromptResponse accept();
@@ -287,6 +387,18 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
     }
 
     boolean onActivityResult(int request, int result, Intent data) {
+        if (request == downloadCode && pendingDownload != null) {
+            WebResponse response = pendingDownload;
+            pendingDownload = null;
+            downloadCode = -1;
+            if (destroyed || result != Activity.RESULT_OK || data == null ||
+                    data.getData() == null || !"content".equals(data.getData().getScheme())) {
+                closeResponse(response);
+                return true;
+            }
+            copyToDocument(response.body, data.getData(), "Download");
+            return true;
+        }
         if (request == uploadCode && uploadResponse != null) {
             FilePrompt prompt = uploadPrompt;
             GeckoResult<PromptResponse> response = uploadResponse;
@@ -319,26 +431,8 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
             if (destroyed || result != Activity.RESULT_OK || data == null ||
                     data.getData() == null || !"content".equals(data.getData().getScheme())) return true;
             final Uri destination = data.getData();
-            session.saveAsPdf().accept(source -> new Thread(() -> {
-                boolean completed = false;
-                try (InputStream input = source;
-                     OutputStream output = activity.getContentResolver().openOutputStream(destination)) {
-                    if (output == null) throw new IOException("No output stream");
-                    byte[] bytes = new byte[8192];
-                    int read;
-                    while ((read = input.read(bytes)) != -1) output.write(bytes, 0, read);
-                    output.flush();
-                    completed = true;
-                } catch (IOException | RuntimeException error) {
-                    // Do not log site URL or PDF data.
-                }
-                final boolean success = completed;
-                activity.runOnUiThread(() -> {
-                    if (!activity.isFinishing() && !activity.isDestroyed())
-                        Toast.makeText(activity, success ? "PDF saved" : "PDF export failed",
-                                Toast.LENGTH_LONG).show();
-                });
-            }, "rudy-pdf-export").start(), error -> activity.runOnUiThread(() -> {
+            session.saveAsPdf().accept(source -> copyToDocument(source, destination, "PDF"),
+                    error -> activity.runOnUiThread(() -> {
                 if (!activity.isFinishing() && !activity.isDestroyed())
                     Toast.makeText(activity, "PDF generation failed", Toast.LENGTH_LONG).show();
             }));
@@ -358,5 +452,8 @@ final class GeckoDocumentGateway implements GeckoSession.PromptDelegate {
         consentDialog = null;
         rejectUpload();
         pdfCode = -1;
+        if (downloadConsent != null) downloadConsent.dismiss();
+        downloadConsent = null;
+        rejectDownload();
     }
 }

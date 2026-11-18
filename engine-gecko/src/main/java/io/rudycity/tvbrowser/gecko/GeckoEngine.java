@@ -141,9 +141,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                 if (!destroyed) listener.onEngineCrashed("Gecko content process was killed");
             }
             @Override public void onExternalResponse(GeckoSession from, WebResponse response) {
-                // Existing Activity requires human approval before DownloadManager is used.
-                if (!destroyed && response != null && isHttps(response.uri))
-                    listener.onDownloadRequested(response.uri, null, null, null);
+                // Save Gecko's authenticated response body through Android SAF; do
+                // not issue an unrelated DownloadManager request without Gecko cookies.
+                documents.offerDownload(response);
             }
         });
         // Every site permission remains denied unless a visible user explicitly
