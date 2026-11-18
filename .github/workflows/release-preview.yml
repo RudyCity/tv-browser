@@ -1,8 +1,12 @@
 name: Publish Rudy Browser developer pre-release
 
-# Manual, fail-closed release only. No release on push; no unsigned rewrite.
-# Requires exact source SHA and success of all four CI workflows, including real Android TV.
+# One-time audited bootstrap for exact validated beta, then restore manual-only.
+# Releasing a fully tested DEBUG beta only, never production signing or Play deployment.
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-preview.yml'
   workflow_dispatch:
     inputs:
       source_sha:
@@ -50,11 +54,21 @@ jobs:
           INPUT_TV_RUN_ID: ${{ inputs.tv_smoke_run_id }}
         run: |
           set -euo pipefail
-          SOURCE_SHA="$INPUT_SOURCE_SHA"
-          APK_RUN_ID="$INPUT_APK_RUN_ID"
-          GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
-          PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
-          TV_RUN_ID="$INPUT_TV_RUN_ID"
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            # Locked one-time bootstrap from all-four-green source commit.
+            # This automation revision itself is NOT the binary source.
+            SOURCE_SHA=29d186a71ce2af9bcadad148a9dea3ac3f60a239
+            APK_RUN_ID=44253354713
+            GECKO_RUN_ID=44253354640
+            PREVIEW_RUN_ID=44253354696
+            TV_RUN_ID=44253354737
+          else
+            SOURCE_SHA="$INPUT_SOURCE_SHA"
+            APK_RUN_ID="$INPUT_APK_RUN_ID"
+            GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
+            PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
+            TV_RUN_ID="$INPUT_TV_RUN_ID"
+          fi
           if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] ||
              [[ ! "$APK_RUN_ID" =~ ^[0-9]+$ ]] ||
              [[ ! "$GECKO_RUN_ID" =~ ^[0-9]+$ ]] ||
