@@ -8,6 +8,7 @@ import android.view.ViewGroup;
 import java.util.List;
 
 import io.rudycity.tvbrowser.BrowserEngine;
+import io.rudycity.tvbrowser.BrowserExtensions;
 import org.mozilla.geckoview.AllowOrDeny;
 import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoRuntime;
@@ -21,8 +22,9 @@ import org.mozilla.geckoview.WebResponse;
  * Real Mozilla engine. Installed ONLY with the API26+ gecko flavor.
  * Runtime, storage and cookies are not shared with Android System WebView.
  */
-public final class GeckoEngine implements BrowserEngine {
+public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private final GeckoRuntime runtime;
+    private final GeckoExtensionManager extensions;
     private final GeckoSession session;
     private final GeckoView view;
     private final Listener listener;
@@ -36,6 +38,7 @@ public final class GeckoEngine implements BrowserEngine {
     public GeckoEngine(Activity activity, Listener callback, boolean desktop) {
         listener = callback;
         runtime = GeckoRuntime.getDefault(activity.getApplicationContext());
+        extensions = new GeckoExtensionManager(activity, runtime);
         session = new GeckoSession();
         view = new GeckoView(activity);
         view.setFocusable(true);
@@ -129,6 +132,21 @@ public final class GeckoEngine implements BrowserEngine {
 
     /** Runtime tests must see a real first contentful paint, not merely a constructed View. */
     public boolean hasFirstContentfulPaint() { return firstContentfulPaint; }
+    @Override public void listAddons(ListCallback callback) {
+        extensions.listAddons(callback);
+    }
+    @Override public void installBundledTestAddon(ActionCallback callback) {
+        extensions.installBundledTestAddon(callback);
+    }
+    @Override public void installSignedXpi(String httpsUrl, ActionCallback callback) {
+        extensions.installSignedXpi(httpsUrl, callback);
+    }
+    @Override public void setAddonEnabled(String id, boolean enabled, ActionCallback callback) {
+        extensions.setAddonEnabled(id, enabled, callback);
+    }
+    @Override public void uninstallAddon(String id, ActionCallback callback) {
+        extensions.uninstallAddon(id, callback);
+    }
     @Override public String name() { return "Firefox GeckoView"; }
     @Override public View view() { return view; }
     @Override public String currentUrl() { return location; }
@@ -177,6 +195,7 @@ public final class GeckoEngine implements BrowserEngine {
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
+        extensions.destroy();
         view.releaseSession();
         session.close();
         if (view.getParent() instanceof ViewGroup)

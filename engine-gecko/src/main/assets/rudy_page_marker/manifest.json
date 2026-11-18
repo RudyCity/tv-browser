@@ -1,0 +1,22 @@
+{
+  "manifest_version": 2,
+  "name": "Rudy Page Marker",
+  "version": "1.0.0",
+  "description": "Original GeckoView WebExtension smoke test scoped only to example.com.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "rudy-page-marker@rudycity.browser"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://example.com/*"
+      ],
+      "js": [
+        "marker.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}

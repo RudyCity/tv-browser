@@ -796,7 +796,115 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void showExtensions() {
+        if (engine instanceof BrowserExtensions) {
+            showRealFirefoxExtensions((BrowserExtensions) engine);
+            return;
+        }
         new ExtensionUi(this, prefs, engine).show();
+    }
+
+    /** Actual Mozilla-installed addons, never the WebView add-on/scriptlet UI. */
+    private void showRealFirefoxExtensions(final BrowserExtensions provider) {
+        provider.listAddons((addons, error) -> {
+            if (engine != provider || isFinishing()) return;
+            if (error != null) { toast(error); return; }
+            final String[] choices = new String[addons.size() + 2];
+            for (int i = 0; i < addons.size(); i++) {
+                BrowserExtensions.AddonInfo addon = addons.get(i);
+                choices[i] = (addon.enabled ? "● " : "○ ") + addon.name +
+                        " · " + addon.version + (addon.builtIn ? " (bundled)" : "");
+            }
+            choices[addons.size()] = "Install bundled Firefox test extension";
+            choices[addons.size() + 1] = "Install Mozilla-signed HTTPS .xpi";
+            new AlertDialog.Builder(this)
+                    .setTitle("Firefox WebExtensions")
+                    .setItems(choices, (dialog, choice) -> {
+                        if (engine != provider) return;
+                        if (choice < addons.size()) {
+                            showFirefoxAddonDetail(provider, addons.get(choice));
+                        } else if (choice == addons.size()) {
+                            new AlertDialog.Builder(this)
+                                    .setTitle("Install bundled extension?")
+                                    .setMessage("Rudy Page Marker is an original, local Firefox " +
+                                            "WebExtension. It only marks https://example.com " +
+                                            "for testing and requests no privileged APIs.")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Install", (ignored, which) ->
+                                            provider.installBundledTestAddon((ok, msg) -> {
+                                                toast(msg);
+                                                if (engine == provider) showRealFirefoxExtensions(provider);
+                                            })).show();
+                        } else {
+                            promptSignedFirefoxXpi(provider);
+                        }
+                    })
+                    .setNegativeButton("Close", null).show();
+        });
+    }
+
+    private void showFirefoxAddonDetail(final BrowserExtensions provider,
+                                         final BrowserExtensions.AddonInfo addon) {
+        String detail = "ID: " + addon.id + "\nVersion: " + addon.version +
+                "\nStatus: " + (addon.enabled ? "Enabled" : "Disabled") +
+                "\nAPI permissions: " + addon.requiredPermissions +
+                "\nWebsite access: " + addon.requiredOrigins +
+                "\nBundled: " + addon.builtIn;
+        new AlertDialog.Builder(this).setTitle(addon.name)
+                .setMessage(detail)
+                .setNegativeButton("Back", (ignored, which) -> showRealFirefoxExtensions(provider))
+                .setNeutralButton("Uninstall", (ignored, which) ->
+                        new AlertDialog.Builder(this)
+                                .setTitle("Uninstall Firefox extension?")
+                                .setMessage(addon.name + "\n" + addon.id +
+                                        "\nThis also deletes extension-specific data.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Uninstall", (x, y) ->
+                                        provider.uninstallAddon(addon.id, (ok, msg) -> {
+                                            toast(msg);
+                                            if (engine == provider) showRealFirefoxExtensions(provider);
+                                        })).show())
+                .setPositiveButton(addon.enabled ? "Disable" : "Enable", (ignored, which) ->
+                        provider.setAddonEnabled(addon.id, !addon.enabled, (ok, msg) -> {
+                            toast(msg);
+                            if (engine == provider) showRealFirefoxExtensions(provider);
+                        })).show();
+    }
+
+    private void promptSignedFirefoxXpi(final BrowserExtensions provider) {
+        final EditText url = new EditText(this);
+        url.setSingleLine(true);
+        url.setHint("https://trusted.example/addon.xpi");
+        url.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        new AlertDialog.Builder(this)
+                .setTitle("Install signed Firefox XPI")
+                .setMessage("Enter a trusted HTTPS .xpi URL. Mozilla will validate the " +
+                        "add-on signature and its requested permissions will require " +
+                        "separate approval. Chrome .crx files are not supported.")
+                .setView(url)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Review source", (ignored, which) -> {
+                    final String value = url.getText().toString().trim();
+                    if (value.length() > 2048) { toast("Extension URL is too long"); return; }
+                    Uri uri = Uri.parse(value);
+                    final String host = uri.getHost();
+                    if (!"https".equalsIgnoreCase(uri.getScheme()) ||
+                            host == null || uri.getPath() == null ||
+                            !uri.getPath().toLowerCase(java.util.Locale.ROOT).endsWith(".xpi")) {
+                        toast("Direct HTTPS .xpi URL required");
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Trust this extension source?")
+                            .setMessage("Domain: " + host + "\nFull URL: " + value +
+                                    "\n\nOnly install from a publisher you trust.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Continue", (x, y) ->
+                                    provider.installSignedXpi(value, (ok, msg) -> {
+                                        toast(msg);
+                                        if (engine == provider) showRealFirefoxExtensions(provider);
+                                    })).show();
+                }).show();
     }
 
     private void toggleCursorMode() {
