@@ -1,5 +1,17 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
+## Download / GitHub Pre-release (18 November 2026)
+
+**[Rudy Browser v0.7.1 Development Preview](https://github.com/RudyCity/tv-browser/releases/tag/v0.7.1-preview.67001288)** contains three directly installable APK files, each built and verified on the **exact same source commit** `67001288ba57b64ec945194c37319e6d71d25078`.
+
+- **GeckoView, Android 8.0+**: `RudyBrowser-GeckoView-Android8-debug.apk` (real Firefox GeckoView + extensions, API 26+).
+- **Compose Preview, Android 5.0+**: `RudyBrowser-Preview-Android5-debug.apk` (System WebView + Material UI, API 21+).
+- **Legacy, Android 4.4+**: `RudyBrowser-Legacy-Android4-debug.apk` (System WebView, API 19+, older TV compatibility).
+- `SHA256SUMS.txt` lists hashes of the original APKs. No ZIP extraction is needed; use the direct APK release assets.
+
+This repository is private: downloads require a GitHub account with access. **All three are developer/debug-signed pre-release builds, not production releases**. Physical-device and production-signing gates remain open. To publish another **tested** pre-release, run the `Publish Rudy Browser developer pre-release` workflow manually with the exact source SHA and run IDs of the successful APK, GeckoView, and Compose emulator CI workflows. The workflow will refuse to publish when any of the three runs are not green for that same commit.
+
+
 **Private GitHub repository:** `RudyCity/tv-browser` (the repository slug is unchanged).
 **Android app label:** Rudy Browser. **Android application ID:** `io.rudycity.tvbrowser`
 (unchanged, so compatible installs can be upgraded rather than installed as separate apps).
