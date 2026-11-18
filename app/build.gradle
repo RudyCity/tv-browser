@@ -4,6 +4,12 @@ plugins {
 
 def embeddedChromiumAar = file('libs/chromium-engine.aar')
 
+// Opt-in per-ABI Gecko debug APKs. The emulator keeps the normal universal APK.
+def rudyGeckoAbiSplits = project.findProperty('rudyGeckoAbiSplits')?.toString() == 'true'
+if (rudyGeckoAbiSplits && !rootProject.hasProperty('geckoModernBuild')) {
+    throw new GradleException('Gecko ABI splits require the gecko-build Gradle root')
+}
+
 // Optional, strictly manual signing setup for the Gecko release candidate.
 // No private signing material is committed or read during ordinary CI/debug builds.
 def rudyKeyStore = System.getenv('RUDY_ANDROID_KEYSTORE_PATH')
@@ -17,6 +23,16 @@ android {
     namespace 'io.rudycity.tvbrowser'
     compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
     buildFeatures { buildConfig true }
+
+    // Only the standalone Gecko build opts in: no legacy or preview changes.
+    splits {
+        abi {
+            enable rudyGeckoAbiSplits
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+            universalApk false
+        }
+    }
 
     defaultConfig {
         applicationId 'io.rudycity.tvbrowser'
