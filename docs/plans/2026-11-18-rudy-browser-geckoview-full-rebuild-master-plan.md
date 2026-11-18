@@ -70,17 +70,17 @@ Follow Taste Design + Antislop. Preserve a compact one-row phone toolbar, respon
 
 | Phase | Dependencies | Acceptance requirement | Status at creation |
 | --- | --- | --- | --- |
-| P0 Audit/foundation | Baseline | Preserve existing builds, commit this plan, add tested engine capability policy | In Progress |
-| P1 GeckoView integration | P0 | Official pinned AAR, real Gecko surface/session, navigation/lifecycle, HTTPS foreground emulator evidence | Not Started |
-| P2 Multi-engine | P1 | Accurate selection/recovery, isolation, WebView fallback with explicit reason | Not Started |
-| P3 Firefox WebExtensions | P1, P2 | At least one compatible extension installed/listed/reloaded via real Gecko API, consent and controls | Not Started |
+| P0 Audit/foundation | Baseline | Preserve existing builds, commit this plan, add tested engine capability policy | Tested (legacy/Preview CI), runtime checks ongoing |
+| P1 GeckoView integration | P0 | Official pinned AAR, real Gecko surface/session, navigation/lifecycle, HTTPS foreground emulator evidence | Tested (build/unit only, SHA b2802639); Runtime Verified pending |
+| P2 Multi-engine | P1 | Accurate selection/recovery, isolation, WebView fallback with explicit reason | Implemented (policy/factory; real fallback runtime pending) |
+| P3 Firefox WebExtensions | P1, P2 | At least one compatible extension installed/listed/reloaded via real Gecko API, consent and controls | Implemented (SHA b2186847); automated tests pending |
 | P4 Design System | P0 | Material 3 toolbar, tabs, settings, permissions on phones/tablets; accessibility checks | In Progress (prior Compose work only) |
 | P5 Real tabs | P2 | Independent GeckoSessions/WebViews, creation/switch/close/restore/private/memory policy | Not Started |
 | P6 Browser features | P2–P5 | Search, bookmarks, history, downloads/upload, PDF, fullscreen, permissions, privacy functional tests | Not Started |
 | P7 Android TV | P2, P4 | D-pad, remote pointer, 10-foot UI, video, fallback, focus instrumentation/physical device | Not Started |
 | P8 Security and privacy | All | Popup/permissions/XPI/installer isolation, URL policy, TLS, privacy regression | Not Started |
 | P9 Performance/stability | P1–P8 | Measured cold start, memory, crash recovery, video, CPU/GPU, long-running session baseline | Not Started |
-| P10 Testing/CI | Each phase | Exact-SHA APK+unit+emulator tests; actual activity foreground, content pixel checks | Not Started |
+| P10 Testing/CI | Each phase | Exact-SHA APK+unit+emulator tests; actual activity foreground, content pixel checks | In Progress (Gecko build passed on b2802639, runtime pending) |
 | P11 Release readiness | All | Licenses, target SDK, signing custody, upgrade tests, APK/AAB and owner publication approval | Not Started |
 
 Status vocabulary: **Not Started → In Progress → Implemented → Tested → Runtime Verified → Released**. Status applies per feature slice, not as a blanket claim for an entire phase. Implemented means code committed. Tested means build and relevant automated tests pass at exact SHA. Runtime Verified requires an actual emulator/device rendering result. Released requires a published and verified deliverable.
@@ -97,3 +97,14 @@ No unattended production release. Debug APKs are not production-upgrade-safe due
 
 - **2026-11-18 audit:** HEAD `6d48497cb832a2d7f417e1abd58302124f926518`; private repo writable. `Android APK` run [44234635578](https://github.com/RudyCity/tv-browser/actions/runs/44234635578) successful (pre-Gecko baseline). Existing `engine-api` and `compose-ui` preserved. New Gecko source/tests/emulator evidence not yet available at creation time.
 - **Next evidence entries:** record each incremental commit SHA, changed paths, Actions URL, test counts, emulator/API architecture, actual GeckoView renderer proof, failures/blockers, and remaining gaps. Never equate a source commit with a runtime success.
+
+### Evidence appendix: iterative GitHub CI (2026-11-18)
+
+- **6e492153**: Gecko engine selection, minimum API and fallback policy tests committed. `Android APK` run [44237951415](https://github.com/RudyCity/tv-browser/actions/runs/44237951415) **success**; Compose emulator [44237951460](https://github.com/RudyCity/tv-browser/actions/runs/44237951460) **success**.
+- **44d288d9**: First genuine GeckoView module with version-pinned Mozilla AAR, explicit API26 flavor; old APK [44238228470](https://github.com/RudyCity/tv-browser/actions/runs/44238228470) **success**. Gecko [44238228490](https://github.com/RudyCity/tv-browser/actions/runs/44238228490) **failed** AAR metadata because SDK37/AGP9.1 is required.
+- **4d52f90d**, **72b57414**, **73403cda**: Separate modern build root and Android 17 SDK CI corrections. GitHub runner exposed API37 package as `platforms;android-37.0`; after SDK resolution, the modern build failed while applying the old Kotlin Android plugin to AGP9.
+- **b2802639**: AGP9 built-in Kotlin fixed via separate modern Compose build script; [Gecko build and unit-test job, run 44239262264](https://github.com/RudyCity/tv-browser/actions/runs/44239262264) **success** including package ID, debug APK signature verification, artifact upload. The API29 runtime job was still running at last check. No Gecko UI runtime success has yet been asserted.
+- **b2186847**: Firefox WebExtensions real API wired into the Gecko flavor with signed XPI source review, Mozilla permission prompts, enable/disable, uninstall, and an original bundled content-script extension. Status **Implemented only**, until exact-SHA test gate passes.
+- **09990a5b**: Instrumentation checks tightened to require Gecko first contentful paint on HTTPS and real Mozilla WebExtension install/list. Status **Implemented only** pending CI. Physical Android/TV verification and all production release gates **Not Started**.
+
+Build results are SHA-scoped; an earlier successful build does **not** certify new commits. Do not mark an entire phase Released until an actual distributable is published and verified after explicit owner authorization.
