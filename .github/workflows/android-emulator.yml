@@ -61,8 +61,9 @@ jobs:
             adb install -r app/build/outputs/apk/preview/debug/app-preview-debug.apk
             adb install -r app/build/outputs/apk/androidTest/preview/debug/app-preview-debug-androidTest.apk
             mkdir -p app/build/reports/emulator
-            adb shell am instrument -w io.rudycity.tvbrowser.previewcompose071.test/androidx.test.runner.AndroidJUnitRunner \
-              | tee app/build/reports/emulator/instrumentation.txt
+            # The emulator runner executes each script line in a separate shell.
+            # Keep pipes on one line or "| tee" becomes an invalid shell command.
+            adb shell am instrument -w io.rudycity.tvbrowser.previewcompose071.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/emulator/instrumentation.txt
             grep -Eq '^OK \([1-9][0-9]* tests?\)' app/build/reports/emulator/instrumentation.txt
             ! grep -Eq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED' app/build/reports/emulator/instrumentation.txt
             # Reinstall before the independent foreground launch proof to
