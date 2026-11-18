@@ -13,6 +13,8 @@ import org.junit.runner.RunWith;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 /** Must be executed on an Android TV system image, never a Pixel phone fake. */
 @RunWith(AndroidJUnit4.class)
@@ -34,7 +36,14 @@ public final class TvRemoteFocusSmokeTest {
         return (Boolean) field.get(activity);
     }
 
+    private static void requireActualTvImage() {
+        assumeTrue("TV-specific instrumentation only runs on an actual Leanback system image",
+                InstrumentationRegistry.getInstrumentation().getTargetContext()
+                        .getPackageManager().hasSystemFeature("android.software.leanback"));
+    }
+
     @Test public void realTvEnvironmentActivatesTenFootControls() {
+        requireActualTvImage();
         try (ActivityScenario<MainActivity> scenario =
                      ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
@@ -60,6 +69,7 @@ public final class TvRemoteFocusSmokeTest {
     }
 
     @Test public void tvMenuAndRemoteInputDoNotKillRenderer() {
+        requireActualTvImage();
         try (ActivityScenario<MainActivity> scenario =
                      ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
