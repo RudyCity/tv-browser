@@ -1380,7 +1380,8 @@ public final class MainActivity extends ComponentActivity {
                 "Native Chromium + Chrome Extensions (separate app)",
                 "Clear browsing data",
                 "About Rudy Browser",
-                "Site permissions for current page"
+                "Site permissions for current page",
+                "Save page as PDF"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1403,6 +1404,10 @@ public final class MainActivity extends ComponentActivity {
                                     break;
                             case 8: showNativeChromium(); break;
                             case 9: confirmClear(); break;
+                            case 12:
+                                if (engine == null || !engine.savePagePdf())
+                                    toast("PDF export unavailable for this page or device");
+                                break;
                             case 11:
                                 if (engine == null || !engine.showSitePermissions())
                                     toast("Site permissions are available for Gecko HTTPS pages");
@@ -1730,6 +1735,15 @@ public final class MainActivity extends ComponentActivity {
         else if (cursorMode) toggleCursorMode();
         else if (engine != null && engine.canGoBack()) engine.goBack();
         else super.onBackPressed();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        for (BrowserTab tab : new ArrayList<>(tabs)) {
+            if (tab.browser != null &&
+                    tab.browser.onActivityResult(requestCode, resultCode, data))
+                return;
+        }
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions,

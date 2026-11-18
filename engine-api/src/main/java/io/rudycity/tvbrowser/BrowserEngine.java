@@ -43,6 +43,10 @@ public interface BrowserEngine {
     }
     default void exitFullscreen() {}
     default boolean showSitePermissions() { return false; }
+    default boolean savePagePdf() { return false; }
+    default boolean onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        return false;
+    }
     default boolean onAndroidPermissionsResult(int requestCode, String[] permissions,
                                                int[] grantResults) { return false; }
     void onResume();

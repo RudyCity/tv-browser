@@ -8,6 +8,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
@@ -307,6 +309,14 @@ public final class WebViewEngine implements BrowserEngine {
         if (command.matches("move\\(-?1,-?1\\)|move\\(-?1,0\\)|move\\(0,-?1\\)|select\\(\\)")) {
             view.evaluateJavascript("if(window.__tvNav)window.__tvNav." + command + ";", null);
         }
+    }
+    @Override public boolean savePagePdf() {
+        if (destroyed || Build.VERSION.SDK_INT < 19) return false;
+        PrintManager printer = (PrintManager) view.getContext().getSystemService(Context.PRINT_SERVICE);
+        if (printer == null) return false;
+        printer.print("Rudy Browser page", view.createPrintDocumentAdapter("Rudy Browser page"),
+                new PrintAttributes.Builder().build());
+        return true;
     }
     @Override public void clearBrowsingData() {
         clearBrowsingDataWithResult(completed -> { });

@@ -33,6 +33,7 @@ import org.mozilla.geckoview.WebResponse;
  */
 public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private final GeckoRuntime runtime;
+    private final GeckoDocumentGateway documents;
     private final Activity activity;
     private static final AtomicInteger NEXT_PERMISSION_ID = new AtomicInteger(5400);
     private AlertDialog sitePermissionDialog;
@@ -64,6 +65,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         session = new GeckoSession(new GeckoSessionSettings.Builder()
                 .usePrivateMode(privateMode).useTrackingProtection(true).build());
         view = new GeckoView(activity);
+        documents = new GeckoDocumentGateway(activity, session, view);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
 
@@ -97,6 +99,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     List<GeckoSession.PermissionDelegate.ContentPermission> perms,
                     Boolean hasUserGesture) {
                 location = url;
+                documents.setPageUrl(url);
             }
             @Override public GeckoResult<GeckoSession> onNewSession(
                     GeckoSession from, String uri) {
@@ -107,6 +110,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         session.setProgressDelegate(new GeckoSession.ProgressDelegate() {
             @Override public void onPageStart(GeckoSession from, String url) {
                 location = url;
+                documents.setPageUrl(url);
                 firstContentfulPaint = false;
                 listener.onPageStarted(url);
             }
@@ -142,6 +146,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         });
         // Every site permission remains denied unless a visible user explicitly
         // approves the origin; Android runtime grants are a separate gate.
+        session.setPromptDelegate(documents);
         session.setPermissionDelegate(new GeckoSession.PermissionDelegate() {
             @Override public void onAndroidPermissionsRequest(
                     GeckoSession from, String[] requested, Callback callback) {
@@ -318,6 +323,10 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         return true;
     }
 
+    @Override public boolean savePagePdf() { return documents.savePagePdf(); }
+    @Override public boolean onActivityResult(int code, int result, android.content.Intent data) {
+        return documents.onActivityResult(code, result, data);
+    }
     @Override public boolean showSitePermissions() {
         if (destroyed || !isHttps(location)) return false;
         String selectedOrigin = location;
@@ -458,6 +467,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     @Override public void destroy() {
         if (destroyed) return;
         destroyed = true;
+        documents.destroy();
         if (sitePermissionDialog != null) sitePermissionDialog.dismiss();
         sitePermissionDialog = null;
         if (pendingAndroidPermission != null) pendingAndroidPermission.reject();
