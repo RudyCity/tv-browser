@@ -2,6 +2,14 @@
 
 This is a checklist, **not** an authorization to publish or sign a production APK.
 
+## Beta 0.8.0 development status
+
+- Source bumped to `versionCode 12`, `versionName 0.8.0` with existing Android package IDs preserved; only the preview UI label changes to Rudy Browser.
+- Browser theme selection persists in app-private preferences. A native Android TV emulator test gate now checks Leanback features and D-pad, in addition to phone and Gecko emulator workflows.
+- The manually triggered [beta pre-release workflow](../.github/workflows/release-preview.yml) requires a successful APK, Compose emulator, Gecko emulator, AND real Android TV emulator run on the *same source SHA*. It does not auto-clobber releases.
+- A separately gated [signed Gecko candidate workflow](../.github/workflows/signed-gecko-candidate.yml) is source-implemented but cannot execute successfully until the owner securely configures an environment and four signing secrets. It never auto-publishes.
+- The latest beta source is **not** production-signed, not Play certified, and the published 0.7.1 developer pre-release remains the currently published download.
+
 ## Current distribution
 
 - `legacy` supports API19+ Android WebView and deliberately keeps old-firmware compatibility.

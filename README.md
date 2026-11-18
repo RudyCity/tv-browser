@@ -1,5 +1,15 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
+## Development 0.8.0 Beta (code on main; no new published beta APK yet)
+
+The Android source version is now **0.8.0** (versionCode **12**) across three compatible application flavors.
+See [Beta 0.8.0 progress and remaining gates](docs/reports/2026-11-18-rudy-browser-beta-0.8.0-progress.md).
+New work includes privacy-safe crash handling and private popups, native Gecko/WebView Find in Page, TV page-up/down, a focusable tab grid, explicit inactive-tab memory cleanup, Gecko native media transport, a persistent light/dark modern UI, and dedicated Android TV emulator tests.
+
+These changes have been committed but **the latest source commit is not automatically a published release**. CI must pass on the exact source SHA, including Android TV, before the [manual beta pre-release workflow](.github/workflows/release-preview.yml) may publish APKs. Physical TV and phone verification is still required for production.
+
+**Do not confuse the existing version 0.7.1 download below with the new 0.8.0 code.**
+
 ## Download / GitHub Pre-release (18 November 2026)
 
 **[Rudy Browser v0.7.1 Development Preview](https://github.com/RudyCity/tv-browser/releases/tag/v0.7.1-preview.67001288)** contains three directly installable APK files, each built and verified on the **exact same source commit** `67001288ba57b64ec945194c37319e6d71d25078`.
@@ -9,7 +19,7 @@
 - **Legacy, Android 4.4+**: `RudyBrowser-Legacy-Android4-debug.apk` (System WebView, API 19+, older TV compatibility).
 - `SHA256SUMS.txt` lists hashes of the original APKs. No ZIP extraction is needed; use the direct APK release assets.
 
-This repository is private: downloads require a GitHub account with access. **All three are developer/debug-signed pre-release builds, not production releases**. Physical-device and production-signing gates remain open. To publish another **tested** pre-release, run the `Publish Rudy Browser developer pre-release` workflow manually with the exact source SHA and run IDs of the successful APK, GeckoView, and Compose emulator CI workflows. The workflow will refuse to publish when any of the three runs are not green for that same commit.
+This repository is private: downloads require a GitHub account with access. **All three are developer/debug-signed pre-release builds, not production releases**. Physical-device and production-signing gates remain open. To publish another **tested** pre-release, run the `Publish Rudy Browser developer pre-release` workflow manually with the exact source SHA and run IDs of the successful APK, GeckoView, Compose emulator, and Android TV emulator CI workflows. The workflow will refuse to publish when any of the four runs are not green for that same commit.
 
 
 **Private GitHub repository:** `RudyCity/tv-browser` (the repository slug is unchanged).

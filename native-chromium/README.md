@@ -62,3 +62,10 @@ A separate APK cannot implement the previous BrowserEngine embedder contract.
 The WebView APK remains a usable fallback installed independently, without
 automatic in-process recovery from a native Chromium crash. One-APK switching
 requires separate Chromium embedder/JNI work and further security testing.
+
+
+## Additional safety gates (0.8.0 beta source)
+
+The native build verifier now requires a structurally valid ARM64 ELF64 AArch64 shared library, a native APK with Android 10+ minimum, package ID and Android TV launcher checks, and a valid APK signing certificate. It hashes the APK with a bounded-memory SHA-256 reader and emits `build-provenance.json` recording locked upstream/Vanadium commits and the bundled extension digest.
+
+The manual `chromium-builder` runner and actual upstream native compilation remain **unavailable/unverified**, so this cannot be advertised as a working installable Chromium APK. A real signed ARM64 build, successful browser runtime, MV3 installation test and license/source review remain hard release gates.
