@@ -18,8 +18,8 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 
 | Phase | Priority | Work | Definition of done | Status at plan creation |
 | --- | --- | --- | --- | --- |
-| M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Implemented in source; CI pending |
-| M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Not started |
+| M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Tested in CI; real-device QA pending |
+| M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Started: API 29 emulator startup/progress smoke; remaining behaviors pending |
 | M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | Not started |
 | M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Not started |
 | M4 | P1 | Complete Material 3 migration | Bookmarks/history, settings, extension manager, downloads and consent dialogs modernized without losing controller security | Not started |
@@ -92,3 +92,6 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - M0 implementation: record exact commit/run URL and results below, including any red runs and fixes.
 
 - M0 code: presentation policy with JUnit + smoke assertions, fallback cleanup + user notice, progress visibility owned by exactly one toolbar. Recheck CI and record its run before changing status to Tested.
+
+- M0: `5bb61b7f` implemented presentation policy; `0d5c9f2d` fixed generated BuildConfig; Android APK run `44218579316` **success** (Java/Kotlin unit tests, legacy and Preview APK build, IDs/signing checked). No phone/TV physical runtime check.
+- M1 started: Android API 29 emulator instrumentation suite and its CI workflow; Android touch startup and Java/Compose progress gate, not a replacement for rotation/popup/TV/device QA. Verify CI before marking this slice tested.

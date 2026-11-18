@@ -30,6 +30,7 @@ android {
         preview {
             dimension 'renderer'
             minSdk 21
+            testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
             applicationIdSuffix '.previewcompose07'
             versionNameSuffix '-preview'
             manifestPlaceholders = [browserLabel: '@string/app_name_preview']
@@ -73,6 +74,9 @@ dependencies {
         chromiumImplementation files(embeddedChromiumAar)
     }
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:core:1.6.1'
 }
 
 tasks.register('validateEmbeddedChromium', Exec) {

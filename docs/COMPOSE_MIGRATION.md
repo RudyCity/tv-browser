@@ -60,3 +60,12 @@ Compose does not itself introduce a Chromium binary, Chrome Web Store support,
 browser tab management, full-screen content filters or modern site support on
 very old WebView firmware. Do not claim these capabilities until separately
 implemented, built, and runtime tested.
+
+## Instrumentation smoke gate (M1 started)
+
+The optional `.github/workflows/android-emulator.yml` builds and boots an
+Android API 29 x86_64 emulator, launches the Preview Activity using
+`AndroidJUnitRunner`, asserts the Compose toolbar and WebView surface are
+attached, and checks that Compose progress never coexists with a visible Java
+loading strip. This does not establish physical-device runtime correctness or
+full accessibility, rotation, popup and download testing.
