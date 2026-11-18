@@ -84,6 +84,7 @@ public final class MainActivity extends ComponentActivity {
         boolean loading;
         boolean crashed;
         int progress;
+        long navigationSequence;
         boolean privateMode;
     }
     private final List<BrowserTab> tabs = new ArrayList<>();
@@ -713,6 +714,9 @@ public final class MainActivity extends ComponentActivity {
                 return activeTab == tab && engine == tab.browser;
             }
             @Override public void onPageStarted(String url) {
+                // Invalidates any open popup approval when this tab navigates,
+                // including redirects back to the same URL.
+                tab.navigationSequence++;
                 tab.url = UrlTools.isWebUrl(url) ? url : null;
                 tab.home = !UrlTools.isWebUrl(url);
                 tab.loading = true;
@@ -1810,13 +1814,18 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         final BrowserEngine requestingEngine = engine;
+        final BrowserTab requestingTab = activeTab;
+        final String requestingUrl = requestingEngine == null ? null : requestingEngine.currentUrl();
+        final long requestingSequence = requestingTab == null ? -1
+                : requestingTab.navigationSequence;
         final boolean privatePopup = BrowserSessionPolicy.popupMustStayPrivate(
                 activeTab != null && activeTab.privateMode);
         if (privatePopup && PopupPolicy.usesPlainHttp(destinationUrl)) {
             toast("Private tabs only open HTTPS popups");
             return;
         }
-        String opener = PopupPolicy.isPreviewable(openerUrl) ? openerUrl : "Browser home";
+        // Show the actual engine URL, not a website-supplied opener string.
+        String opener = PopupPolicy.isPreviewable(requestingUrl) ? requestingUrl : "Browser home";
         StringBuilder details = new StringBuilder("Opened from:\n").append(opener)
                 .append("\n\nDestination domain:\n").append(PopupPolicy.host(destinationUrl))
                 .append("\n\nFull destination link:\n").append(destinationUrl)
@@ -1832,8 +1841,13 @@ public final class MainActivity extends ComponentActivity {
                 .setNegativeButton("Block", null)
                 .setPositiveButton("Open link", new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface ignored, int which) {
-                        if (engine != requestingEngine) {
-                            toast("Popup expired after switching browser engines");
+                        if (!BrowserSessionPolicy.popupApprovalCurrent(
+                                activeTab == requestingTab && engine == requestingEngine,
+                                requestingSequence,
+                                requestingTab == null ? -1 : requestingTab.navigationSequence,
+                                requestingUrl,
+                                requestingEngine == null ? null : requestingEngine.currentUrl())) {
+                            toast("Popup expired because the originating page changed");
                             return;
                         }
                         createBrowserTab(privatePopup ? EnginePolicy.GECKO :

@@ -19,6 +19,19 @@ public final class BrowserSessionPolicyTest {
         assertTrue(BrowserSessionPolicy.canTransferUrl(false));
     }
 
+    @Test public void oldPopupConsentExpiresOnNavigationAndTabChange() {
+        String page = "https://example.org/articles";
+        assertTrue(BrowserSessionPolicy.popupApprovalCurrent(true, 2, 2, page, page));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(false, 2, 2, page, page));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(true, 2, 3, page, page));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(true, 2, 2, page,
+                "https://example.org/other"));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(true, -1, -1, page, page));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(true, 1, 1, null, page));
+        assertFalse(BrowserSessionPolicy.popupApprovalCurrent(true, 1, 1,
+                "file:///etc/passwd", "file:///etc/passwd"));
+    }
+
     @Test public void popupRetainsItsOpenersPrivacyBoundary() {
         assertTrue(BrowserSessionPolicy.popupMustStayPrivate(true));
         assertFalse(BrowserSessionPolicy.popupMustStayPrivate(false));
