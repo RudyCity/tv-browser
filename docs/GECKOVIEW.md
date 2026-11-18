@@ -21,3 +21,7 @@ AGP 9's built-in Kotlin cannot apply old `org.jetbrains.kotlin.android` side-by-
 ## Firefox WebExtensions (implemented in code, verification pending)
 
 When Gecko is active, the Extensions UI uses the real `WebExtensionController`, not WebView JavaScript extras. The bundled original `Rudy Page Marker` add-on runs only on `https://example.com/*` without privileged permissions and must be installed by a human. Signed remote `.xpi` install requires first a reviewed HTTPS source URL, then a Mozilla permission-origins-data-collection consent dialog; a canceled dialog denies the install. Gecko validates XPI signatures. Installed add-ons can be listed, disabled/enabled, and uninstalled, with on-device persistence handled by Gecko. This is not Chrome CRX support. No automated tests have passed for this slice at time of commit; emulator extension acceptance evidence is still pending.
+
+## Explicit site permission policy (2026-11-18)
+
+The Gecko flavor sets a `GeckoSession.PermissionDelegate` that denies Android runtime permission requests, audio/video capture, and content permissions. The current preview therefore intentionally **does not support website camera, microphone, geolocation or notification permissions**. A future permission manager must display the exact HTTPS origin, request Android platform permissions separately, respect revocation, and provide a deny-by-default TV remote workflow; never silently grant permissions or claim the feature works. This is a secure preview limitation, not a fully implemented site permission manager.

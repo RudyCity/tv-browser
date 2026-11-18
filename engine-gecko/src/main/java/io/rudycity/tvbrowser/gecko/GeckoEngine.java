@@ -114,6 +114,24 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                     listener.onDownloadRequested(response.uri, null, null, null);
             }
         });
+        // Explicit fail-closed site permissions until there is an audited two-layer
+        // Android runtime + per-origin consent manager. A website may not silently
+        // obtain microphone, camera, location, notifications or persistent storage.
+        session.setPermissionDelegate(new GeckoSession.PermissionDelegate() {
+            @Override public void onAndroidPermissionsRequest(
+                    GeckoSession from, String[] requested, Callback callback) {
+                callback.reject();
+            }
+            @Override public void onMediaPermissionRequest(
+                    GeckoSession from, String origin, MediaSource[] video,
+                    MediaSource[] audio, MediaCallback callback) {
+                callback.reject();
+            }
+            @Override public GeckoResult<Integer> onContentPermissionRequest(
+                    GeckoSession from, ContentPermission permission) {
+                return GeckoResult.fromValue(ContentPermission.VALUE_DENY);
+            }
+        });
         setDesktopMode(desktop);
         session.open(runtime);
         view.setSession(session);
