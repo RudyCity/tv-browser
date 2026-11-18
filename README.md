@@ -21,19 +21,43 @@ Android 10+ companion APK. Android 4.4–9 remains on System WebView. No automat
 native-to-WebView process recovery or Chrome Web Store support exists inside the
 legacy APK.
 
-## Phone and tablet behavior (0.5.0)
+## Chrome-inspired responsive browser UI (0.6.0)
 
-- Touch browsing with a responsive home page, native pinch-to-zoom where supported by WebView,
-  Android software keyboard for address/search and visible system status/navigation bars.
-- Up to 839 dp available width: two compact toolbar rows (Back / Forward / address / Go,
-  then Home / Reload / Bookmark / Extensions / Menu).
-- From 840 dp: one toolbar row, preserving a flexible address bar.
-- Rotation resizes/reparents existing toolbar controls **without destroying the active WebView
-  or navigation history**. Activity state also records the current URL for process recreation.
-- TV remains remote-first: fullscreen app, D-pad page navigation and optional remote pointer.
-  Those TV-specific key interceptions are not applied to touch devices.
-- Popup links and downloads still require explicit approval; installers and unsafe URL schemes
-  are blocked. No extra device permissions are requested.
+The browser chrome is redesigned, **not the websites themselves**. A webpage
+keeps its own colors and DOM without any injected "design system."
+
+- **Phones under 600 dp** (320/360/390 included): one compact toolbar with Back,
+  pill-shaped omnibox and overflow menu. No fake tab counter: true multi-tab
+  management is not implemented. Go works through the Android keyboard action.
+- **Tablets at 600 dp and wider:** a single toolbar adds Forward, Reload,
+  Bookmark and optional Home/Extensions based on actual available width.
+- **TV:** large, focusable D-pad buttons remain, with two rows on TV widths
+  below 840 dp and one row on wider screens. The remote pointer still works.
+- On phones/tablets, the old 26 dp always-visible footer is hidden. A 2 dp
+  loading progress line appears only during navigation and disappears on finish.
+  Errors are shown via a toast rather than being hidden in a footer.
+- The omnibox displays the full URL while focused and the page hostname
+  otherwise. The complete URL remains editable with one tap. Search or enter
+  an address without losing text during overlapping page-load callbacks.
+- Overflow groups frequent actions (Reload, Home, Forward, Bookmark,
+  Extensions, Bookmarks, History) above advanced tools, engine settings,
+  browsing data and native Chromium companion launcher.
+- Rotation reparents existing controls without recreating the WebView or
+  losing history. Full-screen behavior stays TV-only; Android system bars
+  remain visible on touch devices.
+- Popup links and downloads still require explicit approval, and unsafe
+  installer links remain blocked. No new Android permissions or SDK dependencies.
+
+**Visual implementation:** dark slate toolbar, low-contrast icon surfaces,
+subtle pill-shaped omnibox, purposeful focus state and consistent touch sizes.
+All screenshot QA on actual devices is pending.
+
+## Previous phone and tablet behavior (0.5.0)
+
+- Touch browsing, pinch zoom when supported by WebView, adaptive screen
+  rotation and keyboard address entry; these functions remain supported.
+- Original compact phone UI used two 56 dp toolbar rows and a persistent
+  footer; this has been replaced to reclaim web viewport height.
 
 ## Native Chromium companion launcher (0.5.1)
 

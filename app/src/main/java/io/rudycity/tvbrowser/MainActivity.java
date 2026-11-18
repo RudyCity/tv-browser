@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -22,11 +23,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
 import android.webkit.URLUtil;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,8 +47,10 @@ public final class MainActivity extends Activity {
     private static final String HISTORY = "history";
     private static final String DESKTOP = "desktop_mode";
     private static final String ENGINE = "render_engine";
-    private static final int TOOLBAR_BG = Color.rgb(18, 29, 45);
-    private static final int HIGHLIGHT = Color.rgb(42, 105, 184);
+    // Restrained browser chrome: pages keep their own styling and full viewport.
+    private static final int TOOLBAR_BG = Color.rgb(23, 30, 41);
+    private static final int OMNIBOX_BG = Color.rgb(39, 49, 64);
+    private static final int HIGHLIGHT = Color.rgb(62, 110, 176);
 
     private FrameLayout root;
     private LinearLayout primaryRow;
@@ -64,6 +69,7 @@ public final class MainActivity extends Activity {
     private String engineReason;
     private EditText address;
     private TextView status;
+    private ProgressBar loadingProgress;
     private Button bookmarkButton;
     private SharedPreferences prefs;
     private View fullscreenView;
@@ -129,11 +135,24 @@ public final class MainActivity extends Activity {
     }
 
     private GradientDrawable buttonBackground(boolean selected) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(selected ? HIGHLIGHT : Color.rgb(31, 47, 68));
-        d.setCornerRadius(dp(9));
-        d.setStroke(dp(selected ? 2 : 1), selected ? Color.WHITE : Color.rgb(61, 79, 101));
-        return d;
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setCornerRadius(dp(tvDevice ? 13 : 22));
+        drawable.setColor(selected ? HIGHLIGHT :
+                (tvDevice ? Color.rgb(37, 50, 68) : TOOLBAR_BG));
+        if (tvDevice || selected) {
+            drawable.setStroke(dp(selected ? 2 : 1),
+                    selected ? Color.rgb(173, 209, 255) : Color.rgb(65, 81, 102));
+        }
+        return drawable;
+    }
+
+    private GradientDrawable omniboxBackground(boolean selected) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setCornerRadius(dp(tvDevice ? 14 : 24));
+        drawable.setColor(OMNIBOX_BG);
+        drawable.setStroke(dp(selected ? 2 : 1),
+                selected ? Color.rgb(143, 191, 249) : Color.rgb(51, 64, 82));
+        return drawable;
     }
 
     private Button addButton(LinearLayout toolbar, String text, String description,
@@ -141,7 +160,7 @@ public final class MainActivity extends Activity {
         final Button b = new Button(this);
         b.setText(text);
         b.setContentDescription(description);
-        b.setTextSize(18);
+        b.setTextSize(tvDevice ? 20 : 23);
         b.setTextColor(Color.WHITE);
         b.setAllCaps(false);
         b.setPadding(0, 0, 0, 0);
@@ -168,14 +187,16 @@ public final class MainActivity extends Activity {
         LinearLayout toolbarStack = new LinearLayout(this);
         toolbarStack.setOrientation(LinearLayout.VERTICAL);
         toolbarStack.setBackgroundColor(TOOLBAR_BG);
-        toolbarStack.setPadding(dp(4), dp(4), dp(4), dp(4));
+        toolbarStack.setPadding(dp(tvDevice ? 6 : 8), dp(tvDevice ? 5 : 3),
+                dp(tvDevice ? 6 : 8), dp(tvDevice ? 5 : 3));
         layout.addView(toolbarStack, new LinearLayout.LayoutParams(-1, -2));
         primaryRow = new LinearLayout(this);
         primaryRow.setGravity(Gravity.CENTER_VERTICAL);
         secondaryRow = new LinearLayout(this);
         secondaryRow.setGravity(Gravity.CENTER_VERTICAL);
-        toolbarStack.addView(primaryRow, new LinearLayout.LayoutParams(-1, dp(56)));
-        toolbarStack.addView(secondaryRow, new LinearLayout.LayoutParams(-1, dp(56)));
+        toolbarStack.addView(primaryRow,
+                new LinearLayout.LayoutParams(-1, dp(tvDevice ? 58 : 52)));
+        toolbarStack.addView(secondaryRow, new LinearLayout.LayoutParams(-1, dp(58)));
 
         backButton = addButton(primaryRow, "‹", "Back", new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -198,17 +219,25 @@ public final class MainActivity extends Activity {
 
         address = new EditText(this);
         address.setSingleLine(true);
-        address.setHint("Search or enter URL");
+        address.setHint("Search or enter address");
+        address.setImeOptions(EditorInfo.IME_ACTION_GO);
         address.setTextSize(16);
         address.setTextColor(Color.WHITE);
         address.setHintTextColor(Color.rgb(166, 180, 195));
         address.setSelectAllOnFocus(true);
-        address.setPadding(dp(12), 0, dp(10), 0);
-        address.setBackgroundDrawable(buttonBackground(false));
+        address.setPadding(dp(16), 0, dp(14), 0);
+        address.setBackgroundDrawable(omniboxBackground(false));
         primaryRow.addView(address);
         address.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean hasFocus) {
-                address.setBackgroundDrawable(buttonBackground(hasFocus));
+                address.setBackgroundDrawable(omniboxBackground(hasFocus));
+                if (hasFocus) {
+                    String current = engine == null ? null : engine.currentUrl();
+                    if (UrlTools.isWebUrl(current)) address.setText(current);
+                    address.selectAll();
+                } else {
+                    showCompactAddress();
+                }
             }
         });
         address.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -242,6 +271,15 @@ public final class MainActivity extends Activity {
         engineSlot.setBackgroundColor(Color.rgb(12, 20, 30));
         cursorOverlay = new TvCursorOverlay(this);
         engineSlot.addView(cursorOverlay, new FrameLayout.LayoutParams(-1, -1));
+        loadingProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        loadingProgress.setMax(100);
+        loadingProgress.setVisibility(View.GONE);
+        if (Build.VERSION.SDK_INT >= 21) {
+            loadingProgress.setProgressTintList(ColorStateList.valueOf(
+                    Color.rgb(139, 188, 246)));
+            loadingProgress.setProgressBackgroundTintList(ColorStateList.valueOf(TOOLBAR_BG));
+        }
+        layout.addView(loadingProgress, new LinearLayout.LayoutParams(-1, dp(2)));
         layout.addView(engineSlot, new LinearLayout.LayoutParams(-1, 0, 1));
 
         status = new TextView(this);
@@ -253,71 +291,114 @@ public final class MainActivity extends Activity {
         status.setTextSize(12);
         status.setText(tvDevice ? "D-pad: select • OK: open • Menu: options"
                 : "Swipe to browse • Menu: options");
+        status.setVisibility(tvDevice ? View.VISIBLE : View.GONE);
         layout.addView(status, new LinearLayout.LayoutParams(-1, dp(26)));
         setContentView(root);
     }
 
     private void addToolbarButton(LinearLayout row, Button button, int sizeDp) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp));
-        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        params.setMargins(dp(tvDevice ? 2 : 1), dp(2),
+                dp(tvDevice ? 2 : 1), dp(2));
         row.addView(button, params);
     }
 
     private void addAddressBar(LinearLayout row, int heightDp) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(heightDp), 1);
-        params.setMargins(dp(4), dp(2), dp(4), dp(2));
+        params.setMargins(dp(tvDevice ? 5 : 3), dp(2),
+                dp(tvDevice ? 5 : 3), dp(2));
         row.addView(address, params);
     }
 
-    /** Reparents existing controls without recreating the WebView or losing page history. */
+    /** Responsive layout without recreating WebView, history, cookies or the address field. */
     private void arrangeToolbar() {
         if (primaryRow == null || secondaryRow == null) return;
         int widthDp = getResources().getConfiguration().screenWidthDp;
         if (widthDp <= 0) widthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        boolean compact = BrowserLayoutPolicy.isCompact(widthDp);
-        int sizeDp = compact ? 48 : 52;
+        int mode = BrowserLayoutPolicy.toolbarMode(widthDp, tvDevice);
+
         primaryRow.removeAllViews();
         secondaryRow.removeAllViews();
-        addToolbarButton(primaryRow, backButton, sizeDp);
-        addToolbarButton(primaryRow, forwardButton, sizeDp);
-        if (!compact) {
-            addToolbarButton(primaryRow, homeButton, sizeDp);
-            addToolbarButton(primaryRow, reloadButton, sizeDp);
+
+        if (mode == BrowserLayoutPolicy.MOBILE) {
+            // Chrome-inspired compact phone: no duplicate navigation or fake tab button.
+            addToolbarButton(primaryRow, backButton, 44);
+            addAddressBar(primaryRow, 46);
+            addToolbarButton(primaryRow, menuButton, 44);
+        } else if (mode == BrowserLayoutPolicy.TABLET) {
+            addToolbarButton(primaryRow, backButton, 44);
+            addToolbarButton(primaryRow, forwardButton, 44);
+            if (widthDp >= 720) addToolbarButton(primaryRow, homeButton, 44);
+            addAddressBar(primaryRow, 46);
+            addToolbarButton(primaryRow, reloadButton, 44);
+            addToolbarButton(primaryRow, bookmarkButton, 44);
+            if (widthDp >= 840) addToolbarButton(primaryRow, extensionsButton, 44);
+            addToolbarButton(primaryRow, menuButton, 44);
+        } else {
+            // TV retains larger focusable targets and an optional second row.
+            boolean compactTv = mode == BrowserLayoutPolicy.TV_COMPACT;
+            int size = compactTv ? 48 : 52;
+            addToolbarButton(primaryRow, backButton, size);
+            addToolbarButton(primaryRow, forwardButton, size);
+            if (!compactTv) {
+                addToolbarButton(primaryRow, homeButton, size);
+                addToolbarButton(primaryRow, reloadButton, size);
+            }
+            addAddressBar(primaryRow, size);
+            addToolbarButton(primaryRow, goButton, size);
+            LinearLayout actions = compactTv ? secondaryRow : primaryRow;
+            if (compactTv) {
+                addToolbarButton(actions, homeButton, size);
+                addToolbarButton(actions, reloadButton, size);
+            }
+            addToolbarButton(actions, bookmarkButton, size);
+            addToolbarButton(actions, extensionsButton, size);
+            if (!compactTv || widthDp >= 360)
+                addToolbarButton(actions, pointerButton, size);
+            addToolbarButton(actions, menuButton, size);
         }
-        addAddressBar(primaryRow, sizeDp);
-        addToolbarButton(primaryRow, goButton, sizeDp);
-        if (compact) {
-            addToolbarButton(secondaryRow, homeButton, sizeDp);
-            addToolbarButton(secondaryRow, reloadButton, sizeDp);
-        }
-        LinearLayout actions = compact ? secondaryRow : primaryRow;
-        addToolbarButton(actions, bookmarkButton, sizeDp);
-        addToolbarButton(actions, extensionsButton, sizeDp);
-        if (tvDevice && (!compact || widthDp >= 360))
-            addToolbarButton(actions, pointerButton, sizeDp);
-        addToolbarButton(actions, menuButton, sizeDp);
-        secondaryRow.setVisibility(compact ? View.VISIBLE : View.GONE);
+
+        secondaryRow.setVisibility(BrowserLayoutPolicy.hasSecondRow(mode)
+                ? View.VISIBLE : View.GONE);
+        if (status != null) status.setVisibility(BrowserLayoutPolicy.hasStatusFooter(mode)
+                ? View.VISIBLE : View.GONE);
+        if (goButton != null) goButton.setTextSize(16);
+        if (extensionsButton != null) extensionsButton.setTextSize(15);
+        if (pointerButton != null) pointerButton.setTextSize(15);
     }
 
     private final BrowserEngine.Listener rendererEvents = new BrowserEngine.Listener() {
         @Override public void onPageStarted(String url) {
+            loadingProgress.setProgress(5);
+            loadingProgress.setVisibility(View.VISIBLE);
             status.setText("Loading…");
         }
         @Override public void onPageFinished(String url, String title) {
             if (UrlTools.isWebUrl(url)) {
-                address.setText(url);
+                if (!address.hasFocus()) {
+                    address.setText(url);
+                    showCompactAddress();
+                }
                 saveHistory(url, title);
             }
             refreshBookmarkButton();
+            loadingProgress.setVisibility(View.GONE);
             status.setText(cursorMode ? "Remote pointer: arrows move, OK clicks, Back exits"
                     : engine.name() + (tvDevice ? "  •  D-pad: navigate  •  Menu: options" :
                     "  •  Swipe to browse  •  Menu: options"));
         }
         @Override public void onProgress(int progress) {
-            if (progress < 100) status.setText("Loading " + progress + "%  •  " + engine.name());
+            if (progress < 100) {
+                loadingProgress.setVisibility(View.VISIBLE);
+                loadingProgress.setProgress(Math.max(1, progress));
+                if (engine != null) status.setText("Loading " + progress + "%  •  " + engine.name());
+            } else {
+                loadingProgress.setVisibility(View.GONE);
+            }
         }
         @Override public void onError(String message) {
+            loadingProgress.setVisibility(View.GONE);
             status.setText(message);
             toast(message);
         }
@@ -388,6 +469,15 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /** Readable omnibox: show the complete URL while editing, hostname otherwise. */
+    private void showCompactAddress() {
+        if (address == null || address.hasFocus() || engine == null) return;
+        String current = engine.currentUrl();
+        if (!UrlTools.isWebUrl(current)) return;
+        String host = Uri.parse(current).getHost();
+        if (host != null && !host.isEmpty()) address.setText(host);
+    }
+
     private void submitAddress() {
         String value = address.getText().toString();
         try {
@@ -411,6 +501,7 @@ public final class MainActivity extends Activity {
         engine.loadUrl(url);
         address.setText(url);
         if (engine != null) engine.view().requestFocus();
+        showCompactAddress();
     }
 
     private void home() {
@@ -630,49 +721,93 @@ public final class MainActivity extends Activity {
             }).show();
     }
 
+    /** Frequent page actions first; advanced settings stay out of the main browser UI. */
     private void showMenu() {
+        final String url = engine == null ? null : engine.currentUrl();
+        final boolean bookmarked = UrlTools.isWebUrl(url) && isBookmarked(url);
+        final String[] options = {
+                "Reload page",
+                "Home",
+                "Forward",
+                bookmarked ? "Remove bookmark" : "Bookmark this page",
+                "Extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)",
+                "Bookmarks",
+                "Recent history",
+                "More tools and settings"
+        };
+        new AlertDialog.Builder(this).setTitle("Rudy Browser")
+                .setItems(options, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        switch (which) {
+                            case 0: if (engine != null) engine.reload(); break;
+                            case 1: home(); break;
+                            case 2: if (engine != null && engine.canGoForward())
+                                        engine.goForward(); break;
+                            case 3: toggleBookmark(); break;
+                            case 4: showExtensions(); break;
+                            case 5: showSavedList(BOOKMARKS, false); break;
+                            case 6: showSavedList(HISTORY, false); break;
+                            case 7: showToolsMenu(); break;
+                        }
+                    }
+                }).setNegativeButton("Close", null).show();
+    }
+
+    private void showToolsMenu() {
         final boolean desktop = prefs.getBoolean(DESKTOP, false);
         final String mode = prefs.getString(ENGINE, EnginePolicy.AUTO);
-        final String[] menu = {"Enter address or search", "Bookmarks", "Recent history", "Remove bookmark",
-                "Engine: " + mode + " (" + (engine == null ? "unavailable" : engine.name()) + ")",
-                desktop ? "Desktop mode: ON" : "Desktop mode: OFF", "Zoom in", "Zoom out",
-                "Clear cache and history", "About", "Extensions (" +
-                     new ExtensionSettings(prefs).enabledCount() + " enabled)",
-                 cursorMode ? "Remote pointer: ON" : "Remote pointer: OFF",
-                 "HTML5 video playback controls",
-                 "Native Chromium + Chrome Extensions (separate app)"};
-        new AlertDialog.Builder(this).setTitle("Rudy Browser")
-                .setItems(menu, new DialogInterface.OnClickListener() {
+        final String[] options = {
+                "Enter address or search",
+                "Browser engine: " + mode + " (" +
+                        (engine == null ? "unavailable" : engine.name()) + ")",
+                desktop ? "Desktop mode: ON" : "Desktop mode: OFF",
+                "Zoom in",
+                "Zoom out",
+                "Remove a saved bookmark",
+                "HTML5 video playback controls",
+                tvDevice ? (cursorMode ? "Remote pointer: ON" : "Remote pointer: OFF")
+                        : "Remote pointer (Android TV only)",
+                "Native Chromium + Chrome Extensions (separate app)",
+                "Clear browsing data",
+                "About Rudy Browser"
+        };
+        new AlertDialog.Builder(this).setTitle("Browser tools")
+                .setItems(options, new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
                         switch (which) {
                             case 0: focusAddress(); break;
-                            case 1: showSavedList(BOOKMARKS, false); break;
-                            case 2: showSavedList(HISTORY, false); break;
-                            case 3: showSavedList(BOOKMARKS, true); break;
-                            case 4: chooseEngine(); break;
-                            case 5:
+                            case 1: chooseEngine(); break;
+                            case 2:
                                 prefs.edit().putBoolean(DESKTOP, !desktop).apply();
                                 updateUserAgent();
                                 if (engine != null) engine.reload();
                                 toast(desktop ? "Desktop mode disabled" : "Desktop mode enabled");
                                 break;
-                            case 6: if (engine != null) engine.zoomIn(); break;
-                            case 7: if (engine != null) engine.zoomOut(); break;
-                            case 8: confirmClear(); break;
-                            case 9: new AlertDialog.Builder(MainActivity.this).setTitle("About Rudy Browser")
-                                    .setMessage("Version 0.5.1 • Android 4.4+\nActive: " +
+                            case 3: if (engine != null) engine.zoomIn(); break;
+                            case 4: if (engine != null) engine.zoomOut(); break;
+                            case 5: showSavedList(BOOKMARKS, true); break;
+                            case 6: new ExtensionUi(MainActivity.this, prefs, engine)
+                                    .showVideoControls(); break;
+                            case 7: if (tvDevice) toggleCursorMode();
+                                    else toast("Remote pointer is only for Android TV");
+                                    break;
+                            case 8: showNativeChromium(); break;
+                            case 9: confirmClear(); break;
+                            case 10: new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("About Rudy Browser")
+                                    .setMessage("Version 0.6.0 • Android 4.4+\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +
-                                            "a bundled Chromium provider. Legacy TV devices use WebView. " +
-                                            "An old WebView is not a modern Chromium engine.")
-                                    .setPositiveButton("OK", null).show(); break;
-                            case 10: showExtensions(); break;
-                            case 11: toggleCursorMode(); break;
-                            case 12: new ExtensionUi(MainActivity.this, prefs, engine)
-                                    .showVideoControls(); break;
-                            case 13: showNativeChromium(); break;
+                                            "a bundled Chromium provider. This build uses WebView " +
+                                            "unless that independent engine is provided.")
+                                    .setPositiveButton("OK", null).show();
+                                    break;
                         }
+                    }
+                }).setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        showMenu();
                     }
                 }).show();
     }

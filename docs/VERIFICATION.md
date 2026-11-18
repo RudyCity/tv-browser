@@ -1,5 +1,18 @@
 # Rudy Browser verification status (2026-11-18)
 
+## Chrome-inspired UI redesign 0.6.0
+
+Implemented in source: compact single-row phone toolbar, single-row tablet
+navigation, separate large-focus TV layout, hidden phone/footer, slim progress
+bar, compact hostname display with full URL on focus, and a two-level browser
+menu preserving prior actions. Pure Java layout decision tests cover
+320/390/600/768/840/1280 dp and TV/mobile distinctions. GitHub Actions must
+still verify this commit and real phone, tablet and TV runtime remains untested.
+
+No genuine multi-tab feature, independent embedded Chromium AAR or full Chrome
+extensions runtime is implied by this UI change.
+
+
 | Stage | Result | Details |
 | --- | --- | --- |
 | Implemented | Code changes pending CI | Rudy Browser label and 0.5.0 version; responsive phone/tablet toolbar; touch navigation keeps Android bars; TV fullscreen, D-pad and pointer remain. |
