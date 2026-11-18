@@ -10,6 +10,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Insets;
+import android.view.WindowInsets;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -220,6 +222,24 @@ public final class MainActivity extends ComponentActivity {
     private void updateSystemBars() {
         if (tvDevice || geckoFullscreen) getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        if (root != null && Build.VERSION.SDK_INT >= 35) root.requestApplyInsets();
+    }
+
+    /** Android 15+ edge-to-edge is mandatory for target SDK 35+; protect the
+     * omnibox and TV controls while retaining full-bleed video when requested. */
+    private void installSystemInsets() {
+        if (Build.VERSION.SDK_INT < 35 ||
+                getApplicationInfo().targetSdkVersion < 35 || root == null) return;
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            if (tvDevice || geckoFullscreen) {
+                view.setPadding(0, 0, 0, 0);
+            } else {
+                Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            }
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 
     private int dp(float v) {
@@ -389,6 +409,7 @@ public final class MainActivity extends ComponentActivity {
         status.setVisibility(tvDevice ? View.VISIBLE : View.GONE);
         layout.addView(status, new LinearLayout.LayoutParams(-1, dp(26)));
         setContentView(root);
+        installSystemInsets();
         syncComposeChrome();
     }
 
