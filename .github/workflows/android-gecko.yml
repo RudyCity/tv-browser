@@ -9,6 +9,8 @@ on:
       - 'compose-ui/**'
       - 'build.gradle'
       - 'settings.gradle'
+      - 'scripts/package_gecko_abis.py'
+      - 'scripts/tests/test_gecko_abi_packaging.py'
       - '.github/workflows/android-gecko.yml'
   pull_request:
     paths:
@@ -18,6 +20,8 @@ on:
       - 'compose-ui/**'
       - 'build.gradle'
       - 'settings.gradle'
+      - 'scripts/package_gecko_abis.py'
+      - 'scripts/tests/test_gecko_abi_packaging.py'
       - '.github/workflows/android-gecko.yml'
   workflow_dispatch:
 permissions:
@@ -40,22 +44,31 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
-      - name: Compile real GeckoView and run JVM regression tests
-        run: gradle -p gecko-build --no-daemon :app:testGeckoDebugUnitTest :app:assembleGeckoDebug :engine-gecko:assembleDebug
-      - name: Verify real Gecko APK not accidentally installed over legacy
+      - name: Test strict ABI packaging policy
+        run: python3 -m unittest discover -s scripts/tests -p test_gecko_abi_packaging.py
+      - name: Compile real GeckoView and build per-ABI debug APKs
+        run: gradle -p gecko-build --no-daemon -PrudyGeckoAbiSplits=true :app:testGeckoDebugUnitTest :app:assembleGeckoDebug :engine-gecko:assembleDebug
+      - name: Reject universal or mixed-native-ABI output
         run: |
           set -euo pipefail
-          APK=app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.rudycity.tvbrowser.gecko159' "
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "targetSdkVersion:'36'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='12' versionName='0.8.0-gecko'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
-          sha256sum "$APK"
+          python3 scripts/package_gecko_abis.py \
+            --input app/build/outputs/apk/gecko/debug \
+            --output dist/gecko
+      - name: Verify signatures, package IDs and security policy for each ABI
+        run: |
+          set -euo pipefail
+          for APK in dist/gecko/*.apk; do
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.rudycity.tvbrowser.gecko159' "
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "targetSdkVersion:'36'"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionCode='12' versionName='0.8.0-gecko'"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
+            sha256sum "$APK"
+          done
       - uses: actions/upload-artifact@v4
         with:
-          name: rudy-browser-gecko-debug-apk
-          path: app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
+          name: rudy-browser-gecko-abi-apks
+          path: dist/gecko/*.apk
           if-no-files-found: error
           retention-days: 14
   gecko-api29-runtime:
