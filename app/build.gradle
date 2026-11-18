@@ -82,3 +82,15 @@ tasks.register('validateEmbeddedChromium', Exec) {
 tasks.matching { it.name.startsWith('preChromium') && it.name.endsWith('Build') }.configureEach {
     dependsOn tasks.named('validateEmbeddedChromium')
 }
+
+/**
+ * AndroidX Activity 1.9.x can pull legacy jdk7/jdk8 stdlib artifacts. Kotlin
+ * 2.1.20 consolidates these classes in kotlin-stdlib, so align all three
+ * artifacts across BOTH legacy and modern variants to avoid duplicate DEX.
+ */
+configurations.configureEach {
+    resolutionStrategy.force(
+            'org.jetbrains.kotlin:kotlin-stdlib:2.1.20',
+            'org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.1.20',
+            'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.20')
+}

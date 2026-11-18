@@ -16,8 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
@@ -149,11 +149,11 @@ private fun BrowserChromeContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ToolbarAction("Go back", state.canGoBack, { actions.back() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                     if (isTablet) {
                         ToolbarAction("Go forward", state.canGoForward, { actions.forward() }) {
-                            Icon(Icons.Default.ArrowForward, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                         }
                         if (wideTablet) {
                             ToolbarAction("Home", true, { actions.home() }) {
