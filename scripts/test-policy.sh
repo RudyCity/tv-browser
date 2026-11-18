@@ -11,7 +11,8 @@ javac -d "$temp_dir" \
   app/src/main/java/io/rudycity/tvbrowser/CursorPolicy.java \
   app/src/main/java/io/rudycity/tvbrowser/VideoTools.java \
   app/src/main/java/io/rudycity/tvbrowser/BrowserLayoutPolicy.java \
-  app/src/main/java/io/rudycity/tvbrowser/BrowserPresentationPolicy.java
+  app/src/main/java/io/rudycity/tvbrowser/BrowserPresentationPolicy.java \
+  app/src/main/java/io/rudycity/tvbrowser/BrowserNetworkPolicy.java
 cat > "$temp_dir/EngineSmokeTest.java" <<'JAVA'
 import io.rudycity.tvbrowser.EnginePolicy;
 import io.rudycity.tvbrowser.UrlTools;
@@ -21,6 +22,7 @@ import io.rudycity.tvbrowser.CursorPolicy;
 import io.rudycity.tvbrowser.VideoTools;
 import io.rudycity.tvbrowser.BrowserLayoutPolicy;
 import io.rudycity.tvbrowser.BrowserPresentationPolicy;
+import io.rudycity.tvbrowser.BrowserNetworkPolicy;
 public class EngineSmokeTest {
     static int n;
     static void check(boolean result) { n++; if (!result) throw new AssertionError("Check #" + n); }
@@ -82,6 +84,11 @@ public class EngineSmokeTest {
         check(!BrowserPresentationPolicy.shouldTryCompose(true, 35, true));
         check(!BrowserPresentationPolicy.shouldTryCompose(false, 35, false));
         check(BrowserPresentationPolicy.shouldTryCompose(false, 21, true));
+        check(!BrowserNetworkPolicy.allowHttpForFlavor("preview"));
+        check(BrowserNetworkPolicy.allowHttpForFlavor("legacy"));
+        check(BrowserNetworkPolicy.blocksCleartext("http://example.com/", false));
+        check(!BrowserNetworkPolicy.blocksCleartext("https://example.com/", false));
+        check(!BrowserNetworkPolicy.blocksCleartext("http://example.com/", true));
         check(!BrowserLayoutPolicy.isTelevision(false, false, false, true));
         check(BrowserLayoutPolicy.isTelevision(true, false, false, true));
         check(BrowserLayoutPolicy.isTelevision(false, false, false, false));

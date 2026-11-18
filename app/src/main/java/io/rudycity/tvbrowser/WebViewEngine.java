@@ -34,6 +34,8 @@ public final class WebViewEngine implements BrowserEngine {
     private final AtomicInteger blockedTrackers = new AtomicInteger();
     private volatile boolean destroyed;
     private final Handler popupHandler = new Handler(Looper.getMainLooper());
+    private final boolean allowPlainHttp =
+            BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR);
     private WebView pendingPopup;
     private Runnable popupTimeout;
 
@@ -80,6 +82,10 @@ public final class WebViewEngine implements BrowserEngine {
                 return interceptResource(request.getUrl().toString(), request.isForMainFrame());
             }
             @Override public boolean shouldOverrideUrlLoading(WebView webView, String url) {
+                if (BrowserNetworkPolicy.blocksCleartext(url, allowPlainHttp)) {
+                    listener.onError("Unencrypted HTTP navigation blocked");
+                    return true;
+                }
                 if (UrlTools.isWebUrl(url)) return false;
                 listener.onError("Blocked unsupported link type");
                 return true;
@@ -88,6 +94,11 @@ public final class WebViewEngine implements BrowserEngine {
                 return shouldOverrideUrlLoading(webView, request.getUrl().toString());
             }
             @Override public void onPageStarted(WebView webView, String url, Bitmap icon) {
+                if (BrowserNetworkPolicy.blocksCleartext(url, allowPlainHttp)) {
+                    webView.stopLoading();
+                    listener.onError("Unencrypted HTTP page blocked");
+                    return;
+                }
                 documentUrl = url;
                 blockedTrackers.set(0);
                 listener.onPageStarted(url);
@@ -228,6 +239,10 @@ public final class WebViewEngine implements BrowserEngine {
 
     /** Request interception can run off the UI thread. Use only thread-safe settings. */
     private WebResourceResponse interceptResource(String url, boolean mainFrame) {
+        // Main-frame interception is required for early WebView API 21–25.
+        if (mainFrame && BrowserNetworkPolicy.blocksCleartext(url, allowPlainHttp)) {
+            return emptyResponse();
+        }
         String page = documentUrl;
         if (Build.VERSION.SDK_INT >= 21 && !destroyed
                 && extensions.enabledForUrl(ExtensionPolicy.AD_BLOCKER, page)

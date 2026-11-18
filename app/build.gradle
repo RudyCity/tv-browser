@@ -16,7 +16,7 @@ android {
         versionCode 10
         versionName '0.7.0'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
-        manifestPlaceholders = [browserLabel: '@string/app_name']
+        manifestPlaceholders = [browserLabel: '@string/app_name', cleartextPolicy: 'true']
     }
 
     flavorDimensions 'renderer'
@@ -33,11 +33,12 @@ android {
             testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
             applicationIdSuffix '.previewcompose07'
             versionNameSuffix '-preview'
-            manifestPlaceholders = [browserLabel: '@string/app_name_preview']
+            manifestPlaceholders = [browserLabel: '@string/app_name_preview', cleartextPolicy: 'false']
         }
         chromium {
             dimension 'renderer'
             minSdk 29
+            manifestPlaceholders = [browserLabel: '@string/app_name', cleartextPolicy: 'false']
         }
     }
 

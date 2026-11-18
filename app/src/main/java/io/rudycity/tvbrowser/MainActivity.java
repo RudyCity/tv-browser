@@ -588,6 +588,11 @@ public final class MainActivity extends ComponentActivity {
             toast("Only valid HTTP/HTTPS websites can be opened");
             return;
         }
+        if (BrowserNetworkPolicy.blocksCleartext(url,
+                BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR))) {
+            toast("Unencrypted HTTP is blocked in the modern browser. Use HTTPS.");
+            return;
+        }
         if (engine == null) { toast("Browser engine unavailable"); return; }
         engine.loadUrl(url);
         address.setText(url);
@@ -942,6 +947,11 @@ public final class MainActivity extends ComponentActivity {
 
     /** All user-triggered new-window links require an explicit human choice. */
     private void confirmPopup(String openerUrl, final String destinationUrl) {
+        if (BrowserNetworkPolicy.blocksCleartext(destinationUrl,
+                BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR))) {
+            toast("Blocked an unencrypted HTTP popup");
+            return;
+        }
         if (!PopupPolicy.isPreviewable(destinationUrl)) {
             toast("Unsafe popup destination blocked");
             return;
@@ -988,6 +998,11 @@ public final class MainActivity extends ComponentActivity {
     /** Prevent drive-by APK and other automatic downloads even after a popup approval. */
     private void download(final String url, final String userAgent,
                           final String contentDisposition, final String mimeType) {
+        if (BrowserNetworkPolicy.blocksCleartext(url,
+                BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR))) {
+            toast("HTTP downloads are blocked in the modern browser");
+            return;
+        }
         if (!PopupPolicy.isPreviewable(url)) {
             toast("Unsafe download URL blocked");
             return;

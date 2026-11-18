@@ -42,6 +42,9 @@ jobs:
           "$AAPT" dump badging "$LEGACY" | grep -F "package: name='io.rudycity.tvbrowser' "
           "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.previewcompose07' "
           "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Compose 0.7'"
+          # Legacy Android TV intentionally allows HTTP; modern Preview must forbid it.
+          "$AAPT" dump xmltree "$LEGACY" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0xffffffff'
+          "$AAPT" dump xmltree "$PREVIEW" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
           sha256sum "$LEGACY" "$PREVIEW"
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4

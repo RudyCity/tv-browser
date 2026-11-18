@@ -1,5 +1,17 @@
 # Rudy Browser verification status (2026-11-18)
 
+## M1 emulator evidence and M2 network-security slice
+
+- API 29 emulator workflow `44219194576`: 2 real instrumentation tests succeeded,
+  confirming Compose toolbar and WebView attachment and preventing duplicate
+  Java loading progress. Other runtime behaviors are not yet verified.
+- Security change in progress: modern Preview should block cleartext HTTP via
+  manifest + Java navigation/download/popup guards; legacy TV compatibility
+  remains deliberate. Confirm with unit tests, aapt manifest check, and
+  Android emulator NetworkSecurityPolicy test before marking tested.
+- targetSdk policy compliance, production signing and native Chromium are
+  still outstanding; do not release this debug build as production.
+
 ## Compose UI migration (0.7.0)
 
 Implementation staged: Kotlin Compose + Material 3 presentation module for

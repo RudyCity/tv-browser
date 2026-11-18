@@ -21,6 +21,17 @@ Android 10+ companion APK. Android 4.4–9 remains on System WebView. No automat
 native-to-WebView process recovery or Chrome Web Store support exists inside the
 legacy APK.
 
+## Network security: modern Preview versus old TVs
+
+The modern Compose Preview denies unencrypted HTTP pages, HTTP redirects,
+popups and downloads; the manifest declares `usesCleartextTraffic=false`.
+For older Android versions where WebView does not reliably honor this flag,
+the Java browser controller also checks URL schemes, WebView main-frame
+navigation and resource interception. **Legacy** remains explicitly
+HTTP-compatible for old TV firmware; use HTTPS whenever available.
+This is a security milestone, not a completed release/security certification.
+See [network security decisions](docs/NETWORK_SECURITY.md).
+
 ## Kotlin + Jetpack Compose + Material 3 UI (0.7.0)
 
 The phone/tablet **Preview** variant now uses Kotlin Jetpack Compose and

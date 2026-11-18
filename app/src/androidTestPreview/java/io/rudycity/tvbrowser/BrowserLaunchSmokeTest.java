@@ -42,6 +42,14 @@ public final class BrowserLaunchSmokeTest {
         });
     }
 
+    @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {
+        rule.getScenario().onActivity(activity -> {
+            assertFalse(android.security.NetworkSecurityPolicy.getInstance()
+                    .isCleartextTrafficPermitted("example.com"));
+            assertFalse(BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR));
+        });
+    }
+
     @Test public void composeAndJavaLoadingProgressNeverAppearTogether() {
         rule.getScenario().onActivity(activity -> {
             try {

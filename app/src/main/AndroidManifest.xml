@@ -8,7 +8,7 @@
 
     <application
         android:allowBackup="false"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="${cleartextPolicy}"
         android:hardwareAccelerated="true"
         android:icon="@drawable/ic_launcher"
         android:banner="@drawable/tv_banner"
