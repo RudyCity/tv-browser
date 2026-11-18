@@ -330,6 +330,12 @@ public final class WebViewEngine implements BrowserEngine {
         previousFindText = null;
         if (!destroyed) view.clearMatches();
     }
+    @Override public boolean scrollPage(boolean down) {
+        if (destroyed) return false;
+        if (down) view.pageDown(false);
+        else view.pageUp(false);
+        return true;
+    }
     @Override public boolean savePagePdf() {
         if (destroyed || Build.VERSION.SDK_INT < 19) return false;
         PrintManager printer = (PrintManager) view.getContext().getSystemService(Context.PRINT_SERVICE);

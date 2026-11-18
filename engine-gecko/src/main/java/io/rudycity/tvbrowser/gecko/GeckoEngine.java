@@ -25,6 +25,7 @@ import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoSessionSettings;
 import org.mozilla.geckoview.GeckoView;
 import org.mozilla.geckoview.StorageController;
+import org.mozilla.geckoview.ScreenLength;
 import org.mozilla.geckoview.WebResponse;
 
 /**
@@ -393,6 +394,12 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     @Override public void clearFindInPage() {
         previousFindText = null;
         if (!destroyed) session.getFinder().clear();
+    }
+    @Override public boolean scrollPage(boolean down) {
+        if (destroyed) return false;
+        session.getPanZoomController().scrollBy(ScreenLength.zero(),
+                ScreenLength.fromVisualViewportHeight(down ? 0.8 : -0.8));
+        return true;
     }
     @Override public boolean savePagePdf() { return documents.savePagePdf(); }
     @Override public boolean onActivityResult(int code, int result, android.content.Intent data) {

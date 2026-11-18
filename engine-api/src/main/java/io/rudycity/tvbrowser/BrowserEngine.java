@@ -51,6 +51,8 @@ public interface BrowserEngine {
         return false;
     }
     default void clearFindInPage() {}
+    /** User-invoked scrolling; return false if this renderer cannot scroll. */
+    default boolean scrollPage(boolean down) { return false; }
     default boolean savePagePdf() { return false; }
     default boolean onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
         return false;

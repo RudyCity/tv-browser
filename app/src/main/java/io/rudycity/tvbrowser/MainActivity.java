@@ -334,7 +334,7 @@ public final class MainActivity extends ComponentActivity {
         address.setSingleLine(true);
         address.setHint("Search or enter address");
         address.setImeOptions(EditorInfo.IME_ACTION_GO);
-        address.setTextSize(16);
+        address.setTextSize(tvDevice ? 19 : 16);
         address.setTextColor(Color.WHITE);
         address.setHintTextColor(Color.rgb(166, 180, 195));
         address.setSelectAllOnFocus(true);
@@ -403,7 +403,7 @@ public final class MainActivity extends ComponentActivity {
         status.setPadding(dp(12), dp(4), dp(12), dp(4));
         status.setSingleLine(true);
         status.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        status.setTextSize(12);
+        status.setTextSize(tvDevice ? 15 : 12);
         status.setText(tvDevice ? "D-pad: select • OK: open • Menu: options"
                 : "Swipe to browse • Menu: options");
         status.setVisibility(tvDevice ? View.VISIBLE : View.GONE);
@@ -1467,7 +1467,9 @@ public final class MainActivity extends ComponentActivity {
                 "Clear browsing data",
                 "About Rudy Browser",
                 "Site permissions for current page",
-                "Save page as PDF"
+                "Save page as PDF",
+                "Scroll page down",
+                "Scroll page up"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1490,6 +1492,14 @@ public final class MainActivity extends ComponentActivity {
                                     break;
                             case 8: showNativeChromium(); break;
                             case 9: confirmClear(); break;
+                            case 13:
+                                if (engine == null || !engine.scrollPage(true))
+                                    toast("Scrolling unavailable");
+                                break;
+                            case 14:
+                                if (engine == null || !engine.scrollPage(false))
+                                    toast("Scrolling unavailable");
+                                break;
                             case 12:
                                 if (engine == null || !engine.savePagePdf())
                                     toast("PDF export unavailable for this page or device");
@@ -1793,6 +1803,13 @@ public final class MainActivity extends ComponentActivity {
             int key = event.getKeyCode();
             if (key == KeyEvent.KEYCODE_MENU) { showMenu(); return true; }
             if (key == KeyEvent.KEYCODE_SEARCH) { focusAddress(); return true; }
+            // PageUp/PageDown are explicit remote/keyboard navigation commands;
+            // never steal arrow keys from web forms, video or the system keyboard.
+            if (tvDevice && fullscreenView == null && !geckoFullscreen &&
+                    !cursorMode && engine.view().hasFocus() &&
+                    (key == KeyEvent.KEYCODE_PAGE_DOWN || key == KeyEvent.KEYCODE_PAGE_UP)) {
+                if (engine.scrollPage(key == KeyEvent.KEYCODE_PAGE_DOWN)) return true;
+            }
             if (tvDevice && cursorMode && fullscreenView == null && !geckoFullscreen
                     && engine.view().hasFocus()) {
                 switch (key) {
