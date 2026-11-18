@@ -40,8 +40,8 @@ jobs:
           "$APKSIGNER" verify --verbose "$LEGACY"
           "$APKSIGNER" verify --verbose "$PREVIEW"
           "$AAPT" dump badging "$LEGACY" | grep -F "package: name='io.rudycity.tvbrowser' "
-          "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.preview' "
-          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Preview'"
+          "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.preview06' "
+          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Preview 0.6'"
           sha256sum "$LEGACY" "$PREVIEW"
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4

@@ -77,8 +77,11 @@ previous CI debug artifacts used ephemeral Android debug signing keys, so
 their certificates were **not stable between build runs**. Do not uninstall
 your old browser just to test a build.
 
-The new **Rudy Browser Preview** APK has its own package ID:
-`io.rudycity.tvbrowser.preview`. It installs **alongside** the existing
+The first **Rudy Browser Preview** APK used the package ID
+`io.rudycity.tvbrowser.preview`. The 0.6 redesign preview now uses
+`io.rudycity.tvbrowser.preview06`, intentionally different from both
+the original browser and the earlier 0.5.x preview to avoid CI debug
+signature conflicts. It installs **alongside** the existing
 `io.rudycity.tvbrowser` without replacing its data. It intentionally
 does not share cookies, bookmarks, settings or accounts with the old app.
 The previous package continues to exist, with its same user data.

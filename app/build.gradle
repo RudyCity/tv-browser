@@ -29,7 +29,7 @@ android {
         preview {
             dimension 'renderer'
             minSdk 19
-            applicationIdSuffix '.preview'
+            applicationIdSuffix '.preview06'
             versionNameSuffix '-preview'
             manifestPlaceholders = [browserLabel: '@string/app_name_preview']
         }
