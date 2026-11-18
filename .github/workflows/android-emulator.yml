@@ -51,12 +51,21 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
+            set -eu
             gradle --no-daemon connectedPreviewDebugAndroidTest
-            mkdir -p app/build/reports/emulator
-            adb shell am start -n io.rudycity.tvbrowser.previewcompose07/io.rudycity.tvbrowser.MainActivity
+            # connectedAndroidTest removes the target app when the test runner exits.
+            # Reinstall before attempting a *standalone* runtime screenshot.
+            adb install -r app/build/outputs/apk/preview/debug/app-preview-debug.apk
+            adb shell am start -W -n io.rudycity.tvbrowser.previewcompose07/io.rudycity.tvbrowser.MainActivity
             sleep 4
+            # Fail the workflow if the browser is not actually resumed/foreground.
+            adb shell pidof io.rudycity.tvbrowser.previewcompose07
+            adb shell dumpsys activity activities > app/build/activity-after-launch.txt
+            grep -E 'mResumedActivity:.*io.rudycity.tvbrowser.previewcompose07' app/build/activity-after-launch.txt
+            mkdir -p app/build/reports/emulator
             adb exec-out screencap -p > app/build/reports/emulator/compose-startup.png
             test -s app/build/reports/emulator/compose-startup.png
+            cp app/build/activity-after-launch.txt app/build/reports/emulator/activity-after-launch.txt
       - name: Preserve instrumentation XML reports
         if: always()
         uses: actions/upload-artifact@v4
