@@ -39,6 +39,8 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private AlertDialog sitePermissionDialog;
     private GeckoSession.PermissionDelegate.Callback pendingAndroidPermission;
     private int pendingAndroidRequestCode = -1;
+    private GeckoResult<Integer> pendingLocationSiteResult;
+    private int pendingLocationRequestCode = -1;
     private final GeckoExtensionManager extensions;
     private final GeckoSession session;
     private final GeckoView view;
@@ -258,18 +260,41 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
                 type == GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS;
         if (!supported || !promptAllowed(permission.uri)) return GeckoResult.fromValue(
                 GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
-        if (type == GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION &&
-                !hasAndroidPermission(Manifest.permission.ACCESS_FINE_LOCATION) &&
-                !hasAndroidPermission(Manifest.permission.ACCESS_COARSE_LOCATION))
-            return GeckoResult.fromValue(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
         final GeckoResult<Integer> outcome = new GeckoResult<>();
         promptSite("Website permission: " + contentPermissionName(type),
                 safeOrigin(permission.uri) + "\n\nAllow " + contentPermissionName(type) +
                 " for this site? You can reset it from Browser tools → Site permissions.",
                 permission::notifyShown,
-                approved -> outcome.complete(approved
-                        ? GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
-                        : GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY));
+                approved -> {
+                    if (!approved || destroyed) {
+                        outcome.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+                        return;
+                    }
+                    if (type != GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION ||
+                            hasAndroidPermission(Manifest.permission.ACCESS_FINE_LOCATION) ||
+                            hasAndroidPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                        outcome.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW);
+                        return;
+                    }
+                    // Android grants may be requested only AFTER explicit site consent.
+                    // A second outstanding location request is denied, never overwritten.
+                    if (pendingLocationSiteResult != null) {
+                        outcome.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+                        return;
+                    }
+                    pendingLocationSiteResult = outcome;
+                    int code = NEXT_PERMISSION_ID.getAndIncrement();
+                    pendingLocationRequestCode = code;
+                    try {
+                        activity.requestPermissions(new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION}, code);
+                    } catch (RuntimeException unable) {
+                        pendingLocationSiteResult = null;
+                        pendingLocationRequestCode = -1;
+                        outcome.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+                    }
+                });
         return outcome;
     }
 
@@ -311,6 +336,24 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
 
     @Override public boolean onAndroidPermissionsResult(int code, String[] permissions,
                                                            int[] grants) {
+        if (code == pendingLocationRequestCode && pendingLocationSiteResult != null) {
+            GeckoResult<Integer> response = pendingLocationSiteResult;
+            pendingLocationSiteResult = null;
+            pendingLocationRequestCode = -1;
+            boolean granted = !destroyed;
+            boolean anyLocation = false;
+            for (int i = 0; i < Math.min(permissions.length, grants.length); i++) {
+                if (Manifest.permission.ACCESS_FINE_LOCATION.equals(permissions[i]) ||
+                        Manifest.permission.ACCESS_COARSE_LOCATION.equals(permissions[i])) {
+                    anyLocation |= grants[i] == PackageManager.PERMISSION_GRANTED;
+                }
+            }
+            granted &= anyLocation;
+            response.complete(granted
+                    ? GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                    : GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+            return true;
+        }
         if (code != pendingAndroidRequestCode || pendingAndroidPermission == null)
             return false;
         GeckoSession.PermissionDelegate.Callback callback = pendingAndroidPermission;
@@ -470,6 +513,10 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
         documents.destroy();
         if (sitePermissionDialog != null) sitePermissionDialog.dismiss();
         sitePermissionDialog = null;
+        if (pendingLocationSiteResult != null)
+            pendingLocationSiteResult.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY);
+        pendingLocationSiteResult = null;
+        pendingLocationRequestCode = -1;
         if (pendingAndroidPermission != null) pendingAndroidPermission.reject();
         pendingAndroidPermission = null;
         pendingAndroidRequestCode = -1;
