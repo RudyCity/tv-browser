@@ -1257,7 +1257,8 @@ public final class MainActivity extends ComponentActivity {
                 "Forward",
                 "Tabs (" + tabs.size() + ")",
                 bookmarked ? "Remove bookmark" : "Bookmark this page",
-                "Extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)",
+                (engine instanceof BrowserExtensions ? "Firefox WebExtensions" :
+                        "WebView extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)"),
                 "Bookmarks",
                 "Recent history",
                 "More tools and settings"
@@ -1360,12 +1361,26 @@ public final class MainActivity extends ComponentActivity {
         final String[] values = {EnginePolicy.AUTO, EnginePolicy.GECKO, EnginePolicy.CHROMIUM, EnginePolicy.WEBVIEW};
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int index) {
-                        String next = values[index];
-                        String url = engine == null ? null : engine.currentUrl();
-                        prefs.edit().putString(ENGINE, next).apply();
-                        selectEngine(next, url);
-                        recoveryAttempts = 0;
-                        toast(engineReason);
+                        final String next = values[index];
+                        final String url = engine == null ? null : engine.currentUrl();
+                        final Runnable apply = () -> {
+                            prefs.edit().putString(ENGINE, next).apply();
+                            selectEngine(next, url);
+                            recoveryAttempts = 0;
+                            toast(engineReason);
+                        };
+                        if (tabs.size() > 1) {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("Switch rendering engine for all tabs?")
+                                    .setMessage("This closes the other " + (tabs.size() - 1) +
+                                            " tab sessions. Cookies, history and site permissions " +
+                                            "are not transferred between GeckoView and WebView.")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Switch and close other tabs",
+                                            (ignored, which) -> apply.run()).show();
+                        } else {
+                            apply.run();
+                        }
                     }
                 };
         if (composeChrome != null) {
@@ -1379,15 +1394,23 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void clearBrowsingDataNow() {
-        if (engine != null) engine.clearBrowsingData();
+        // All live tabs must relinquish their independent history and caches.
+        // GeckoStorageController.clearData is asynchronous; never claim completion
+        // until a future callback-based privacy gate actually verifies deletion.
+        for (BrowserTab tab : new ArrayList<>(tabs)) {
+            if (tab.browser != null) tab.browser.clearBrowsingData();
+        }
         prefs.edit().remove(HISTORY).apply();
-        toast("Browsing data cleared");
-        home();
+        clearAllTabSessions();
+        createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+        toast("Browser storage deletion requested; all old tabs closed");
     }
 
     private void confirmClear() {
         final String title = "Clear browsing data?";
-        final String detail = "Deletes page cache, history, cookies and web storage. Bookmarks stay saved.";
+        final String detail = "Closes all tabs and requests deletion of browser cache, " +
+                "history, cookies and web storage. Gecko deletion is asynchronous; " +
+                "the browser will not claim verification until complete. Bookmarks stay saved.";
         if (composeChrome != null) {
             composeChrome.showConfirmation(title, detail, "Clear data", new Runnable() {
                 @Override public void run() { clearBrowsingDataNow(); }
