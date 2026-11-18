@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = 'rudy-browser'
-include ':app', ':engine-api'
+include ':app', ':engine-api', ':compose-ui'

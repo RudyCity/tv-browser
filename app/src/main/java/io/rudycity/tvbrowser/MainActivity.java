@@ -1,6 +1,7 @@
 package io.rudycity.tvbrowser;
 
 import android.app.Activity;
+import androidx.activity.ComponentActivity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
@@ -41,7 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Responsive Android phone, tablet, and TV shell with explicit engine fallback. */
-public final class MainActivity extends Activity {
+public final class MainActivity extends ComponentActivity {
     private static final String PREFERENCES = "tv_browser";
     private static final String BOOKMARKS = "bookmarks";
     private static final String HISTORY = "history";
@@ -70,6 +71,9 @@ public final class MainActivity extends Activity {
     private EditText address;
     private TextView status;
     private ProgressBar loadingProgress;
+    private BrowserChrome composeChrome;
+    private boolean pageLoading;
+    private int pageProgress;
     private Button bookmarkButton;
     private SharedPreferences prefs;
     private View fullscreenView;
@@ -266,6 +270,7 @@ public final class MainActivity extends Activity {
             @Override public void onClick(View v) { showMenu(); }
         });
         arrangeToolbar();
+        attachComposeChrome(toolbarStack, layout);
 
         engineSlot = new FrameLayout(this);
         engineSlot.setBackgroundColor(Color.rgb(12, 20, 30));
@@ -294,6 +299,60 @@ public final class MainActivity extends Activity {
         status.setVisibility(tvDevice ? View.VISIBLE : View.GONE);
         layout.addView(status, new LinearLayout.LayoutParams(-1, dp(26)));
         setContentView(root);
+        syncComposeChrome();
+    }
+
+    /** Modern variants load the Kotlin/Compose module; legacy API 19 never loads it. */
+    private void attachComposeChrome(LinearLayout legacyToolbar, LinearLayout parent) {
+        if (tvDevice || Build.VERSION.SDK_INT < 21) return;
+        try {
+            Class<?> implementation = Class.forName(
+                    "io.rudycity.tvbrowser.compose.ComposeBrowserToolbar");
+            BrowserChrome chrome = (BrowserChrome) implementation
+                    .getConstructor(Activity.class, BrowserChrome.Actions.class)
+                    .newInstance(this, new BrowserChrome.Actions() {
+                        @Override public void navigate(String input) { navigateFromCompose(input); }
+                        @Override public void back() {
+                            if (engine != null && engine.canGoBack()) engine.goBack();
+                        }
+                        @Override public void forward() {
+                            if (engine != null && engine.canGoForward()) engine.goForward();
+                        }
+                        @Override public void home() { MainActivity.this.home(); }
+                        @Override public void reload() {
+                            if (engine != null) engine.reload();
+                        }
+                        @Override public void bookmark() { toggleBookmark(); }
+                        @Override public void extensions() { showExtensions(); }
+                        @Override public void menu() { showMenu(); }
+                    });
+            parent.addView(chrome.view(), 1, new LinearLayout.LayoutParams(-1, -2));
+            composeChrome = chrome;
+            legacyToolbar.setVisibility(View.GONE);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException failure) {
+            // Never replace a working WebView with a broken UI; only the chrome changes.
+            android.util.Log.w("RudyBrowser", "Compose presentation unavailable; legacy UI used", failure);
+            composeChrome = null;
+            legacyToolbar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void navigateFromCompose(String input) {
+        try {
+            String url = UrlTools.navigate(input);
+            if (url != null) open(url);
+        } catch (IllegalArgumentException invalid) {
+            toast(invalid.getMessage());
+        }
+    }
+
+    private void syncComposeChrome() {
+        if (composeChrome == null) return;
+        String url = engine == null ? null : engine.currentUrl();
+        composeChrome.update(url, pageLoading, pageProgress,
+                engine != null && engine.canGoBack(),
+                engine != null && engine.canGoForward(),
+                UrlTools.isWebUrl(url) && isBookmarked(url));
     }
 
     private void addToolbarButton(LinearLayout row, Button button, int sizeDp) {
@@ -370,9 +429,12 @@ public final class MainActivity extends Activity {
 
     private final BrowserEngine.Listener rendererEvents = new BrowserEngine.Listener() {
         @Override public void onPageStarted(String url) {
+            pageLoading = true;
+            pageProgress = 5;
             loadingProgress.setProgress(5);
             loadingProgress.setVisibility(View.VISIBLE);
             status.setText("Loading…");
+            syncComposeChrome();
         }
         @Override public void onPageFinished(String url, String title) {
             if (UrlTools.isWebUrl(url)) {
@@ -383,12 +445,17 @@ public final class MainActivity extends Activity {
                 saveHistory(url, title);
             }
             refreshBookmarkButton();
+            pageLoading = false;
+            pageProgress = 100;
             loadingProgress.setVisibility(View.GONE);
+            syncComposeChrome();
             status.setText(cursorMode ? "Remote pointer: arrows move, OK clicks, Back exits"
                     : engine.name() + (tvDevice ? "  •  D-pad: navigate  •  Menu: options" :
                     "  •  Swipe to browse  •  Menu: options"));
         }
         @Override public void onProgress(int progress) {
+            pageProgress = progress;
+            pageLoading = progress < 100;
             if (progress < 100) {
                 loadingProgress.setVisibility(View.VISIBLE);
                 loadingProgress.setProgress(Math.max(1, progress));
@@ -396,9 +463,12 @@ public final class MainActivity extends Activity {
             } else {
                 loadingProgress.setVisibility(View.GONE);
             }
+            syncComposeChrome();
         }
         @Override public void onError(String message) {
+            pageLoading = false;
             loadingProgress.setVisibility(View.GONE);
+            syncComposeChrome();
             status.setText(message);
             toast(message);
         }
@@ -440,6 +510,8 @@ public final class MainActivity extends Activity {
         if (popupDialog != null) popupDialog.dismiss();
         if (downloadDialog != null) downloadDialog.dismiss();
         cursorMode = false;
+        pageLoading = false;
+        pageProgress = 0;
         if (cursorOverlay != null) cursorOverlay.setVisibility(View.GONE);
         hideFullscreen();
         BrowserEngine previous = engine;
@@ -457,11 +529,13 @@ public final class MainActivity extends Activity {
             engineSlot.addView(engine.view(), 0, new FrameLayout.LayoutParams(-1, -1));
             engine.view().requestFocus();
             status.setText(engine.name() + "  •  " + engineReason);
+            syncComposeChrome();
             if (restoreUrl != null && UrlTools.isWebUrl(restoreUrl)) open(restoreUrl);
             else home();
         } catch (RuntimeException | LinkageError error) {
             engineReason = "No working rendering engine available";
             status.setText(engineReason);
+            syncComposeChrome();
             new AlertDialog.Builder(this).setTitle("Browser unavailable")
                     .setMessage("Neither the embedded Chromium nor the system WebView could start. " +
                             "Check the TV firmware and system WebView package.")
@@ -502,6 +576,7 @@ public final class MainActivity extends Activity {
         address.setText(url);
         if (engine != null) engine.view().requestFocus();
         showCompactAddress();
+        syncComposeChrome();
     }
 
     private void home() {
@@ -558,6 +633,7 @@ public final class MainActivity extends Activity {
     private void refreshBookmarkButton() {
         String url = engine == null ? null : engine.currentUrl();
         bookmarkButton.setText(UrlTools.isWebUrl(url) && isBookmarked(url) ? "★" : "☆");
+        syncComposeChrome();
     }
 
     private void toggleBookmark() {
@@ -627,6 +703,10 @@ public final class MainActivity extends Activity {
     }
 
     private void focusAddress() {
+        if (composeChrome != null) {
+            composeChrome.focusAddress();
+            return;
+        }
         address.requestFocus();
         address.selectAll();
         InputMethodManager input = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);

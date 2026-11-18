@@ -12,8 +12,8 @@ android {
         applicationId 'io.rudycity.tvbrowser'
         minSdk 19
         targetSdk 28
-        versionCode 9
-        versionName '0.6.0'
+        versionCode 10
+        versionName '0.7.0'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
         manifestPlaceholders = [browserLabel: '@string/app_name']
     }
@@ -28,8 +28,8 @@ android {
         // Never use this ID for a production Play Store release.
         preview {
             dimension 'renderer'
-            minSdk 19
-            applicationIdSuffix '.preview06'
+            minSdk 21
+            applicationIdSuffix '.previewcompose07'
             versionNameSuffix '-preview'
             manifestPlaceholders = [browserLabel: '@string/app_name_preview']
         }
@@ -63,6 +63,11 @@ androidComponents {
 
 dependencies {
     implementation project(':engine-api')
+    // ComponentActivity installs ViewTreeLifecycleOwner needed by ComposeView.
+    // AndroidX Activity 1.9.3 continues to support legacy Android API 19.
+    implementation 'androidx.activity:activity:1.9.3'
+    previewImplementation project(':compose-ui')
+    chromiumImplementation project(':compose-ui')
     if (embeddedChromiumAar.isFile()) {
         chromiumImplementation files(embeddedChromiumAar)
     }

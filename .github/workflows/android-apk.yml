@@ -28,8 +28,8 @@ jobs:
           gradle-version: '8.7'
       - name: Verify pure Java engine policy
         run: bash scripts/test-policy.sh
-      - name: Test and build legacy and side-by-side preview APKs
-        run: gradle --no-daemon testLegacyDebugUnitTest testPreviewDebugUnitTest assembleLegacyDebug assemblePreviewDebug
+      - name: Test Kotlin Compose UI and legacy/modern Android variants
+        run: gradle --no-daemon :compose-ui:testDebugUnitTest testLegacyDebugUnitTest testPreviewDebugUnitTest assembleLegacyDebug assemblePreviewDebug
       - name: Verify APK signatures and distinct application IDs
         run: |
           set -euo pipefail
@@ -40,8 +40,8 @@ jobs:
           "$APKSIGNER" verify --verbose "$LEGACY"
           "$APKSIGNER" verify --verbose "$PREVIEW"
           "$AAPT" dump badging "$LEGACY" | grep -F "package: name='io.rudycity.tvbrowser' "
-          "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.preview06' "
-          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Preview 0.6'"
+          "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.previewcompose07' "
+          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Compose 0.7'"
           sha256sum "$LEGACY" "$PREVIEW"
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4

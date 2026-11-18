@@ -21,6 +21,30 @@ Android 10+ companion APK. Android 4.4–9 remains on System WebView. No automat
 native-to-WebView process recovery or Chrome Web Store support exists inside the
 legacy APK.
 
+## Kotlin + Jetpack Compose + Material 3 UI (0.7.0)
+
+The phone/tablet **Preview** variant now uses Kotlin Jetpack Compose and
+Material 3 to render the browser toolbar. The existing Java BrowserEngine,
+popup/download approvals, WebView lifecycle, history, bookmarks, and extensions
+remain owned by the same controller; the UI does not replace web content.
+
+- Kotlin 2.1.20, Compose Compiler 2.1.20, Compose BOM 2025.05.01,
+  Material 3, AndroidX Activity 1.9.3 lifecycle owners.
+- Single-row omnibox on phones, extra navigation buttons on tablets,
+  Material 3 overflow actions and slim loading indicator.
+- Android 5.0+ (API 21+) Preview package:
+  `io.rudycity.tvbrowser.previewcompose07`, installed separately so
+  existing browser data is not touched.
+- Android 4.4 (API 19–20) remains supported through the **legacy** Java
+  toolbar; Android TV still uses large D-pad-focusable legacy controls
+  until the Compose TV experience has real-device focus testing.
+- If the optional Compose class is unavailable or fails to initialize,
+  Java toolbar fallback remains visible, without replacing the engine.
+- Multi-tab, independent embedded Chromium and Chrome .crx extensions
+  are separate, not magically implemented by changing UI frameworks.
+
+See [Compose migration QA](docs/COMPOSE_MIGRATION.md).
+
 ## Chrome-inspired responsive browser UI (0.6.0)
 
 The browser chrome is redesigned, **not the websites themselves**. A webpage

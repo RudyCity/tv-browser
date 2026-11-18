@@ -1,5 +1,13 @@
 # Rudy Browser verification status (2026-11-18)
 
+## Compose UI migration (0.7.0)
+
+Implementation staged: Kotlin Compose + Material 3 presentation module for
+Preview Android 5.0+ touch devices, using an API-19-safe Java controller
+bridge; the legacy APK retains Java Views and Android 4.4 support.
+The runtime UI has **not** been tested on a physical Android device.
+See [the migration matrix](COMPOSE_MIGRATION.md) for verification gates.
+
 ## Chrome-inspired UI redesign 0.6.0
 
 Implemented in source: compact single-row phone toolbar, single-row tablet
