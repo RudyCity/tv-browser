@@ -168,6 +168,43 @@ public final class BrowserLaunchSmokeTest {
         });
     }
 
+    @Test public void bookmarksAndEngineMenusUseMaterialThreeAndCanBeDismissed() {
+        rule.getScenario().onActivity(activity -> {
+            activity.getSharedPreferences("tv_browser", android.content.Context.MODE_PRIVATE)
+                    .edit().putString("bookmarks",
+                            "[{\"url\":\"https://example.org/\",\"title\":\"QA Bookmark\"}]")
+                    .commit();
+            try {
+                java.lang.reflect.Method show = MainActivity.class.getDeclaredMethod(
+                        "showSavedList", String.class, boolean.class);
+                show.setAccessible(true);
+                show.invoke(activity, "bookmarks", false);
+            } catch (Exception ex) { throw new AssertionError(ex); }
+        });
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertTrue("Saved pages should render in Material 3",
+                device.wait(Until.hasObject(By.text("QA Bookmark")), 7000));
+        device.pressBack();
+        assertTrue("Dismiss must not select a bookmark",
+                device.wait(Until.gone(By.text("QA Bookmark")), 5000));
+        rule.getScenario().onActivity(activity -> {
+            try {
+                java.lang.reflect.Method choose = MainActivity.class.getDeclaredMethod("chooseEngine");
+                choose.setAccessible(true);
+                choose.invoke(activity);
+            } catch (Exception ex) { throw new AssertionError(ex); }
+        });
+        assertTrue("Rendering engine menu should use Compose",
+                device.wait(Until.hasObject(By.text("Rendering engine")), 7000));
+        assertTrue(device.wait(Until.hasObject(By.text("System WebView")), 5000));
+        device.pressBack();
+        assertTrue(device.wait(Until.gone(By.text("Rendering engine")), 5000));
+        rule.getScenario().onActivity(activity -> {
+            activity.getSharedPreferences("tv_browser", android.content.Context.MODE_PRIVATE)
+                    .edit().remove("bookmarks").commit();
+        });
+    }
+
     @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {
         rule.getScenario().onActivity(activity -> {
             assertFalse(android.security.NetworkSecurityPolicy.getInstance()

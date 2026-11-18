@@ -119,3 +119,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - 0.7.1 emulator first pass: APK workflow `44228131824` success, emulator `44228131921` failed 1/6 because a quick-site tap was asserted before asynchronous UI transition. Also identified stale local WebView `onPageFinished` callbacks that could reopen Compose home over HTTPS content. Fixed by explicit `homeRequested` state and waiting for disappearance in test; rerun required.
 
 - Quick-site accessibility regression: emulator run `44231272914` failed after a `By.text("Google")` click. Both WebView HTML and Compose landing expose "Google", creating ambiguous UIAutomator targeting. Quick-access Compose buttons now have dedicated `contentDescription` (e.g. `Open Google website`) and test targets that semantic button; CI rerun required. This is also a screen-reader UX improvement.
+
+- M4 next slice: bookmarks/history and rendering-engine choice dialogs now use Material 3 `BrowserChrome.showActions` on touch Preview, retaining Java's underlying storage and engine controller; legacy/TV stay on native dialogs. API29 instrumentation verifies both dialogs, dismiss without side effects. Source staged; CI pending.
+
+- M1/M3 0.7.1 proof: commit `ce5cffce` passed Android APK `44231925678` and Android API29 emulator `44231925662`, **6/6 instrumentation tests**, including Compose homepage quick-site navigation, WebView presence, Material 3 menu selection and cleartext enforcement. External webpage font rendering and physical devices remain unverified.

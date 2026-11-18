@@ -1,3 +1,18 @@
+## Native Compose 0.7.1 verified in emulator
+
+Commit `ce5cffce`: Android APK run `44231925678` succeeded; API29
+emulator run `44231925662` succeeded with six instrumentation tests,
+including native Compose quick-access click that reveals the WebView.
+This verifies a subset of emulator runtime, not physical phone/TV behavior
+or remote-site WebView font rasterization.
+
+## M4 additional Material 3 dialog migration (CI pending)
+
+On modern Preview touch devices, bookmarks/history selection and renderer choice
+reuse the Compose Material 3 actions dialog. Java continues to own storage
+and engine switching. Legacy API19/TV use native dialogs. API29 instrumentation
+checks saved entries, rendering-engine choices and dismiss without a selection.
+
 ## Native Material 3 homepage (0.7.1; CI pending)
 
 A Compose-backed homepage surface displays the landing title, search focus

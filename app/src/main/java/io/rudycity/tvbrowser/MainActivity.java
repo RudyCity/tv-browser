@@ -753,9 +753,10 @@ public final class MainActivity extends ComponentActivity {
             labels.add(item.optString("title", item.optString("url")));
         }
         if (entries.isEmpty()) { toast("No saved pages yet"); return; }
-        new AlertDialog.Builder(this)
-                .setTitle(remove ? "Remove bookmark" : key.equals(BOOKMARKS) ? "Bookmarks" : "Recently visited")
-                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
+        final String title = remove ? "Remove bookmark"
+                : key.equals(BOOKMARKS) ? "Bookmarks" : "Recently visited";
+        final String[] options = labels.toArray(new String[0]);
+        final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
                         String selected = entries.get(which).optString("url");
                         if (remove) {
@@ -768,7 +769,15 @@ public final class MainActivity extends ComponentActivity {
                             toast("Bookmark removed");
                         } else open(selected);
                     }
-                }).setNegativeButton("Cancel", null).show();
+                };
+        if (composeChrome != null) {
+            composeChrome.showActions(title, options, new BrowserChrome.ChoiceHandler() {
+                @Override public void onChoice(int index) { selection.onClick(null, index); }
+            });
+        } else {
+            new AlertDialog.Builder(this).setTitle(title)
+                    .setItems(options, selection).setNegativeButton("Cancel", null).show();
+        }
     }
 
     private void updateUserAgent() {
@@ -954,7 +963,7 @@ public final class MainActivity extends ComponentActivity {
                             case 9: confirmClear(); break;
                             case 10: new AlertDialog.Builder(MainActivity.this)
                                     .setTitle("About Rudy Browser")
-                                    .setMessage("Version 0.6.0 • Android 4.4+\nActive: " +
+                                    .setMessage("Version " + BuildConfig.VERSION_NAME + " • Android API " + Build.VERSION.SDK_INT + "\nActive: " +
                                             (engine == null ? "none" : engine.name()) +
                                             "\n" + engineReason +
                                             "\nModern embedded Chromium requires Android 10+ and " +
@@ -983,8 +992,7 @@ public final class MainActivity extends ComponentActivity {
     private void chooseEngine() {
         final String[] labels = {"Automatic (prefer embedded Chromium)", "Standalone Chromium", "System WebView"};
         final String[] values = {EnginePolicy.AUTO, EnginePolicy.CHROMIUM, EnginePolicy.WEBVIEW};
-        new AlertDialog.Builder(this).setTitle("Rendering engine")
-                .setItems(labels, new DialogInterface.OnClickListener() {
+        final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int index) {
                         String next = values[index];
                         String url = engine == null ? null : engine.currentUrl();
@@ -993,8 +1001,15 @@ public final class MainActivity extends ComponentActivity {
                         recoveryAttempts = 0;
                         toast(engineReason);
                     }
-                })
-                .setNegativeButton("Cancel", null).show();
+                };
+        if (composeChrome != null) {
+            composeChrome.showActions("Rendering engine", labels, new BrowserChrome.ChoiceHandler() {
+                @Override public void onChoice(int index) { selection.onClick(null, index); }
+            });
+        } else {
+            new AlertDialog.Builder(this).setTitle("Rendering engine")
+                    .setItems(labels, selection).setNegativeButton("Cancel", null).show();
+        }
     }
 
     private void confirmClear() {
