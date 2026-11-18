@@ -18,6 +18,14 @@ public interface BrowserChrome {
         void menu();
     }
 
+    interface ChoiceHandler {
+        /** Called only for an explicitly chosen action; dismiss never invokes callbacks. */
+        void onChoice(int index);
+    }
+
+    /** Render an accessible Material 3 browser menu; classic/TV shell uses native dialog. */
+    void showActions(String title, String[] labels, ChoiceHandler handler);
+
     View view();
     /** Open omnibox for text input, including from the old advanced tools menu. */
     void focusAddress();

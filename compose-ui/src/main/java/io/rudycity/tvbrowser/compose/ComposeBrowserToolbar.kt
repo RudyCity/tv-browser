@@ -3,6 +3,8 @@ package io.rudycity.tvbrowser.compose
 import android.app.Activity
 import android.view.View
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -33,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,14 +77,33 @@ class ComposeBrowserToolbar(
 ) : BrowserChrome {
     private var snapshot by mutableStateOf(ChromeSnapshot())
     private var focusSignal by mutableStateOf(0)
+    private var actionSheet by mutableStateOf<ActionSheet?>(null)
 
     private val composeView = ComposeView(activity).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         setContent {
             RudyBrowserTheme {
                 BrowserChromeContent(snapshot, actions, focusSignal)
+                actionSheet?.let { sheet ->
+                    BrowserActionsDialog(
+                        sheet = sheet,
+                        onDismiss = { actionSheet = null },
+                        onChoice = { index ->
+                            actionSheet = null
+                            sheet.callback.onChoice(index)
+                        }
+                    )
+                }
             }
         }
+    }
+
+    override fun showActions(
+        title: String,
+        labels: Array<String>,
+        handler: BrowserChrome.ChoiceHandler
+    ) {
+        if (labels.isNotEmpty()) actionSheet = ActionSheet(title, labels.toList(), handler)
     }
 
     override fun view(): View = composeView
@@ -104,6 +128,12 @@ class ComposeBrowserToolbar(
         )
     }
 }
+
+private data class ActionSheet(
+    val title: String,
+    val choices: List<String>,
+    val callback: BrowserChrome.ChoiceHandler
+)
 
 private data class ChromeSnapshot(
     val url: String = "",
@@ -291,4 +321,36 @@ private fun BrowserOverflow(state: ChromeSnapshot, actions: BrowserChrome.Action
             Entry("All browser tools", actions::menu, { Icon(Icons.Default.MoreVert, null) })
         }
     }
+}
+
+/** Material 3 action selector. An explicit choice is required to invoke its controller. */
+@Composable
+private fun BrowserActionsDialog(
+    sheet: ActionSheet,
+    onDismiss: () -> Unit,
+    onChoice: (Int) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(sheet.title, style = androidx.compose.material3.MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(RudySpacing.compact)
+            ) {
+                sheet.choices.forEachIndexed { index, label ->
+                    TextButton(
+                        onClick = { onChoice(index) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = RudyDimensions.touchTarget)
+                    ) {
+                        Text(label, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }

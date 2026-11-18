@@ -1,5 +1,13 @@
 # Rudy Browser verification status (2026-11-18)
 
+## M4 Material 3 menus (first slice, CI pending)
+
+The primary and advanced browser menus now render as a scrollable Compose
+Material 3 action dialog on touch Preview devices. Existing Java action
+handlers are reused; Android TV and API19 legacy retain native menus.
+Explicit choice is required to execute an action. An API29 UIAutomator
+instrumentation test now checks actual menu visibility and selection.
+
 ## M3 design tokens and screenshot capture (pending CI)
 
 Centralized Compose Material 3 theme/tokens replace ad-hoc toolbar colors,

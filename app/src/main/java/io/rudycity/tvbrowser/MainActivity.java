@@ -837,8 +837,7 @@ public final class MainActivity extends ComponentActivity {
                 "Recent history",
                 "More tools and settings"
         };
-        new AlertDialog.Builder(this).setTitle("Rudy Browser")
-                .setItems(options, new DialogInterface.OnClickListener() {
+        final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
                         switch (which) {
                             case 0: if (engine != null) engine.reload(); break;
@@ -852,7 +851,15 @@ public final class MainActivity extends ComponentActivity {
                             case 7: showToolsMenu(); break;
                         }
                     }
-                }).setNegativeButton("Close", null).show();
+                };
+        if (composeChrome != null) {
+            composeChrome.showActions("Rudy Browser", options, new BrowserChrome.ChoiceHandler() {
+                @Override public void onChoice(int index) { selection.onClick(null, index); }
+            });
+        } else {
+            new AlertDialog.Builder(this).setTitle("Rudy Browser")
+                    .setItems(options, selection).setNegativeButton("Close", null).show();
+        }
     }
 
     private void showToolsMenu() {
@@ -873,8 +880,7 @@ public final class MainActivity extends ComponentActivity {
                 "Clear browsing data",
                 "About Rudy Browser"
         };
-        new AlertDialog.Builder(this).setTitle("Browser tools")
-                .setItems(options, new DialogInterface.OnClickListener() {
+        final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
                         switch (which) {
                             case 0: focusAddress(); break;
@@ -907,11 +913,20 @@ public final class MainActivity extends ComponentActivity {
                                     break;
                         }
                     }
-                }).setNegativeButton("Back", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface dialog, int which) {
-                        showMenu();
-                    }
-                }).show();
+                };
+        if (composeChrome != null) {
+            composeChrome.showActions("Browser tools", options, new BrowserChrome.ChoiceHandler() {
+                @Override public void onChoice(int index) { selection.onClick(null, index); }
+            });
+        } else {
+            new AlertDialog.Builder(this).setTitle("Browser tools")
+                    .setItems(options, selection)
+                    .setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                        @Override public void onClick(DialogInterface dialog, int which) {
+                            showMenu();
+                        }
+                    }).show();
+        }
     }
 
     private void chooseEngine() {

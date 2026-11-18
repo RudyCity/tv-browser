@@ -4,6 +4,11 @@ import android.view.View;
 import android.widget.ProgressBar;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.Until;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +45,30 @@ public final class BrowserLaunchSmokeTest {
                 throw new AssertionError("Compose startup smoke failed", e);
             }
         });
+    }
+
+    @Test public void materialThreeActionsAreVisibleAndInvokeOnlyExplicitSelection() {
+        final AtomicInteger chosen = new AtomicInteger(-1);
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserChrome chrome = (BrowserChrome) field(activity, "composeChrome");
+                assertNotNull("Preview should use Compose", chrome);
+                chrome.showActions("QA browser actions", new String[]{"First action", "Second action"},
+                        new BrowserChrome.ChoiceHandler() {
+                            @Override public void onChoice(int index) { chosen.set(index); }
+                        });
+            } catch (Exception exception) {
+                throw new AssertionError(exception);
+            }
+        });
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertTrue("Material 3 action dialog did not appear",
+                device.wait(Until.hasObject(By.text("QA browser actions")), 7000));
+        assertEquals("No actions may run without user selection", -1, chosen.get());
+        assertTrue(device.wait(Until.hasObject(By.text("First action")), 5000));
+        device.findObject(By.text("First action")).click();
+        assertTrue(device.wait(Until.gone(By.text("QA browser actions")), 5000));
+        assertEquals(0, chosen.get());
     }
 
     @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {
