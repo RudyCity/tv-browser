@@ -1012,18 +1012,29 @@ public final class MainActivity extends ComponentActivity {
         }
     }
 
+    private void clearBrowsingDataNow() {
+        if (engine != null) engine.clearBrowsingData();
+        prefs.edit().remove(HISTORY).apply();
+        toast("Browsing data cleared");
+        home();
+    }
+
     private void confirmClear() {
-        new AlertDialog.Builder(this).setTitle("Clear browsing data?")
-                .setMessage("Deletes page cache, history, cookies and web storage. Bookmarks stay saved.")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Clear", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface dialog, int which) {
-                        if (engine != null) engine.clearBrowsingData();
-                        prefs.edit().remove(HISTORY).apply();
-                        toast("Browsing data cleared");
-                        home();
-                    }
-                }).show();
+        final String title = "Clear browsing data?";
+        final String detail = "Deletes page cache, history, cookies and web storage. Bookmarks stay saved.";
+        if (composeChrome != null) {
+            composeChrome.showConfirmation(title, detail, "Clear data", new Runnable() {
+                @Override public void run() { clearBrowsingDataNow(); }
+            });
+        } else {
+            new AlertDialog.Builder(this).setTitle(title).setMessage(detail)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Clear", new DialogInterface.OnClickListener() {
+                        @Override public void onClick(DialogInterface dialog, int which) {
+                            clearBrowsingDataNow();
+                        }
+                    }).show();
+        }
     }
 
     /** All user-triggered new-window links require an explicit human choice. */

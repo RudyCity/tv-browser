@@ -78,6 +78,7 @@ class ComposeBrowserToolbar(
     private var snapshot by mutableStateOf(ChromeSnapshot())
     private var focusSignal by mutableStateOf(0)
     private var actionSheet by mutableStateOf<ActionSheet?>(null)
+    private var confirmation by mutableStateOf<Confirmation?>(null)
 
     private val composeView = ComposeView(activity).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
@@ -94,6 +95,16 @@ class ComposeBrowserToolbar(
                         }
                     )
                 }
+                confirmation?.let { request ->
+                    BrowserConfirmationDialog(
+                        request = request,
+                        onDismiss = { confirmation = null },
+                        onConfirm = {
+                            confirmation = null
+                            request.callback.run()
+                        }
+                    )
+                }
             }
         }
     }
@@ -104,6 +115,15 @@ class ComposeBrowserToolbar(
         handler: BrowserChrome.ChoiceHandler
     ) {
         if (labels.isNotEmpty()) actionSheet = ActionSheet(title, labels.toList(), handler)
+    }
+
+    override fun showConfirmation(
+        title: String,
+        message: String,
+        actionLabel: String,
+        onConfirm: Runnable
+    ) {
+        confirmation = Confirmation(title, message, actionLabel, onConfirm)
     }
 
     override fun view(): View = composeView
@@ -133,6 +153,13 @@ private data class ActionSheet(
     val title: String,
     val choices: List<String>,
     val callback: BrowserChrome.ChoiceHandler
+)
+
+private data class Confirmation(
+    val title: String,
+    val message: String,
+    val actionLabel: String,
+    val callback: Runnable
 )
 
 private data class ChromeSnapshot(
@@ -351,6 +378,28 @@ private fun BrowserActionsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+/** A destructive action is never executed by dismissal, Back, or outside taps. */
+@Composable
+private fun BrowserConfirmationDialog(
+    request: Confirmation,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(request.title) },
+        text = { Text(request.message) },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Keep data") }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(request.actionLabel, color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+            }
         }
     )
 }

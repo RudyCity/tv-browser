@@ -26,6 +26,9 @@ public interface BrowserChrome {
     /** Render an accessible Material 3 browser menu; classic/TV shell uses native dialog. */
     void showActions(String title, String[] labels, ChoiceHandler handler);
 
+    /** Explicit affirmative action only; dismiss and Cancel must never execute it. */
+    void showConfirmation(String title, String message, String actionLabel, Runnable onConfirm);
+
     View view();
     /** Open omnibox for text input, including from the old advanced tools menu. */
     void focusAddress();

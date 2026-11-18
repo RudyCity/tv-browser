@@ -205,6 +205,36 @@ public final class BrowserLaunchSmokeTest {
         });
     }
 
+
+    @Test public void materialConfirmationNeverExecutesOnBackOrDismiss() {
+        final AtomicInteger confirmed = new AtomicInteger();
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserChrome chrome = (BrowserChrome) field(activity, "composeChrome");
+                chrome.showConfirmation("QA confirmation", "Verify dismissal cannot delete data",
+                        "Erase QA", () -> confirmed.incrementAndGet());
+            } catch (Exception ex) { throw new AssertionError(ex); }
+        });
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertTrue("Material 3 confirmation not displayed",
+                device.wait(Until.hasObject(By.text("QA confirmation")), 7000));
+        assertEquals("Showing the confirmation must not mutate state", 0, confirmed.get());
+        device.pressBack();
+        assertTrue(device.wait(Until.gone(By.text("QA confirmation")), 5000));
+        assertEquals("Back may not confirm destructive actions", 0, confirmed.get());
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserChrome chrome = (BrowserChrome) field(activity, "composeChrome");
+                chrome.showConfirmation("QA confirmation", "Approve explicitly", "Erase QA",
+                        () -> confirmed.incrementAndGet());
+            } catch (Exception ex) { throw new AssertionError(ex); }
+        });
+        assertTrue(device.wait(Until.hasObject(By.text("Erase QA")), 7000));
+        device.findObject(By.text("Erase QA")).click();
+        assertTrue(device.wait(Until.gone(By.text("QA confirmation")), 7000));
+        assertEquals("Only the explicit affirmative tap may execute", 1, confirmed.get());
+    }
+
     @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {
         rule.getScenario().onActivity(activity -> {
             assertFalse(android.security.NetworkSecurityPolicy.getInstance()

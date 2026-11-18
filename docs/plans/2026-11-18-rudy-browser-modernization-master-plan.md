@@ -127,3 +127,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - M3 emulator screenshot review: 0.7.1 on API29 shows native homepage and toolbar correctly, but revealed a duplicated search affordance and oversized pill shortcut buttons. UI refinement staged: remove redundant home search, use smaller typography and 48dp medium-shaped quick-access buttons. Pending new CI/screenshots.
 
 - M4 continued evidence: commit `fd243442`, Android APK run `44232578952` SUCCESS and Android API29 emulator run `44232578953` SUCCESS, **7/7 tests** including bookmarks and engine Material 3 dialogs. Remaining M4: extensions manager, full settings, secure consent and download dialogs.
+
+- M4 secure confirmation slice staged: new Compose Material 3 destructive confirmation for Clear Browsing Data; Cancel/Back/outside tap cannot invoke the clear callback, existing Java/TV AlertDialog retained. Emulator instrumentation covers dismiss without side effects and explicit affirmative execution; CI evidence pending.
+
+- M3 refined home proof: commit `5d31d10c` passed Android APK run `44233234474` and API29 emulator run `44233234693`, **7/7 tests**. The actual screenshot was reviewed: one toolbar omnibox, smaller title, 48dp medium-corner shortcuts; redundant in-home search removed. Android physical/TV screenshot QA remains pending.

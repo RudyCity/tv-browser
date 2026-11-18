@@ -1,3 +1,18 @@
+## M3 home refinement — verified API29
+
+Commit `5d31d10c`, workflows `44233234474` (Android APK) and
+`44233234693` (emulator) both passed; seven instrumentation tests succeeded.
+A real screenshot confirms the duplicate in-home search is removed and
+shortcut buttons now use 48dp height and medium Material 3 corners.
+This is emulator UI QA only, not a production release.
+
+## M4 Material 3 destructive confirmations (CI pending)
+
+Modern Preview renders Clear Browsing Data via a Material 3 AlertDialog with
+clearly separated Keep data and Clear data actions. Back, outside tap and
+dismiss never invoke the Java clearing callback. Legacy and TV retain native
+AlertDialog. API29 instrumentation tests both dismiss and explicit selection.
+
 ## M4 bookmark/engine dialogs — tested
 
 Commit `fd243442` passed Android APK workflow `44232578952` and API29
