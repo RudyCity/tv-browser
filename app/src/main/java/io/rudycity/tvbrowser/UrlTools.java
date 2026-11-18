@@ -32,6 +32,17 @@ public final class UrlTools {
                 !input.toLowerCase(Locale.US).startsWith("https:")) {
             throw new IllegalArgumentException("Only HTTP and HTTPS addresses are allowed");
         }
+        // Explicit HTTP(S) URLs are addresses, never search terms. Previously,
+        // malformed URLs containing spaces or credentials were sent to Google
+        // Search, leaking potentially private addresses and query tokens.
+        // Fail closed instead and let the user correct the address locally.
+        if (input.regionMatches(true, 0, "https:", 0, 6) ||
+                input.regionMatches(true, 0, "http:", 0, 5)) {
+            if (!isWebUrl(input)) {
+                throw new IllegalArgumentException("Invalid HTTP/HTTPS address");
+            }
+            return input;
+        }
         if (input.indexOf(' ') >= 0) return search(input);
         // A single word should be a search, not a made-up HTTPS hostname.
         if (!input.matches("(?i)^https?://.*") &&
