@@ -1,0 +1,76 @@
+name: Android TV Emulator Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-tv.yml'
+      - 'app/**'
+      - 'engine-api/**'
+      - 'compose-ui/**'
+  pull_request:
+    paths:
+      - '.github/workflows/android-tv.yml'
+      - 'app/**'
+      - 'engine-api/**'
+      - 'compose-ui/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tv-api29-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Enable hardware emulation
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Boot actual Android TV API29 and verify remote semantics
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86
+          target: android-tv
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            gradle --no-daemon :app:assemblePreviewDebug :app:assemblePreviewDebugAndroidTest
+            adb install -r app/build/outputs/apk/preview/debug/app-preview-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/preview/debug/app-preview-debug-androidTest.apk
+            adb shell pm list features | grep 'android.software.leanback'
+            adb shell am instrument -w -e class io.rudycity.tvbrowser.TvRemoteFocusSmokeTest io.rudycity.tvbrowser.previewcompose071.test/androidx.test.runner.AndroidJUnitRunner | tee tv-test-output.txt
+            grep -F 'OK (2 tests)' tv-test-output.txt
+            adb shell am start -W -n io.rudycity.tvbrowser.previewcompose071/io.rudycity.tvbrowser.MainActivity
+            sleep 3
+            adb shell input keyevent KEYCODE_MENU
+            adb shell input keyevent KEYCODE_DPAD_DOWN
+            adb shell input keyevent KEYCODE_BACK
+            adb shell pidof io.rudycity.tvbrowser.previewcompose071
+            mkdir -p app/build/reports/tv
+            adb exec-out screencap -p > app/build/reports/tv/android-tv-remote.png
+            test -s app/build/reports/tv/android-tv-remote.png
+            adb shell dumpsys activity activities > app/build/reports/tv/activity.txt
+            grep -F 'io.rudycity.tvbrowser.previewcompose071' app/build/reports/tv/activity.txt
+      - name: Preserve TV emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-android-tv-api29-evidence
+          path: |
+            tv-test-output.txt
+            app/build/reports/tv/
+          if-no-files-found: ignore
+          retention-days: 14
