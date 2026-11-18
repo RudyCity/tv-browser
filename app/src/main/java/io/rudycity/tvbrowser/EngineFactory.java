@@ -27,6 +27,27 @@ public final class EngineFactory {
         }
     }
 
+    /** Private tabs must never fall back to a shared System WebView cookie jar. */
+    public static Selection createPrivate(Activity activity, boolean desktop,
+                                          BrowserEngine.Listener listener) {
+        if (Build.VERSION.SDK_INT < EnginePolicy.MIN_GECKO_API)
+            throw new IllegalStateException("Private GeckoView needs Android 8+");
+        try {
+            Class<?> gecko = Class.forName(GECKO_PROVIDER, false, activity.getClassLoader());
+            Constructor<?> constructor = gecko.getConstructor(
+                    Activity.class, BrowserEngine.Listener.class, boolean.class, boolean.class);
+            BrowserEngine engine = (BrowserEngine) constructor.newInstance(
+                    activity, listener, desktop, true);
+            if (engine == null || !"Firefox GeckoView".equals(engine.name()) ||
+                    engine.view() == null || engine.view() instanceof android.webkit.WebView)
+                throw new IllegalStateException("Private Gecko renderer invalid");
+            return new Selection(engine, "Private GeckoView session", false);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException unavailable) {
+            // Deliberately no WebView fallback: it would share cookies with normal tabs.
+            throw new IllegalStateException("Private GeckoView unavailable", unavailable);
+        }
+    }
+
     public static Selection create(Activity activity, String preference,
                                    boolean desktop, BrowserEngine.Listener listener) {
         String safePreference = EnginePolicy.sanitize(preference);

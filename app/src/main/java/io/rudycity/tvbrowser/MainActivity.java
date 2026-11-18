@@ -79,6 +79,7 @@ public final class MainActivity extends ComponentActivity {
         boolean loading;
         boolean crashed;
         int progress;
+        boolean privateMode;
     }
     private final List<BrowserTab> tabs = new ArrayList<>();
     private BrowserTab activeTab;
@@ -147,16 +148,19 @@ public final class MainActivity extends ComponentActivity {
     }
 
     @Override protected void onSaveInstanceState(Bundle outState) {
-        if (engine != null && UrlTools.isWebUrl(engine.currentUrl()))
+        if (activeTab != null && !activeTab.privateMode &&
+                engine != null && UrlTools.isWebUrl(engine.currentUrl()))
             outState.putString("current_url", engine.currentUrl());
         ArrayList<String> urls = new ArrayList<>();
+        int selected = 0;
         for (BrowserTab tab : tabs) {
+            if (tab.privateMode) continue;
+            if (tab == activeTab) selected = urls.size();
             String url = tab.browser == null ? null : tab.browser.currentUrl();
-            // No cookie or private session data is ever serialized into a Bundle.
             urls.add(UrlTools.isWebUrl(url) ? url : "");
         }
         outState.putStringArrayList("restorable_tabs", urls);
-        outState.putInt("selected_tab", Math.max(0, tabs.indexOf(activeTab)));
+        outState.putInt("selected_tab", selected);
         super.onSaveInstanceState(outState);
     }
 
@@ -164,13 +168,17 @@ public final class MainActivity extends ComponentActivity {
     private void persistTabs() {
         if (restoringSession || clearingBrowserData || tabs.isEmpty()) return;
         JSONArray urls = new JSONArray();
+        int selected = 0;
         for (BrowserTab tab : tabs) {
+            // Private URLs and tab counts must never be written to persistent storage.
+            if (tab.privateMode) continue;
+            if (tab == activeTab) selected = urls.length();
             String url = tab.browser == null ? null : tab.browser.currentUrl();
             if (!UrlTools.isWebUrl(url)) url = tab.url;
             urls.put(UrlTools.isWebUrl(url) ? url : "");
         }
         prefs.edit().putString(RESTORE_TABS, urls.toString())
-                .putInt(RESTORE_SELECTED, Math.max(0, tabs.indexOf(activeTab))).apply();
+                .putInt(RESTORE_SELECTED, selected).apply();
     }
 
     private void restorePersistedTabs() {
@@ -587,7 +595,7 @@ public final class MainActivity extends ComponentActivity {
                     address.setText(url);
                     showCompactAddress();
                 }
-                saveHistory(url, title);
+                if (activeTab == null || !activeTab.privateMode) saveHistory(url, title);
             }
             pageLoading = false;
             pageProgress = 100;
@@ -728,6 +736,12 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private boolean createBrowserTab(String preference, String restoreUrl) {
+        return createBrowserTab(preference, restoreUrl, false);
+    }
+
+    private boolean createBrowserTab(String preference, String restoreUrl,
+                                     boolean privateMode) {
+        if (clearingBrowserData) return false;
         if (tabs.size() >= maxTabs()) {
             toast("Tab limit reached; close a background tab to free memory");
             return false;
@@ -735,13 +749,18 @@ public final class MainActivity extends ComponentActivity {
         BrowserTab tab = new BrowserTab();
         final EngineFactory.Selection selected;
         try {
-            selected = EngineFactory.create(this, preference,
-                    prefs.getBoolean(DESKTOP, false), guardedEvents(tab));
+            selected = privateMode
+                    ? EngineFactory.createPrivate(this, prefs.getBoolean(DESKTOP, false),
+                            guardedEvents(tab))
+                    : EngineFactory.create(this, preference,
+                            prefs.getBoolean(DESKTOP, false), guardedEvents(tab));
         } catch (RuntimeException | LinkageError problem) {
-            status.setText("Unable to start a new browser tab");
+            status.setText(privateMode ? "Private Gecko tab unavailable on this device"
+                    : "Unable to start a new browser tab");
             return false;
         }
         tab.browser = selected.engine;
+        tab.privateMode = privateMode;
         tab.reason = selected.reason;
         BrowserTab previous = activeTab;
         if (previous != null) {
@@ -768,7 +787,8 @@ public final class MainActivity extends ComponentActivity {
         else home();
         updateJavaProgress();
         syncComposeChrome();
-        status.setText(engine.name() + " • tab " + tabs.size() + "/" + maxTabs());
+        status.setText((tab.privateMode ? "Private • " : "") + engine.name() +
+                " • tab " + tabs.size() + "/" + maxTabs());
         engine.onResume();
         persistTabs();
         return true;
@@ -815,7 +835,8 @@ public final class MainActivity extends ComponentActivity {
         refreshBookmarkButton();
         updateJavaProgress();
         syncComposeChrome();
-        status.setText(engine.name() + " • tab " + (index + 1) + "/" + tabs.size());
+        status.setText((selected.privateMode ? "Private • " : "") + engine.name() +
+                " • tab " + (index + 1) + "/" + tabs.size());
         engine.view().requestFocus();
         persistTabs();
     }
@@ -844,7 +865,7 @@ public final class MainActivity extends ComponentActivity {
 
     private void showBrowserTabs() {
         final int count = tabs.size();
-        final String[] choices = new String[count + 3];
+        final String[] choices = new String[count + 4];
         for (int i = 0; i < count; i++) {
             BrowserTab tab = tabs.get(i);
             String label = tab.title;
@@ -855,18 +876,21 @@ public final class MainActivity extends ComponentActivity {
             }
             if (label.length() > 42) label = label.substring(0, 42) + "…";
             choices[i] = (tab == activeTab ? "● " : "○ ") +
-                    (i + 1) + ". " + label;
+                    (i + 1) + ". " + (tab.privateMode ? "Private • " : "") + label;
         }
         choices[count] = "New independent tab";
-        choices[count + 1] = "Close current tab";
-        choices[count + 2] = "Close all tabs";
+        choices[count + 1] = "New private Gecko tab (Android 8+)";
+        choices[count + 2] = "Close current tab";
+        choices[count + 3] = "Close all tabs";
         BrowserChrome.ChoiceHandler handler = new BrowserChrome.ChoiceHandler() {
             @Override public void onChoice(int choice) {
                 if (choice < count) switchBrowserTab(choice);
                 else if (choice == count) createBrowserTab(
                         prefs.getString(ENGINE, EnginePolicy.AUTO), null);
-                else if (choice == count + 1) closeBrowserTab(tabs.indexOf(activeTab));
-                else if (choice == count + 2) {
+                else if (choice == count + 1) createBrowserTab(
+                        EnginePolicy.GECKO, null, true);
+                else if (choice == count + 2) closeBrowserTab(tabs.indexOf(activeTab));
+                else if (choice == count + 3) {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("Close all browser tabs?")
                             .setMessage("All tab sessions will be destroyed. Open pages " +
@@ -1460,6 +1484,15 @@ public final class MainActivity extends ComponentActivity {
         if (clearing.isEmpty()) { finishClearBrowsingData(false); return; }
         final int[] pending = {clearing.size()};
         final boolean[] completed = {true};
+        // Close every other GeckoSession before the Gecko runtime clears storage.
+        BrowserEngine geckoOwner = null;
+        for (BrowserEngine browser : clearing)
+            if ("Firefox GeckoView".equals(browser.name())) geckoOwner = browser;
+        if (geckoOwner != null) for (BrowserTab tab : tabs) {
+            if (tab.browser != geckoOwner && tab.browser != null &&
+                    "Firefox GeckoView".equals(tab.browser.name()))
+                tab.browser.destroy();
+        }
         status.setText("Clearing browser storage…");
         for (BrowserEngine browser : clearing) {
             browser.clearBrowsingDataWithResult(ok -> runOnUiThread(() -> {

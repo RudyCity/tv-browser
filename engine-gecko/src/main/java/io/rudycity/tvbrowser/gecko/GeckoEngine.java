@@ -34,12 +34,20 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     private boolean forward;
     private boolean firstContentfulPaint;
     private boolean destroyed;
+    private final boolean privateMode;
 
     public GeckoEngine(Activity activity, Listener callback, boolean desktop) {
+        this(activity, callback, desktop, false);
+    }
+
+    public GeckoEngine(Activity activity, Listener callback, boolean desktop,
+                       boolean privateMode) {
+        this.privateMode = privateMode;
         listener = callback;
         runtime = GeckoRuntime.getDefault(activity.getApplicationContext());
         extensions = new GeckoExtensionManager(activity, runtime);
-        session = new GeckoSession();
+        session = new GeckoSession(new GeckoSessionSettings.Builder()
+                .usePrivateMode(privateMode).useTrackingProtection(true).build());
         view = new GeckoView(activity);
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
@@ -153,6 +161,7 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
 
     /** Runtime tests must see a real first contentful paint, not merely a constructed View. */
     public boolean hasFirstContentfulPaint() { return firstContentfulPaint; }
+    public boolean isPrivateSession() { return privateMode; }
     @Override public void listAddons(ListCallback callback) {
         extensions.listAddons(callback);
     }
@@ -209,7 +218,9 @@ public final class GeckoEngine implements BrowserEngine, BrowserExtensions {
     }
     @Override public void clearBrowsingDataWithResult(ClearCallback callback) {
         if (destroyed) { callback.onResult(false); return; }
+        // Gecko storage may re-accumulate data if its sessions remain open.
         session.purgeHistory();
+        destroy();
         runtime.getStorageController().clearData(StorageController.ClearFlags.ALL)
                 .then(ignored -> {
                     callback.onResult(true);
