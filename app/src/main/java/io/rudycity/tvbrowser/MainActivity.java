@@ -1515,26 +1515,31 @@ public final class MainActivity extends ComponentActivity {
                 .setNegativeButton("Done", (ignored, which) -> target.clearFindInPage())
                 .setNeutralButton("Previous", null)
                 .setPositiveButton("Find / Next", null).create();
-        final java.util.function.Consumer<Boolean> find = backwards -> {
-            if (engine != target || !UrlTools.isWebUrl(target.currentUrl())) {
-                dialog.dismiss();
-                return;
+        // A local action class avoids java.util.function.Consumer, absent
+        // from Android 4.4's boot classpath without core-library desugaring.
+        final class FindAction {
+            void run(boolean backwards) {
+                if (engine != target || !UrlTools.isWebUrl(target.currentUrl())) {
+                    dialog.dismiss();
+                    return;
+                }
+                String query = search.getText().toString();
+                if (query.trim().isEmpty()) {
+                    search.setError("Enter text");
+                    return;
+                }
+                if (!target.findInPage(query, backwards, (current, total) ->
+                        dialog.setTitle(total == 0 ? "No matches" :
+                                "Find in page • " + current + "/" + total)))
+                    search.setError("Search not supported by this engine");
             }
-            String query = search.getText().toString();
-            if (query.trim().isEmpty()) {
-                search.setError("Enter text");
-                return;
-            }
-            if (!target.findInPage(query, backwards, (current, total) ->
-                    dialog.setTitle(total == 0 ? "No matches" :
-                            "Find in page • " + current + "/" + total)))
-                search.setError("Search not supported by this engine");
-        };
+        }
+        final FindAction find = new FindAction();
         dialog.setOnShowListener(ignored -> {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v ->
-                    find.accept(false));
+                    find.run(false));
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
-                    find.accept(true));
+                    find.run(true));
             search.requestFocus();
         });
         dialog.setOnDismissListener(ignored -> target.clearFindInPage());
