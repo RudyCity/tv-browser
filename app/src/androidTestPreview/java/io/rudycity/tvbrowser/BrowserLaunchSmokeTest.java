@@ -152,9 +152,9 @@ public final class BrowserLaunchSmokeTest {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         assertTrue("Native home quick-access UI must render",
                 device.wait(Until.hasObject(By.text("Quick access")), 7000));
-        assertTrue("Google quick-access link missing",
-                device.wait(Until.hasObject(By.text("Google")), 5000));
-        device.findObject(By.text("Google")).click();
+        assertTrue("Native Compose Google button missing",
+                device.wait(Until.hasObject(By.desc("Open Google website")), 5000));
+        device.findObject(By.desc("Open Google website")).click();
         assertTrue("Tapping a quick site must hide the native landing asynchronously",
                 device.wait(Until.gone(By.text("Quick access")), 10000));
         rule.getScenario().onActivity(activity -> {

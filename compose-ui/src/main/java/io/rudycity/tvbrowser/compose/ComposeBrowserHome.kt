@@ -111,7 +111,8 @@ private fun RudyHomeContent(actions: BrowserHome.Actions) {
                         FilledTonalButton(
                             onClick = { actions.openWebsite(site.url) },
                             modifier = Modifier.weight(1f)
-                                .height(RudyDimensions.omniboxHeight),
+                                .height(RudyDimensions.omniboxHeight)
+                                .semantics { contentDescription = "Open " + site.label + " website" },
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = RudyColors.omnibox,
                                 contentColor = RudyColors.foreground
