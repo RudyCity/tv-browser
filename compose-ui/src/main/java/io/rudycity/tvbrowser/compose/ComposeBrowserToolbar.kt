@@ -142,6 +142,7 @@ private fun BrowserChromeContent(
         Column {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isTablet = maxWidth >= 600.dp
+                val wideTablet = maxWidth >= 760.dp
                 Row(
                     modifier = Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -154,7 +155,7 @@ private fun BrowserChromeContent(
                         ToolbarAction("Go forward", state.canGoForward, { actions.forward() }) {
                             Icon(Icons.Default.ArrowForward, contentDescription = null)
                         }
-                        if (maxWidth >= 760.dp) {
+                        if (wideTablet) {
                             ToolbarAction("Home", true, { actions.home() }) {
                                 Icon(Icons.Default.Home, contentDescription = null)
                             }
