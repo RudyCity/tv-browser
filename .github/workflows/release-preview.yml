@@ -1,13 +1,8 @@
 name: Publish Rudy Browser developer pre-release
 
-# First publication: a path-scoped push bootstraps the audited CI artifacts.
-# Later publications: workflow_dispatch with an exact tested commit + three CI run IDs.
-# NEVER publishes production-signed APKs or changes Android app identifiers.
+# Manual, fail-closed release only. No release on push; no unsigned rewrite.
+# Requires exact source SHA and successful artifacts from three CI workflows.
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/release-preview.yml
   workflow_dispatch:
     inputs:
       source_sha:
@@ -50,19 +45,10 @@ jobs:
           INPUT_PREVIEW_RUN_ID: ${{ inputs.preview_smoke_run_id }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            # The initial snapshot's three workflows passed before this release
-            # automation file was added. Do not retarget to the automation commit.
-            SOURCE_SHA=67001288ba57b64ec945194c37319e6d71d25078
-            APK_RUN_ID=44247259523
-            GECKO_RUN_ID=44247259589
-            PREVIEW_RUN_ID=44247259608
-          else
-            SOURCE_SHA="$INPUT_SOURCE_SHA"
-            APK_RUN_ID="$INPUT_APK_RUN_ID"
-            GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
-            PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
-          fi
+          SOURCE_SHA="$INPUT_SOURCE_SHA"
+          APK_RUN_ID="$INPUT_APK_RUN_ID"
+          GECKO_RUN_ID="$INPUT_GECKO_RUN_ID"
+          PREVIEW_RUN_ID="$INPUT_PREVIEW_RUN_ID"
           if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] ||
              [[ ! "$APK_RUN_ID" =~ ^[0-9]+$ ]] ||
              [[ ! "$GECKO_RUN_ID" =~ ^[0-9]+$ ]] ||
@@ -151,7 +137,7 @@ jobs:
           See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
           EOF
 
-      - name: Create or update GitHub pre-release with direct APK assets
+      - name: Create immutable GitHub pre-release with direct APK assets
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -159,15 +145,11 @@ jobs:
           set -euo pipefail
           title="Rudy Browser 0.7.1 Development Preview (${SOURCE_SHA:0:8})"
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Pre-release exists; updating only its assets and notes"
-            gh release upload "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
-              --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-              --title "$title" --notes-file release-notes.md --prerelease
-          else
-            gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
-              --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
-              --title "$title" --notes-file release-notes.md --prerelease
+            echo "::error::Release $RELEASE_TAG already exists; refusing overwrite."
+            exit 1
           fi
+          gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" \
+            --title "$title" --notes-file release-notes.md --prerelease
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --json url,isPrerelease,tagName,assets
