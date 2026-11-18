@@ -1,0 +1,127 @@
+name: Build manually signed Gecko release candidate
+
+# Deliberately no publishing, deploys or mutation of GitHub secrets.
+# The operator owns the persistent release key; when missing, this fails closed.
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Exact full commit SHA to sign (must be current main)"
+        required: true
+        type: string
+      apk_run_id:
+        description: "Successful Android APK CI run for this SHA"
+        required: true
+        type: string
+      gecko_run_id:
+        description: "Successful Android GeckoView CI run for this SHA"
+        required: true
+        type: string
+      preview_run_id:
+        description: "Successful Compose Android emulator CI run for this SHA"
+        required: true
+        type: string
+      tv_run_id:
+        description: "Successful Android TV emulator CI run for this SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-gecko:
+    if: github.repository == 'RudyCity/tv-browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: android-release-candidate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify exact SHA and all four required green CI workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          APK_RUN: ${{ inputs.apk_run_id }}
+          GECKO_RUN: ${{ inputs.gecko_run_id }}
+          PREVIEW_RUN: ${{ inputs.preview_run_id }}
+          TV_RUN: ${{ inputs.tv_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$SOURCE_SHA" = "$GITHUB_SHA"
+          for run in "$APK_RUN" "$GECKO_RUN" "$PREVIEW_RUN" "$TV_RUN"; do
+            [[ "$run" =~ ^[0-9]+$ ]]
+          done
+          verify_run() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1" |
+              jq -e --arg sha "$SOURCE_SHA" --arg name "$2" '
+                .head_sha == $sha and .name == $name and
+                .status == "completed" and .conclusion == "success"
+              ' > /dev/null
+          }
+          verify_run "$APK_RUN" "Android APK"
+          verify_run "$GECKO_RUN" "Android GeckoView Preview"
+          verify_run "$PREVIEW_RUN" "Android Compose Emulator Smoke"
+          verify_run "$TV_RUN" "Android TV Emulator Smoke"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - name: Install SDK 37 for GeckoView
+        run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Validate secret presence and materialize private signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.RUDY_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.RUDY_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RUDY_ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.RUDY_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "$KEYSTORE_B64" || -z "$STORE_PASS" ||
+                -z "$KEY_ALIAS" || -z "$KEY_PASS" ]]; then
+            echo "::error::Production-owned signing credentials not configured"
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/rudy-signing"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/rudy-signing/release.jks"
+          test -s "$RUNNER_TEMP/rudy-signing/release.jks"
+          echo "RUDY_ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/rudy-signing/release.jks" >> "$GITHUB_ENV"
+          # Passwords are masked and forwarded through step env, never stdout.
+      - name: Build signed Gecko candidate
+        env:
+          RUDY_ANDROID_STORE_PASSWORD: ${{ secrets.RUDY_ANDROID_STORE_PASSWORD }}
+          RUDY_ANDROID_KEY_ALIAS: ${{ secrets.RUDY_ANDROID_KEY_ALIAS }}
+          RUDY_ANDROID_KEY_PASSWORD: ${{ secrets.RUDY_ANDROID_KEY_PASSWORD }}
+        run: gradle -p gecko-build --no-daemon :app:assembleGeckoRelease
+      - name: Validate signed APK manifest and certificate
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/gecko/release/app-gecko-release.apk
+          test -s "$APK"
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          signer="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$signer" verify --verbose --print-certs "$APK"
+          "$aapt" dump badging "$APK" | grep -F "package: name='io.rudycity.tvbrowser.gecko159' "
+          "$aapt" dump badging "$APK" | grep -F "versionCode='12' versionName='0.8.0-gecko'"
+          "$aapt" dump badging "$APK" | grep -F "targetSdkVersion:'36'"
+          sha256sum "$APK" > app/build/outputs/apk/gecko/release/SHA256SUMS.txt
+      - name: Upload signed candidate for operator acceptance (not published)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-gecko-signed-candidate
+          path: |
+            app/build/outputs/apk/gecko/release/app-gecko-release.apk
+            app/build/outputs/apk/gecko/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Destroy local signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/rudy-signing"

@@ -4,6 +4,15 @@ plugins {
 
 def embeddedChromiumAar = file('libs/chromium-engine.aar')
 
+// Optional, strictly manual signing setup for the Gecko release candidate.
+// No private signing material is committed or read during ordinary CI/debug builds.
+def rudyKeyStore = System.getenv('RUDY_ANDROID_KEYSTORE_PATH')
+def rudyStorePass = System.getenv('RUDY_ANDROID_STORE_PASSWORD')
+def rudyKeyAlias = System.getenv('RUDY_ANDROID_KEY_ALIAS')
+def rudyKeyPass = System.getenv('RUDY_ANDROID_KEY_PASSWORD')
+def hasRudySigning = [rudyKeyStore, rudyStorePass, rudyKeyAlias, rudyKeyPass]
+        .every { it != null && !it.isEmpty() }
+
 android {
     namespace 'io.rudycity.tvbrowser'
     compileSdk rootProject.hasProperty('geckoModernBuild') ? 37 : 35
@@ -55,8 +64,19 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasRudySigning) {
+            create('rudyStableRelease') {
+                storeFile file(rudyKeyStore)
+                storePassword rudyStorePass
+                keyAlias rudyKeyAlias
+                keyPassword rudyKeyPass
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasRudySigning) signingConfig signingConfigs.rudyStableRelease
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
