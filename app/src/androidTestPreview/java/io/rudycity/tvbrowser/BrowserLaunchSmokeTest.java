@@ -2,6 +2,14 @@ package io.rudycity.tvbrowser;
 
 import android.view.View;
 import android.widget.ProgressBar;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.webkit.WebView;
+import android.os.SystemClock;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -69,6 +77,64 @@ public final class BrowserLaunchSmokeTest {
         device.findObject(By.text("First action")).click();
         assertTrue(device.wait(Until.gone(By.text("QA browser actions")), 5000));
         assertEquals(0, chosen.get());
+    }
+
+
+    @Test public void localHomePageHasDomTextAndVisibleWebContent() throws Exception {
+        final AtomicReference<WebView> browser = new AtomicReference<>();
+        rule.getScenario().onActivity(activity -> {
+            try {
+                BrowserEngine engine = (BrowserEngine) field(activity, "engine");
+                assertTrue("Preview must be backed by WebView", engine.view() instanceof WebView);
+                browser.set((WebView) engine.view());
+            } catch (Exception ex) {
+                throw new AssertionError(ex);
+            }
+        });
+        final android.app.Instrumentation instrumentation =
+                InstrumentationRegistry.getInstrumentation();
+        String text = "";
+        long deadline = SystemClock.elapsedRealtime() + 12000;
+        while (SystemClock.elapsedRealtime() < deadline) {
+            final CountDownLatch latch = new CountDownLatch(1);
+            final AtomicReference<String> dom = new AtomicReference<>("");
+            instrumentation.runOnMainSync(() -> browser.get().evaluateJavascript(
+                    "document.body ? document.body.innerText : ''",
+                    value -> { dom.set(value); latch.countDown(); }));
+            assertTrue("WebView JavaScript callback timed out", latch.await(3, TimeUnit.SECONDS));
+            text = dom.get();
+            if (text != null && text.contains("Rudy Browser")
+                    && text.contains("Google")) break;
+            SystemClock.sleep(350);
+        }
+        assertTrue("Bundled browser home page DOM must contain visible text: " + text,
+                text != null && text.contains("Rudy Browser") && text.contains("Google"));
+
+        // The visible screenshot must contain actual homepage foreground pixels,
+        // not merely an empty background color that the WebView painted.
+        boolean hasBrightText = false;
+        for (int attempt = 0; attempt < 8 && !hasBrightText; attempt++) {
+            final Bitmap screenshot = instrumentation.getUiAutomation().takeScreenshot();
+            assertNotNull("Unable to capture live browser screenshot", screenshot);
+            int[] pos = new int[2];
+            instrumentation.runOnMainSync(() -> browser.get().getLocationOnScreen(pos));
+            int left = Math.max(0, pos[0]);
+            int right = Math.min(screenshot.getWidth(), left + browser.get().getWidth());
+            int top = Math.max(0, pos[1] + 12);
+            int bottom = Math.min(screenshot.getHeight(), top + 550);
+            int bright = 0;
+            for (int y = top; y < bottom; y += 3) {
+                for (int x = left; x < right; x += 3) {
+                    int pixel = screenshot.getPixel(x, y);
+                    if (Color.red(pixel) > 210 && Color.green(pixel) > 210
+                            && Color.blue(pixel) > 210) bright++;
+                }
+            }
+            screenshot.recycle();
+            hasBrightText = bright > 40;
+            if (!hasBrightText) SystemClock.sleep(700);
+        }
+        assertTrue("Browser home page appears blank even when DOM has text", hasBrightText);
     }
 
     @Test public void modernFlavorBlocksCleartextAtAndroidNetworkLayer() {

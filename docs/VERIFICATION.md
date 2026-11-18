@@ -1,3 +1,17 @@
+## M1 home-page DOM/render regression test (CI pending)
+
+New Android API29 instrumentation checks both the local homepage's WebView
+DOM text and presence of visible bright foreground pixels in the WebView
+region; this guards against screenshots that show a toolbar but an empty
+webpage. If this test fails, identify rendering/root cause rather than
+merely deleting the test.
+
+## M4 menu evidence
+
+Compose Material 3 action dialogs for main/advanced menus are implemented,
+and emulator run `44225145364` passed 4/4 instrumentation tests including
+a real UIAutomator tap and callback. Other Java Holo dialogs are not yet migrated.
+
 # Rudy Browser verification status (2026-11-18)
 
 ## M4 Material 3 menus (first slice, CI pending)
