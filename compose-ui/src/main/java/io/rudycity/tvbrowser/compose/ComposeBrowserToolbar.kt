@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,12 +30,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,16 +76,7 @@ class ComposeBrowserToolbar(
     private val composeView = ComposeView(activity).apply {
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Accent,
-                    onPrimary = Color(0xFF061B34),
-                    surface = ToolbarColor,
-                    onSurface = Foreground,
-                    surfaceVariant = OmniboxColor,
-                    onSurfaceVariant = Muted,
-                )
-            ) {
+            RudyBrowserTheme {
                 BrowserChromeContent(snapshot, actions, focusSignal)
             }
         }
@@ -126,26 +114,21 @@ private data class ChromeSnapshot(
     val bookmarked: Boolean = false
 )
 
-private val ToolbarColor = Color(0xFF151C27)
-private val OmniboxColor = Color(0xFF283444)
-private val Foreground = Color(0xFFF0F4FA)
-private val Muted = Color(0xFFB3C0CF)
-private val Accent = Color(0xFF9DC6FC)
-
 @Composable
 private fun BrowserChromeContent(
     state: ChromeSnapshot,
     actions: BrowserChrome.Actions,
     focusSignal: Int
 ) {
-    Surface(color = ToolbarColor) {
+    Surface(color = RudyColors.toolbar) {
         Column {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val isTablet = maxWidth >= 600.dp
                 val wideTablet = maxWidth >= 760.dp
                 Row(
-                    modifier = Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.fillMaxWidth().height(RudyDimensions.toolbarHeight)
+                        .padding(horizontal = RudySpacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(RudySpacing.compact),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ToolbarAction("Go back", state.canGoBack, { actions.back() }) {
@@ -178,9 +161,9 @@ private fun BrowserChromeContent(
             if (state.loading) {
                 LinearProgressIndicator(
                     progress = { (state.progress.coerceAtLeast(4) / 100f).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    color = Accent,
-                    trackColor = ToolbarColor
+                    modifier = Modifier.fillMaxWidth().height(RudyDimensions.progressHeight),
+                    color = RudyColors.accent,
+                    trackColor = RudyColors.toolbar
                 )
             }
         }
@@ -210,7 +193,7 @@ private fun BrowserOmnibox(
         value = draft,
         onValueChange = { draft = it },
         modifier = modifier
-            .height(56.dp)
+            .height(RudyDimensions.omniboxHeight)
             .focusRequester(focusRequester)
             .onFocusChanged { state ->
                 if (state.isFocused && !editing) {
@@ -223,18 +206,18 @@ private fun BrowserOmnibox(
             }
             .semantics { contentDescription = "Search or enter website address" },
         singleLine = true,
-        shape = RoundedCornerShape(28.dp),
+        shape = RudyCorners.omnibox,
         placeholder = { Text("Search or enter address", maxLines = 1, fontSize = 13.sp) },
         leadingIcon = {
             Icon(
                 if (url.startsWith("https://") && !editing) Icons.Default.Lock
                 else Icons.Default.Search,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = Muted
+                modifier = Modifier.size(RudyDimensions.leadingIconSize),
+                tint = RudyColors.muted
             )
         },
-        textStyle = TextStyle(color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+        textStyle = TextStyle(color = RudyColors.foreground, fontSize = 14.sp, fontWeight = FontWeight.Medium),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
         keyboardActions = KeyboardActions(onGo = {
             val target = draft.trim()
@@ -246,15 +229,15 @@ private fun BrowserOmnibox(
             }
         }),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = OmniboxColor,
-            unfocusedContainerColor = OmniboxColor,
-            focusedTextColor = Foreground,
-            unfocusedTextColor = Foreground,
-            focusedPlaceholderColor = Muted,
-            unfocusedPlaceholderColor = Muted,
+            focusedContainerColor = RudyColors.omnibox,
+            unfocusedContainerColor = RudyColors.omnibox,
+            focusedTextColor = RudyColors.foreground,
+            unfocusedTextColor = RudyColors.foreground,
+            focusedPlaceholderColor = RudyColors.muted,
+            unfocusedPlaceholderColor = RudyColors.muted,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
-            cursorColor = Accent
+            cursorColor = RudyColors.accent
         )
     )
 }
@@ -269,9 +252,9 @@ private fun ToolbarAction(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(44.dp).semantics { contentDescription = title }
+        modifier = Modifier.size(RudyDimensions.touchTarget).semantics { contentDescription = title }
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(24.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(RudyDimensions.iconSize)) {
             icon()
         }
     }
@@ -287,12 +270,12 @@ private fun BrowserOverflow(state: ChromeSnapshot, actions: BrowserChrome.Action
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(ToolbarColor)
+            modifier = Modifier.background(RudyColors.toolbar)
         ) {
             @Composable
             fun Entry(title: String, click: () -> Unit, icon: @Composable () -> Unit) {
                 DropdownMenuItem(
-                    text = { Text(title, color = Foreground) },
+                    text = { Text(title, color = RudyColors.foreground) },
                     leadingIcon = icon,
                     onClick = { expanded = false; click() }
                 )

@@ -1,5 +1,13 @@
 # Rudy Browser verification status (2026-11-18)
 
+## M3 design tokens and screenshot capture (pending CI)
+
+Centralized Compose Material 3 theme/tokens replace ad-hoc toolbar colors,
+spacing, shapes and typography. Interactive icon touch targets are 48dp.
+A new emulator startup screenshot is uploaded alongside instrumentation test
+results for review. This is only the first M3 slice; interactive pixel
+regression, font scaling, light theme and remaining dialogs are not complete.
+
 ## M1 emulator evidence and M2 network-security slice
 
 - API 29 emulator workflow `44219194576`: 2 real instrumentation tests succeeded,

@@ -69,3 +69,12 @@ Android API 29 x86_64 emulator, launches the Preview Activity using
 attached, and checks that Compose progress never coexists with a visible Java
 loading strip. This does not establish physical-device runtime correctness or
 full accessibility, rotation, popup and download testing.
+
+## Material 3 Rudy Design System (M3 first slice)
+
+`RudyDesignSystem.kt` owns browser chrome palette, typography, shapes,
+spacing, progress/toolbar dimensions and the minimum 48dp tap area. The
+browser's content WebView is **not** styled by these tokens.
+`android-emulator.yml` now captures an offline startup screenshot artifact
+after successful instrumentation for iterative manual visual QA. This does not
+yet replace real screenshot regression or human review of UI behavior.

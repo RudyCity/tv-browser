@@ -175,6 +175,7 @@ Old system WebView/TLS/DRM/codec limitations cannot be fixed just by changing th
 - [Native Chromium + extension source/build pipeline](native-chromium/README.md)
 - [Extension scope and limitations](docs/EXTENSIONS.md)
 - [Implementation, test and release status](docs/VERIFICATION.md)
+- [Rudy Material 3 Design System](docs/RUDY_DESIGN_SYSTEM.md)
 
 ## Device QA before release
 

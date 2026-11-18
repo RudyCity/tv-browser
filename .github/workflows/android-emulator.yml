@@ -50,12 +50,20 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: gradle --no-daemon connectedPreviewDebugAndroidTest
+          script: |
+            gradle --no-daemon connectedPreviewDebugAndroidTest
+            mkdir -p app/build/reports/emulator
+            adb shell am start -n io.rudycity.tvbrowser.previewcompose07/io.rudycity.tvbrowser.MainActivity
+            sleep 4
+            adb exec-out screencap -p > app/build/reports/emulator/compose-startup.png
+            test -s app/build/reports/emulator/compose-startup.png
       - name: Preserve instrumentation XML reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rudy-browser-api29-instrumentation-results
-          path: app/build/outputs/androidTest-results/connected/
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/emulator/compose-startup.png
           if-no-files-found: ignore
           retention-days: 14

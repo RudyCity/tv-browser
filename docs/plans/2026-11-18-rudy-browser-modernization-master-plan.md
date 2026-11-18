@@ -21,7 +21,7 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 | M0 | P0 | Stabilization gates | Fix duplicate progress indicators, ensure optional Compose fallback visible and logged; pure tests & both APKs pass | Tested in CI; real-device QA pending |
 | M1 | P0 | Runtime/navigation/lifecycle | Keyboard Go and fullscreen/back, renderer failure/rotation handling, navigation state and popups/downloads regression; instrumented test harness | Emulator startup/progress tested; remaining runtime behaviors pending |
 | M2 | P0 | Network security & release safety | Restrict cleartext on modern flavor (preserve explicitly documented TV legacy behavior); target SDK compliance upgrade after testing; reproducible signing/upgrade path and no embedded secrets | First HTTP security slice tested (CI + API29 emulator); SDK/signing pending |
-| M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Not started |
+| M3 | P1 | Rudy Design System | Theme/tokens, spacing, typography, shapes, contrast, responsive components, accessibility and empty/loading/error states | Started: dark tokens, 48dp touch targets, emulator screenshot capture; remaining QA pending |
 | M4 | P1 | Complete Material 3 migration | Bookmarks/history, settings, extension manager, downloads and consent dialogs modernized without losing controller security | Not started |
 | M5 | P1 | Real browser functionality | Genuine multi-tab manager, tabs/session restoration, private data model, better download manager and navigation | Not started |
 | M6 | P1 | Android TV UX | Dedicated D-pad/focus/remote keyboard/fullscreen/pointer QA, Android TV Compose when verified, maintain legacy TV | Not started |
@@ -100,3 +100,5 @@ Owner direction: Kotlin + Jetpack Compose + Material 3; maintain Android phone/t
 - M2 first slice: modern flavor denies HTTP in Android manifest, direct navigation, redirects, main-frame resource interception, popup and download entrypoints. Java unit/smoke tests and Preview API29 NetworkSecurityPolicy instrumentation assertion added. Legacy flavor still allows cleartext for old TV firmware. Mark Tested only after CI and emulator run both pass.
 
 - M2: commit `8bdc2e53` blocked cleartext for modern Preview while keeping legacy TV HTTP; Android APK run `44220329584` succeeded including manifest checks; API 29 emulator run `44220329665` succeeded with **3/3 instrumentation tests and 0 failures**, including Android NetworkSecurityPolicy denying cleartext. Physical API 21–25 WebView and TV testing remain pending.
+
+- M3 first slice: added a centralized Material 3 `RudyDesignSystem.kt` (palette/typography/shapes/spacing/sizing), replaced ad-hoc toolbar colors/sizes and raised icon touch targets to 48dp. Emulator CI now saves a startup screenshot for visual review. Source implementation pending exact-SHA unit/emulator CI.
