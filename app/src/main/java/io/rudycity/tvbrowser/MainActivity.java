@@ -31,6 +31,8 @@ import android.webkit.URLUtil;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
+import android.widget.ScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -903,53 +905,124 @@ public final class MainActivity extends ComponentActivity {
         persistTabs();
     }
 
+    /** Visual tab manager: real renderer sessions, not a synthetic counter. */
     private void showBrowserTabs() {
-        final int count = tabs.size();
-        final String[] choices = new String[count + 4];
-        for (int i = 0; i < count; i++) {
+        if (tabs.isEmpty()) return;
+        final int widthDp = Math.max(320,
+                getResources().getConfiguration().screenWidthDp);
+        final int columns = BrowserLayoutPolicy.tabGridColumns(widthDp);
+        final int cardWidth = dp(Math.min(tvDevice ? 240 : 210,
+                Math.max(112, (widthDp - (tvDevice ? 110 : 72)) / columns - 8)));
+        final ScrollView scroller = new ScrollView(this);
+        scroller.setFillViewport(false);
+        final GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(columns);
+        grid.setPadding(dp(8), dp(8), dp(8), dp(8));
+        scroller.addView(grid);
+        final AlertDialog[] visible = new AlertDialog[1];
+
+        for (int i = 0; i < tabs.size(); i++) {
+            final int tabIndex = i;
             BrowserTab tab = tabs.get(i);
             String label = tab.title;
-            if (label == null || label.isEmpty()) {
+            if (label == null || label.trim().isEmpty()) {
                 String url = tab.url;
                 String host = UrlTools.isWebUrl(url) ? Uri.parse(url).getHost() : null;
                 label = host == null ? "New tab" : host;
             }
-            if (label.length() > 42) label = label.substring(0, 42) + "…";
-            choices[i] = (tab == activeTab ? "● " : "○ ") +
-                    (i + 1) + ". " + (tab.privateMode ? "Private • " : "") + label;
+            if (label.length() > 48) label = label.substring(0, 48) + "…";
+            String subtitle = tab.crashed ? "Renderer crashed" :
+                    tab.loading ? "Loading " + tab.progress + "%" :
+                    tab.privateMode ? "Private Gecko" : "Browser tab";
+            LinearLayout tile = new LinearLayout(this);
+            tile.setOrientation(LinearLayout.VERTICAL);
+            tile.setPadding(dp(4), dp(4), dp(4), dp(4));
+
+            Button select = new Button(this);
+            select.setAllCaps(false);
+            select.setText((tab == activeTab ? "● " : "○ ") +
+                    (tab.privateMode ? "🔒 " : "") + label + "\n" + subtitle);
+            select.setTextSize(tvDevice ? 16 : 13);
+            select.setMaxLines(3);
+            select.setContentDescription("Switch to " +
+                    (tab.privateMode ? "private" : "normal") + " tab " + (i + 1) + ": " + label);
+            select.setBackgroundDrawable(buttonBackground(tab == activeTab));
+            select.setOnClickListener(v -> {
+                if (visible[0] != null) visible[0].dismiss();
+                switchBrowserTab(tabIndex);
+            });
+            tile.addView(select, new LinearLayout.LayoutParams(
+                    -1, dp(tvDevice ? 102 : 90)));
+
+            Button close = new Button(this);
+            close.setAllCaps(false);
+            close.setText("× Close");
+            close.setTextSize(tvDevice ? 14 : 12);
+            close.setContentDescription("Close tab " + (i + 1));
+            close.setOnClickListener(v -> {
+                if (visible[0] != null) visible[0].dismiss();
+                closeBrowserTab(tabIndex);
+                showBrowserTabs();
+            });
+            tile.addView(close, new LinearLayout.LayoutParams(-1,
+                    dp(tvDevice ? 44 : 38)));
+
+            GridLayout.LayoutParams cell = new GridLayout.LayoutParams();
+            cell.width = cardWidth;
+            cell.height = -2;
+            cell.setMargins(dp(3), dp(3), dp(3), dp(3));
+            grid.addView(tile, cell);
         }
-        choices[count] = "New independent tab";
-        choices[count + 1] = "New private Gecko tab (Android 8+)";
-        choices[count + 2] = "Close current tab";
-        choices[count + 3] = "Close all tabs";
-        BrowserChrome.ChoiceHandler handler = new BrowserChrome.ChoiceHandler() {
-            @Override public void onChoice(int choice) {
-                if (choice < count) switchBrowserTab(choice);
-                else if (choice == count) createBrowserTab(
-                        prefs.getString(ENGINE, EnginePolicy.AUTO), null);
-                else if (choice == count + 1) createBrowserTab(
-                        EnginePolicy.GECKO, null, true);
-                else if (choice == count + 2) closeBrowserTab(tabs.indexOf(activeTab));
-                else if (choice == count + 3) {
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("Close all browser tabs?")
-                            .setMessage("All tab sessions will be destroyed. Open pages " +
-                                    "will be lost. A clean home tab will remain.")
-                            .setNegativeButton("Cancel", null)
-                            .setPositiveButton("Close all", (dialog, which) -> {
-                                clearAllTabSessions();
-                                createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
-                            }).show();
-                }
-            }
-        };
-        if (composeChrome != null) {
-            composeChrome.showActions("Browser tabs (" + count + ")", choices, handler);
-        } else {
-            new AlertDialog.Builder(this).setTitle("Browser tabs (" + count + ")")
-                    .setItems(choices, (dialog, which) -> handler.onChoice(which))
-                    .setNegativeButton("Back", null).show();
-        }
+
+        final Button newTab = new Button(this);
+        newTab.setAllCaps(false);
+        newTab.setText("+ New tab");
+        newTab.setContentDescription("Create new independent browser tab");
+        newTab.setOnClickListener(v -> {
+            if (visible[0] != null) visible[0].dismiss();
+            createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+        });
+        GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
+        newParams.width = cardWidth;
+        newParams.height = dp(tvDevice ? 112 : 95);
+        newParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+        grid.addView(newTab, newParams);
+
+        final Button privateTab = new Button(this);
+        privateTab.setAllCaps(false);
+        privateTab.setText("+ Private Gecko");
+        privateTab.setContentDescription("Create a GeckoView private tab");
+        privateTab.setOnClickListener(v -> {
+            if (visible[0] != null) visible[0].dismiss();
+            if (!createBrowserTab(EnginePolicy.GECKO, null, true))
+                toast("Private GeckoView requires Android 8+ and the Gecko APK");
+        });
+        GridLayout.LayoutParams privateParams = new GridLayout.LayoutParams();
+        privateParams.width = cardWidth;
+        privateParams.height = dp(tvDevice ? 112 : 95);
+        privateParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+        grid.addView(privateTab, privateParams);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Browser tabs (" + tabs.size() + ")")
+                .setView(scroller)
+                .setNegativeButton("Done", null)
+                .setNeutralButton("Close all", (ignored, which) ->
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("Close all browser tabs?")
+                                .setMessage("All current tab sessions, including private tabs, " +
+                                        "will be closed. A clean home tab will remain.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Close all", (x, y) -> {
+                                    clearAllTabSessions();
+                                    createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                                }).show()).create();
+        visible[0] = dialog;
+        dialog.show();
+        // TV starts on a safe tab selection, never the destructive Close all action.
+        if (tvDevice && grid.getChildCount() > 0)
+            grid.getChildAt(Math.min(Math.max(0, tabs.indexOf(activeTab)),
+                    grid.getChildCount() - 1)).requestFocus();
     }
 
     /** Engine selection applies to all tabs, never implies cookie/session migration. */
@@ -1375,6 +1448,7 @@ public final class MainActivity extends ComponentActivity {
                         "WebView extensions (" + new ExtensionSettings(prefs).enabledCount() + " enabled)"),
                 "Bookmarks",
                 "Recent history",
+                "Android downloads",
                 "Find in page",
                 "More tools and settings"
         };
@@ -1390,8 +1464,9 @@ public final class MainActivity extends ComponentActivity {
                             case 5: showExtensions(); break;
                             case 6: showSavedList(BOOKMARKS, false); break;
                             case 7: showSavedList(HISTORY, false); break;
-                            case 8: showFindInPage(); break;
-                            case 9: showToolsMenu(); break;
+                            case 8: showSystemDownloads(); break;
+                            case 9: showFindInPage(); break;
+                            case 10: showToolsMenu(); break;
                         }
                     }
                 };
@@ -1403,6 +1478,23 @@ public final class MainActivity extends ComponentActivity {
             new AlertDialog.Builder(this).setTitle("Rudy Browser")
                     .setItems(options, selection).setNegativeButton("Close", null).show();
         }
+    }
+
+    private void showSystemDownloads() {
+        new AlertDialog.Builder(this)
+                .setTitle("Saved downloads")
+                .setMessage("System WebView downloads appear in Android Downloads. " +
+                        "GeckoView files are saved to the folder you chose in the " +
+                        "Android document picker. Rudy Browser does not silently " +
+                        "collect files or open downloaded installers.")
+                .setNegativeButton("Close", null)
+                .setPositiveButton("Open Android Downloads", (ignored, which) -> {
+                    try {
+                        startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
+                    } catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
+                        toast("No downloads app is available on this device");
+                    }
+                }).show();
     }
 
     private void showFindInPage() {

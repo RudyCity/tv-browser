@@ -42,6 +42,14 @@ public final class BrowserLayoutPolicyTest {
         assertTrue(BrowserLayoutPolicy.isTelevision(false, false, false, false));
     }
 
+    @Test public void responsiveTabGridPreservesUsableCardWidths() {
+        assertEquals(2, BrowserLayoutPolicy.tabGridColumns(320));
+        assertEquals(2, BrowserLayoutPolicy.tabGridColumns(390));
+        assertEquals(3, BrowserLayoutPolicy.tabGridColumns(600));
+        assertEquals(3, BrowserLayoutPolicy.tabGridColumns(768));
+        assertEquals(3, BrowserLayoutPolicy.tabGridColumns(1280));
+    }
+
     @Test public void oldCompactHelperOnlyRepresentsTvThreshold() {
         assertTrue(BrowserLayoutPolicy.isCompact(320));
         assertTrue(BrowserLayoutPolicy.isCompact(839));

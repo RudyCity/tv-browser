@@ -19,6 +19,11 @@ public final class BrowserLayoutPolicy {
         return width >= TABLET_MIN_DP ? TABLET : MOBILE;
     }
 
+    /** At least two tab cards on narrow screens, three on tablets/wide TVs. */
+    public static int tabGridColumns(int availableWidthDp) {
+        return availableWidthDp >= TABLET_MIN_DP ? 3 : 2;
+    }
+
     public static boolean hasSecondRow(int mode) { return mode == TV_COMPACT; }
     public static boolean hasStatusFooter(int mode) { return mode == TV_COMPACT || mode == TV_WIDE; }
 
