@@ -40,6 +40,9 @@ android {
         gecko {
             dimension 'renderer'
             minSdk 26
+            // Android API 36 target for modern phone/tablet distribution.
+            // Legacy/Compose Preview keep existing target and compatibility.
+            targetSdk 36
             applicationIdSuffix '.gecko159'
             versionNameSuffix '-gecko'
             testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'

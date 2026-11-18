@@ -48,6 +48,7 @@ jobs:
           APK=app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.rudycity.tvbrowser.gecko159' "
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "targetSdkVersion:'36'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
           sha256sum "$APK"
       - uses: actions/upload-artifact@v4

@@ -30,10 +30,13 @@ target Android API 36+, while Android TV apps may target API 34+ per Google's
 published exceptions:
 https://support.google.com/googleplay/android-developer/answer/11926878?hl=en
 
-The repo's historical `targetSdk=28` remains a **release blocker**.
-Updating the target must be followed by edge-to-edge/window-inset,
-permissions, package visibility, behavior and compatibility QA. Merely
-changing an integer would not certify production readiness.
+The new Gecko variant now declares `targetSdk=36`, verified through an APK
+manifest check in CI. Legacy and Compose Preview retain their historical
+target for existing Android firmware compatibility. **This change alone does
+not certify Play readiness:** edge-to-edge/window-inset, permissions,
+package visibility, Android 15–17 device behavior and compatibility QA remain
+mandatory. The historical legacy/preview `targetSdk=28` remains a Play
+submission blocker; only the modern Gecko path is being prepared for release.
 
 ## Status rule
 
