@@ -1869,10 +1869,9 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         String guessed = URLUtil.guessFileName(url, contentDisposition, mimeType);
-        String cleaned = guessed == null ? "download.bin"
-                : guessed.replaceAll("[^A-Za-z0-9._-]", "_");
-        final String filename = cleaned.isEmpty() || cleaned.equals(".")
-                || cleaned.equals("..") ? "download.bin" : cleaned;
+        // Content-Disposition is untrusted. Limit its filename before displaying
+        // a TV consent dialog or passing the name to Android DownloadManager.
+        final String filename = BrowserDownloadPolicy.safeFilename(guessed);
         StringBuilder details = new StringBuilder("File:\n").append(filename)
                 .append("\n\nSource link:\n").append(url);
         if (PopupPolicy.mightInstallSoftware(url) ||
