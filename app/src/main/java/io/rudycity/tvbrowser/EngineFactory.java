@@ -11,6 +11,7 @@ import java.lang.reflect.InvocationTargetException;
 public final class EngineFactory {
     private static final String TAG = "TvBrowserEngine";
     // Implemented by a separately built Chromium content embedder, NEVER a system WebView wrapper.
+    private static final String GECKO_PROVIDER = "io.rudycity.tvbrowser.gecko.GeckoEngine";
     private static final String PROVIDER = "io.rudycity.tvbrowser.chromium.EmbeddedChromiumProvider";
 
     private EngineFactory() {}
@@ -29,10 +30,32 @@ public final class EngineFactory {
     public static Selection create(Activity activity, String preference,
                                    boolean desktop, BrowserEngine.Listener listener) {
         String safePreference = EnginePolicy.sanitize(preference);
+        if (Build.VERSION.SDK_INT >= EnginePolicy.MIN_GECKO_API &&
+                (EnginePolicy.AUTO.equals(safePreference) || EnginePolicy.GECKO.equals(safePreference))) {
+            try {
+                Class<?> gecko = Class.forName(GECKO_PROVIDER, false, activity.getClassLoader());
+                Constructor<?> constructor = gecko.getConstructor(
+                        Activity.class, BrowserEngine.Listener.class, boolean.class);
+                BrowserEngine engine = (BrowserEngine) constructor.newInstance(
+                        activity, listener, desktop);
+                if (engine == null || engine.view() == null ||
+                        !"Firefox GeckoView".equals(engine.name()) ||
+                        engine.view() instanceof android.webkit.WebView)
+                    throw new IllegalStateException("Gecko provider is not independent");
+                return new Selection(engine, "Firefox GeckoView active", false);
+            } catch (ClassNotFoundException unavailable) {
+                // Gecko binary deliberately absent from legacy and Preview APKs.
+            } catch (ReflectiveOperationException | LinkageError | RuntimeException unavailable) {
+                Log.e(TAG, "Gecko provider failed; using System WebView", unavailable);
+                return new Selection(new WebViewEngine(activity, listener, desktop),
+                        "GeckoView failed to start; separate System WebView fallback active", true);
+            }
+        }
         boolean present = false;
         Class<?> provider = null;
         if (Build.VERSION.SDK_INT >= EnginePolicy.MIN_MODERN_CHROMIUM_API &&
-                !EnginePolicy.WEBVIEW.equals(safePreference)) {
+                !EnginePolicy.WEBVIEW.equals(safePreference) &&
+                !EnginePolicy.GECKO.equals(safePreference)) {
             try {
                 provider = Class.forName(PROVIDER, false, activity.getClassLoader());
                 present = true;

@@ -601,7 +601,7 @@ public final class MainActivity extends ComponentActivity {
             status.setText(engineReason);
             syncComposeChrome();
             new AlertDialog.Builder(this).setTitle("Browser unavailable")
-                    .setMessage("Neither the embedded Chromium nor the system WebView could start. " +
+                    .setMessage("Neither GeckoView, embedded Chromium, nor System WebView could start. " +
                             "Check the TV firmware and system WebView package.")
                     .setPositiveButton("OK", null).show();
         }
@@ -990,8 +990,8 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void chooseEngine() {
-        final String[] labels = {"Automatic (prefer embedded Chromium)", "Standalone Chromium", "System WebView"};
-        final String[] values = {EnginePolicy.AUTO, EnginePolicy.CHROMIUM, EnginePolicy.WEBVIEW};
+        final String[] labels = {"Automatic (GeckoView / Chromium / WebView)", "Firefox GeckoView", "Standalone Chromium", "System WebView"};
+        final String[] values = {EnginePolicy.AUTO, EnginePolicy.GECKO, EnginePolicy.CHROMIUM, EnginePolicy.WEBVIEW};
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int index) {
                         String next = values[index];
