@@ -10,7 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Official Mozilla Maven hosts pinned GeckoView release AARs.
+        maven { url 'https://maven.mozilla.org/maven2/' }
     }
 }
 rootProject.name = 'rudy-browser'
-include ':app', ':engine-api', ':compose-ui'
+include ':app', ':engine-api', ':compose-ui', ':engine-gecko'

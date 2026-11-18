@@ -35,6 +35,16 @@ android {
             versionNameSuffix '-preview'
             manifestPlaceholders = [browserLabel: '@string/app_name_preview', cleartextPolicy: 'false']
         }
+        // Separate installable flavor: current GeckoView needs API 26+.
+        // Legacy API19 and Preview API21 remain System WebView builds.
+        gecko {
+            dimension 'renderer'
+            minSdk 26
+            applicationIdSuffix '.gecko159'
+            versionNameSuffix '-gecko'
+            testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+            manifestPlaceholders = [browserLabel: '@string/app_name', cleartextPolicy: 'false']
+        }
         chromium {
             dimension 'renderer'
             minSdk 29
@@ -70,6 +80,8 @@ dependencies {
     // AndroidX Activity 1.9.3 continues to support legacy Android API 19.
     implementation 'androidx.activity:activity:1.9.3'
     previewImplementation project(':compose-ui')
+    geckoImplementation project(':compose-ui')
+    geckoImplementation project(':engine-gecko')
     chromiumImplementation project(':compose-ui')
     if (embeddedChromiumAar.isFile()) {
         chromiumImplementation files(embeddedChromiumAar)

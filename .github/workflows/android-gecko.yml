@@ -1,0 +1,104 @@
+name: Android GeckoView Preview
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'engine-api/**'
+      - 'engine-gecko/**'
+      - 'compose-ui/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/android-gecko.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'engine-api/**'
+      - 'engine-gecko/**'
+      - 'compose-ui/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/android-gecko.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gecko-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Compile real GeckoView and run JVM regression tests
+        run: gradle --no-daemon :app:testGeckoDebugUnitTest :app:assembleGeckoDebug :engine-gecko:assembleDebug
+      - name: Verify real Gecko APK not accidentally installed over legacy
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.rudycity.tvbrowser.gecko159' "
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
+          sha256sum "$APK"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-gecko-debug-apk
+          path: app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+  gecko-api29-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Verify KVM
+        run: |
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: API29 real Gecko launch, navigation and renderer smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: default
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader -feature -Vulkan -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            set -eu
+            gradle --no-daemon connectedGeckoDebugAndroidTest
+            adb install -r app/build/outputs/apk/gecko/debug/app-gecko-debug.apk
+            adb shell am start -W -n io.rudycity.tvbrowser.gecko159/io.rudycity.tvbrowser.MainActivity
+            sleep 5
+            adb shell pidof io.rudycity.tvbrowser.gecko159
+            adb shell dumpsys activity activities > app/build/gecko-foreground.txt
+            grep -E 'mResumedActivity:.*io.rudycity.tvbrowser.gecko159' app/build/gecko-foreground.txt
+            mkdir -p app/build/reports/gecko
+            adb exec-out screencap -p > app/build/reports/gecko/gecko-startup.png
+            test -s app/build/reports/gecko/gecko-startup.png
+      - name: Preserve emulator and test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-gecko-api29-results
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/gecko/
+            app/build/gecko-foreground.txt
+          if-no-files-found: ignore
+          retention-days: 14
