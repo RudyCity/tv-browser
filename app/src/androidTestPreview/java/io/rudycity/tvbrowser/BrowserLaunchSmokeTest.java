@@ -155,6 +155,8 @@ public final class BrowserLaunchSmokeTest {
         assertTrue("Google quick-access link missing",
                 device.wait(Until.hasObject(By.text("Google")), 5000));
         device.findObject(By.text("Google")).click();
+        assertTrue("Tapping a quick site must hide the native landing asynchronously",
+                device.wait(Until.gone(By.text("Quick access")), 10000));
         rule.getScenario().onActivity(activity -> {
             try {
                 BrowserHome home = (BrowserHome) field(activity, "composeHome");

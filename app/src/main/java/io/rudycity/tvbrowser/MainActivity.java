@@ -73,6 +73,8 @@ public final class MainActivity extends ComponentActivity {
     private ProgressBar loadingProgress;
     private BrowserChrome composeChrome;
     private BrowserHome composeHome;
+    /** Explicitly requested local landing; stale WebView callbacks must not reopen it. */
+    private boolean homeRequested;
     private boolean pageLoading;
     private int pageProgress;
     private Button bookmarkButton;
@@ -483,7 +485,10 @@ public final class MainActivity extends ComponentActivity {
 
     private final BrowserEngine.Listener rendererEvents = new BrowserEngine.Listener() {
         @Override public void onPageStarted(String url) {
-            if (UrlTools.isWebUrl(url)) showComposeHome(false);
+            if (UrlTools.isWebUrl(url)) {
+                homeRequested = false;
+                showComposeHome(false);
+            }
             pageLoading = true;
             pageProgress = 5;
             updateJavaProgress();
@@ -491,7 +496,14 @@ public final class MainActivity extends ComponentActivity {
             syncComposeChrome();
         }
         @Override public void onPageFinished(String url, String title) {
-            showComposeHome(!UrlTools.isWebUrl(url));
+            // A late data:/about: callback from the previous home document
+            // must not cover the website after a user opens an HTTPS link.
+            if (UrlTools.isWebUrl(url)) {
+                homeRequested = false;
+                showComposeHome(false);
+            } else if (homeRequested) {
+                showComposeHome(true);
+            }
             if (UrlTools.isWebUrl(url)) {
                 if (!address.hasFocus()) {
                     address.setText(url);
@@ -629,6 +641,7 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         if (engine == null) { toast("Browser engine unavailable"); return; }
+        homeRequested = false;
         showComposeHome(false);
         engine.loadUrl(url);
         address.setText(url);
@@ -638,6 +651,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void home() {
+        homeRequested = true;
         address.setText("");
         bookmarkButton.setText("☆");
         String html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
