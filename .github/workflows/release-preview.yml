@@ -59,7 +59,7 @@ jobs:
           echo "APK_RUN_ID=$APK_RUN_ID" >> "$GITHUB_ENV"
           echo "GECKO_RUN_ID=$GECKO_RUN_ID" >> "$GITHUB_ENV"
           echo "PREVIEW_RUN_ID=$PREVIEW_RUN_ID" >> "$GITHUB_ENV"
-          echo "RELEASE_TAG=v0.7.1-preview.${SOURCE_SHA:0:8}" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v0.8.0-beta.${SOURCE_SHA:0:8}" >> "$GITHUB_ENV"
 
       - name: Verify the same exact commit passed all three CI workflows
         shell: bash
@@ -109,6 +109,10 @@ jobs:
             unzip -tq "$apk" >/dev/null
             unzip -Z -1 "$apk" | grep -Fx 'AndroidManifest.xml' >/dev/null
           done
+          # Refuse to label old 0.7.x artifacts as a newer beta release.
+          # The Android APK and Gecko workflows already verify exact versionCode/versionName
+          # and have to pass against the same source SHA before publication.
+          test "$SOURCE_SHA" != "67001288ba57b64ec945194c37319e6d71d25078"
           ( cd dist && sha256sum ./*.apk > SHA256SUMS.txt )
           cat dist/SHA256SUMS.txt
 
@@ -117,9 +121,9 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          # Rudy Browser — Development Preview 0.7.1
+          # Rudy Browser — Development Beta 0.8.0
 
-          **This is a pre-release with debug-signed APKs, not a production/App Store release.**
+          **This is a testing beta with debug-signed APKs, not a production/App Store release.**
           Original app source commit: \`$SOURCE_SHA\`
 
           Download **one APK** for your device from the release assets:
@@ -134,7 +138,7 @@ jobs:
           - [Gecko build + Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GECKO_RUN_ID)
           - [Compose Android API29 emulator](https://github.com/$GITHUB_REPOSITORY/actions/runs/$PREVIEW_RUN_ID)
 
-          See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
+          See \`SHA256SUMS.txt\` to verify APK integrity. These binaries are **debug-signed** and are for testing. Debug signing keys can change between CI runners: Android upgrades may fail with a signing mismatch. Never uninstall an existing installation without backing up any data you want to preserve. Physical Android TV, phone/tablet hardware, DRM, authenticated downloads and production Play policy are **not fully certified**. Do not use the APKs as a security-reviewed daily-driver browser.
           EOF
 
       - name: Create immutable GitHub pre-release with direct APK assets
@@ -143,7 +147,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          title="Rudy Browser 0.7.1 Development Preview (${SOURCE_SHA:0:8})"
+          title="Rudy Browser 0.8.0 Development Beta (${SOURCE_SHA:0:8})"
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::Release $RELEASE_TAG already exists; refusing overwrite."
             exit 1

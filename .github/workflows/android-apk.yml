@@ -41,7 +41,9 @@ jobs:
           "$APKSIGNER" verify --verbose "$PREVIEW"
           "$AAPT" dump badging "$LEGACY" | grep -F "package: name='io.rudycity.tvbrowser' "
           "$AAPT" dump badging "$PREVIEW" | grep -F "package: name='io.rudycity.tvbrowser.previewcompose071' "
-          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser Compose 0.7.1'"
+          "$AAPT" dump badging "$PREVIEW" | grep -F "application-label:'Rudy Browser'"
+          "$AAPT" dump badging "$LEGACY" | grep -F "versionCode='12' versionName='0.8.0'"
+          "$AAPT" dump badging "$PREVIEW" | grep -F "versionCode='12' versionName='0.8.0-preview'"
           # Legacy Android TV intentionally allows HTTP; modern Preview must forbid it.
           "$AAPT" dump xmltree "$LEGACY" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0xffffffff'
           "$AAPT" dump xmltree "$PREVIEW" AndroidManifest.xml | grep -E 'usesCleartextTraffic.*0x0([^a-fA-F0-9]|$)'
