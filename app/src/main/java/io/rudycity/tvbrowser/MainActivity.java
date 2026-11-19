@@ -435,7 +435,13 @@ public final class MainActivity extends ComponentActivity {
                     .newInstance(this, new BrowserChrome.Actions() {
                         @Override public void navigate(String input) { navigateFromCompose(input); }
                         @Override public void back() {
-                            if (engine != null && engine.canGoBack()) engine.goBack();
+                            if (!homeRequested) {
+                                if (engine != null && engine.canGoBack()) {
+                                    engine.goBack();
+                                } else {
+                                    MainActivity.this.home();
+                                }
+                            }
                         }
                         @Override public void forward() {
                             if (engine != null && engine.canGoForward()) engine.goForward();
@@ -559,12 +565,15 @@ public final class MainActivity extends ComponentActivity {
     private void syncComposeChrome() {
         if (composeChrome == null) return;
         String url = engine == null ? null : engine.currentUrl();
-        if (homeRequested || (activeTab != null && activeTab.home) || "about:blank".equalsIgnoreCase(url)) {
+        boolean onHome = homeRequested || (activeTab != null && activeTab.home) || "about:blank".equalsIgnoreCase(url);
+        if (onHome) {
             url = "";
         }
+        boolean canBack = !onHome;
+        boolean canForward = !onHome && engine != null && engine.canGoForward();
         composeChrome.update(url, pageLoading, pageProgress,
-                engine != null && engine.canGoBack(),
-                engine != null && engine.canGoForward(),
+                canBack,
+                canForward,
                 UrlTools.isWebUrl(url) && isBookmarked(url),
                 tabs.size());
         syncTabsToChrome();
@@ -665,6 +674,13 @@ public final class MainActivity extends ComponentActivity {
             if (UrlTools.isWebUrl(url)) {
                 homeRequested = false;
                 showComposeHome(false);
+            } else if (composeHome != null) {
+                homeRequested = true;
+                if (activeTab != null) {
+                    activeTab.home = true;
+                    activeTab.url = null;
+                }
+                showComposeHome(true);
             }
             pageLoading = true;
             pageProgress = 5;
@@ -678,15 +694,24 @@ public final class MainActivity extends ComponentActivity {
             if (UrlTools.isWebUrl(url)) {
                 homeRequested = false;
                 showComposeHome(false);
-            } else if (homeRequested) {
-                showComposeHome(true);
-            }
-            if (UrlTools.isWebUrl(url)) {
                 if (!address.hasFocus()) {
                     address.setText(url);
                     showCompactAddress();
                 }
                 if (activeTab == null || !activeTab.privateMode) saveHistory(url, title);
+            } else {
+                if (composeHome != null) {
+                    homeRequested = true;
+                    if (activeTab != null) {
+                        activeTab.home = true;
+                        activeTab.url = null;
+                    }
+                    showComposeHome(true);
+                }
+                if (!address.hasFocus()) {
+                    address.setText("");
+                    showCompactAddress();
+                }
             }
             pageLoading = false;
             pageProgress = 100;
@@ -1325,6 +1350,16 @@ public final class MainActivity extends ComponentActivity {
         }
         address.setText("");
         bookmarkButton.setText("☆");
+        if (composeHome != null) {
+            showComposeHome(true);
+            if (engine != null) {
+                engine.loadUrl("about:blank");
+            }
+            if (composeChrome != null) {
+                composeChrome.update("", false, 0, false, false, false, tabs.size());
+            }
+            return;
+        }
         String html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
                 "<style>*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;" +
                 "background:#0C131E;color:#F1F5FB;margin:0;padding:clamp(20px,5vw,56px)}" +
@@ -2780,8 +2815,15 @@ public final class MainActivity extends ComponentActivity {
     @Override public void onBackPressed() {
         if (fullscreenView != null || geckoFullscreen) hideFullscreen();
         else if (cursorMode) toggleCursorMode();
-        else if (engine != null && engine.canGoBack()) engine.goBack();
-        else super.onBackPressed();
+        else if (!homeRequested) {
+            if (engine != null && engine.canGoBack()) {
+                engine.goBack();
+            } else {
+                home();
+            }
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
