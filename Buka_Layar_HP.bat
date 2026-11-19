@@ -74,7 +74,14 @@ if not exist "%SCRCPY%" (
     exit /b 1
 )
 
-start "" "%SCRCPY%" --window-title "Rudy Browser - Pixel Phone" --always-on-top
+if "!DEVICE_ID!"=="" (
+    for /f "tokens=1,2" %%A in ('"%ADB%" devices') do (
+        if "%%B"=="device" set "DEVICE_ID=%%A"
+    )
+)
+if "!DEVICE_ID!"=="" set "DEVICE_ID=emulator-5554"
+
+start "" "%SCRCPY%" -s !DEVICE_ID! --window-title "Rudy Browser - Pixel Phone" --always-on-top --no-mouse-hover
 
 echo.
 echo ========================================================
