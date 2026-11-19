@@ -7,6 +7,8 @@ set "EMULATOR=%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe"
 set "SCRCPY=%LOCALAPPDATA%\scrcpy\scrcpy.exe"
 set "AVD_NAME=Pixel_API_35"
 set "APP_PKG=io.rudycity.tvbrowser.previewcompose071"
+set "MAX_FPS=60"
+set "BITRATE=16M"
 
 echo ========================================================
 echo       Rudy Browser - Layar HP ^& Emulator Manager
@@ -44,7 +46,7 @@ if not exist "%EMULATOR%" (
     exit /b 1
 )
 
-start "" "%EMULATOR%" -avd !AVD_NAME! -no-window
+start "" "%EMULATOR%" -avd !AVD_NAME! -no-window -gpu host
 echo Menunggu emulator terhubung ke ADB...
 "%ADB%" wait-for-device
 
@@ -81,7 +83,7 @@ if "!DEVICE_ID!"=="" (
 )
 if "!DEVICE_ID!"=="" set "DEVICE_ID=emulator-5554"
 
-start "" "%SCRCPY%" -s !DEVICE_ID! --window-title "Rudy Browser - Pixel Phone" --always-on-top --no-mouse-hover
+start "" "%SCRCPY%" -s !DEVICE_ID! --window-title "Rudy Browser - Pixel Phone" --always-on-top --no-mouse-hover --max-fps=!MAX_FPS! --video-bit-rate=!BITRATE! --no-audio --video-buffer=0
 
 echo.
 echo ========================================================
