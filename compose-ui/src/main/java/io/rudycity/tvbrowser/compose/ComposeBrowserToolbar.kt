@@ -501,6 +501,21 @@ private fun BrowserMinimalistHeader(
                 )
             }
 
+            // Sleek Forward Button
+            Box(
+                modifier = Modifier
+                    .size(RudyDimensions.touchTarget)
+                    .clip(RudyCorners.control)
+                    .clickable(enabled = snapshot.canGoForward) { actions.forward() }
+                    .semantics { contentDescription = "Navigate forward" },
+                contentAlignment = Alignment.Center
+            ) {
+                RudyIcons.Forward(
+                    tint = if (snapshot.canGoForward) palette.foreground else palette.muted.copy(alpha = 0.35f),
+                    size = RudyDimensions.iconSize
+                )
+            }
+
             // Spacious Omnibox (Taking all available horizontal space)
             Box(modifier = Modifier.weight(1f)) {
                 MinimalistOmnibox(

@@ -63,6 +63,9 @@ echo [OK] Android Emulator berhasil boot!
 "%ADB%" shell input keyevent 82 >nul 2>&1
 
 :launch_app
+:: Pastikan Navigasi 3-Tombol (Back, Home, Recents) Aktif di Layar HP
+"%ADB%" shell cmd overlay enable com.android.internal.systemui.navbar.threebutton >nul 2>&1
+
 :: 3. Luncurkan Aplikasi Rudy Browser
 echo [3/4] Memastikan aplikasi Rudy Browser terbuka...
 "%ADB%" shell monkey -p %APP_PKG% -c android.intent.category.LAUNCHER 1 >nul 2>&1
