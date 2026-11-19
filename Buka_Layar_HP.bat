@@ -44,7 +44,7 @@ if not exist "%EMULATOR%" (
     exit /b 1
 )
 
-start "" "%EMULATOR%" -avd !AVD_NAME!
+start "" "%EMULATOR%" -avd !AVD_NAME! -no-window
 echo Menunggu emulator terhubung ke ADB...
 "%ADB%" wait-for-device
 
