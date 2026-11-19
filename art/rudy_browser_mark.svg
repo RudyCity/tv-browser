@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background: Deep Space Obsidian -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c1322"/>
+      <stop offset="50%" stop-color="#070a12"/>
+      <stop offset="100%" stop-color="#020408"/>
+    </linearGradient>
+
+    <!-- Squircle Hairline Border: Top-lit Cyan Rim -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.85"/>
+      <stop offset="35%" stop-color="#2563eb" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.10"/>
+    </linearGradient>
+
+    <!-- Ambient interior glow behind the R -->
+    <radialGradient id="ambientGlow" cx="46%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.38"/>
+      <stop offset="50%" stop-color="#1e3a8a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#020408" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Primary Ribbon Gradient: Electric Ice Cyan to Vibrant Cobalt -->
+    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0f9ff"/>
+      <stop offset="18%" stop-color="#bae6fd"/>
+      <stop offset="45%" stop-color="#38bdf8"/>
+      <stop offset="75%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- Kinetic Thrust Leg Gradient: Forward Speed Cobalt to Deep Space Navy -->
+    <linearGradient id="legGrad" x1="0%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="45%" stop-color="#2563eb"/>
+      <stop offset="85%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Specular Light Ridge on Top of Loop -->
+    <linearGradient id="specularGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#bae6fd" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Drop Shadow for 3D Overlapping Ribbon Depth -->
+    <filter id="ribbonShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="-4" dy="8" stdDeviation="8" flood-color="#010409" flood-opacity="0.85"/>
+    </filter>
+
+    <!-- Squircle Container Shadow -->
+    <filter id="containerShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.70"/>
+    </filter>
+  </defs>
+
+  <!-- 1. Background Squircle Container -->
+  <rect x="24" y="24" width="464" height="464" rx="116" ry="116" fill="url(#bgGrad)" filter="url(#containerShadow)"/>
+  <rect x="24" y="24" width="464" height="464" rx="116" ry="116" fill="url(#ambientGlow)"/>
+  <rect x="24" y="24" width="464" height="464" rx="116" ry="116" fill="none" stroke="url(#rimGrad)" stroke-width="1.8"/>
+
+  <!-- 2. Master "R" Monogram Architecture -->
+  <g>
+    <!-- Part A: Left Pillar (Vertical Anchor) -->
+    <rect x="136" y="124" width="60" height="264" rx="30" ry="30" fill="url(#ribbonGrad)"/>
+
+    <!-- Part B: Dynamic Kinetic Leg (Passing underneath the loop) -->
+    <path d="M 196 244
+             L 264 244
+             C 288 244 310 258 322 280
+             L 374 366
+             C 382 378 372 388 358 388
+             L 300 388
+             C 282 388 266 376 256 360
+             L 208 280
+             C 202 270 196 258 196 244 Z"
+          fill="url(#legGrad)"/>
+
+    <!-- Part C: The Orbital Compass Loop (Browser Aperture Ribbon) -->
+    <path d="M 166 124
+             L 272 124
+             C 338 124 386 170 386 228
+             C 386 286 338 332 272 332
+             L 196 332
+             C 179 332 166 319 166 302
+             L 166 288
+             C 166 271 179 258 196 258
+             L 264 258
+             C 292 258 316 242 316 228
+             C 316 214 292 198 264 198
+             L 166 198 Z"
+          fill="url(#ribbonGrad)"
+          filter="url(#ribbonShadow)"/>
+
+    <!-- Part D: Precision Specular Highlight Ridge on Top Arc -->
+    <path d="M 166 126
+             L 272 126
+             C 334 126 382 170 384 226"
+          fill="none"
+          stroke="url(#specularGrad)"
+          stroke-width="3"
+          stroke-linecap="round"/>
+  </g>
+</svg>

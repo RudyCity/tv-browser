@@ -52,13 +52,14 @@ public final class MainActivity extends ComponentActivity {
     private static final String HISTORY = "history";
     private static final String DESKTOP = "desktop_mode";
     private static final String DARK_THEME = "dark_mode";
+    private static final String APP_THEME_MODE = "app_theme_mode"; // "system", "dark", "light"
     private static final String ENGINE = "render_engine";
     private static final String RESTORE_TABS = "restorable_tab_urls";
     private static final String RESTORE_SELECTED = "restorable_tab_selected";
     // Restrained browser chrome: pages keep their own styling and full viewport.
-    private static final int TOOLBAR_BG = Color.rgb(23, 30, 41);
-    private static final int OMNIBOX_BG = Color.rgb(39, 49, 64);
-    private static final int HIGHLIGHT = Color.rgb(62, 110, 176);
+    private static final int TOOLBAR_BG = RudyDialogUi.TOOLBAR;
+    private static final int OMNIBOX_BG = RudyDialogUi.OMNIBOX;
+    private static final int HIGHLIGHT = RudyDialogUi.HIGHLIGHT;
 
     private FrameLayout root;
     private LinearLayout primaryRow;
@@ -70,6 +71,7 @@ public final class MainActivity extends ComponentActivity {
     private Button goButton;
     private Button extensionsButton;
     private Button pointerButton;
+    private Button tabsButton;
     private Button menuButton;
     private boolean tvDevice;
     private BrowserEngine engine;
@@ -210,6 +212,19 @@ public final class MainActivity extends ComponentActivity {
         tvDevice = detectTvDevice();
         updateSystemBars();
         arrangeToolbar();
+        if ("system".equalsIgnoreCase(prefs.getString(APP_THEME_MODE, "system"))) {
+            boolean dark = isDarkThemeEffective();
+            if (composeChrome != null) composeChrome.setDarkTheme(dark);
+            if (composeHome != null) composeHome.setDarkTheme(dark);
+        }
+    }
+
+    private boolean isDarkThemeEffective() {
+        String themeMode = prefs.getString(APP_THEME_MODE, "system");
+        if ("dark".equalsIgnoreCase(themeMode)) return true;
+        if ("light".equalsIgnoreCase(themeMode)) return false;
+        int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
     }
 
     private boolean detectTvDevice() {
@@ -251,24 +266,11 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private GradientDrawable buttonBackground(boolean selected) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setCornerRadius(dp(tvDevice ? 13 : 22));
-        drawable.setColor(selected ? HIGHLIGHT :
-                (tvDevice ? Color.rgb(37, 50, 68) : TOOLBAR_BG));
-        if (tvDevice || selected) {
-            drawable.setStroke(dp(selected ? 2 : 1),
-                    selected ? Color.rgb(173, 209, 255) : Color.rgb(65, 81, 102));
-        }
-        return drawable;
+        return RudyDialogUi.toolbarButtonDrawable(this, tvDevice, selected);
     }
 
     private GradientDrawable omniboxBackground(boolean selected) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setCornerRadius(dp(tvDevice ? 14 : 24));
-        drawable.setColor(OMNIBOX_BG);
-        drawable.setStroke(dp(selected ? 2 : 1),
-                selected ? Color.rgb(143, 191, 249) : Color.rgb(51, 64, 82));
-        return drawable;
+        return RudyDialogUi.omniboxDrawable(this, tvDevice, selected);
     }
 
     private Button addButton(LinearLayout toolbar, String text, String description,
@@ -277,7 +279,7 @@ public final class MainActivity extends ComponentActivity {
         b.setText(text);
         b.setContentDescription(description);
         b.setTextSize(tvDevice ? 20 : 23);
-        b.setTextColor(Color.WHITE);
+        b.setTextColor(RudyDialogUi.TEXT);
         b.setAllCaps(false);
         b.setPadding(0, 0, 0, 0);
         b.setMinimumWidth(0);
@@ -295,7 +297,7 @@ public final class MainActivity extends ComponentActivity {
 
     private void setUpUi() {
         root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
+        root.setBackgroundColor(RudyDialogUi.BG);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         root.addView(layout, new FrameLayout.LayoutParams(-1, -1));
@@ -339,8 +341,8 @@ public final class MainActivity extends ComponentActivity {
         address.setHint("Search or enter address");
         address.setImeOptions(EditorInfo.IME_ACTION_GO);
         address.setTextSize(tvDevice ? 19 : 16);
-        address.setTextColor(Color.WHITE);
-        address.setHintTextColor(Color.rgb(166, 180, 195));
+        address.setTextColor(RudyDialogUi.TEXT);
+        address.setHintTextColor(RudyDialogUi.MUTED);
         address.setSelectAllOnFocus(true);
         address.setPadding(dp(16), 0, dp(14), 0);
         address.setBackgroundDrawable(omniboxBackground(false));
@@ -379,6 +381,10 @@ public final class MainActivity extends ComponentActivity {
                 new View.OnClickListener() {
             @Override public void onClick(View v) { toggleCursorMode(); }
         });
+        tabsButton = addButton(primaryRow, "1", "Tabs manager", new View.OnClickListener() {
+            @Override public void onClick(View v) { showBrowserTabs(); }
+        });
+        tabsButton.setTextSize(tvDevice ? 15 : 14);
         menuButton = addButton(primaryRow, "⋮", "Browser menu", new View.OnClickListener() {
             @Override public void onClick(View v) { showMenu(); }
         });
@@ -386,23 +392,22 @@ public final class MainActivity extends ComponentActivity {
         attachComposeChrome(toolbarStack, layout);
 
         engineSlot = new FrameLayout(this);
-        engineSlot.setBackgroundColor(Color.rgb(12, 20, 30));
+        engineSlot.setBackgroundColor(RudyDialogUi.BG);
         cursorOverlay = new TvCursorOverlay(this);
         engineSlot.addView(cursorOverlay, new FrameLayout.LayoutParams(-1, -1));
-        attachComposeHome();
         loadingProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         loadingProgress.setMax(100);
         loadingProgress.setVisibility(View.GONE);
         if (Build.VERSION.SDK_INT >= 21) {
-            loadingProgress.setProgressTintList(ColorStateList.valueOf(
-                    Color.rgb(139, 188, 246)));
+            loadingProgress.setProgressTintList(ColorStateList.valueOf(RudyDialogUi.ACCENT));
             loadingProgress.setProgressBackgroundTintList(ColorStateList.valueOf(TOOLBAR_BG));
         }
         layout.addView(loadingProgress, new LinearLayout.LayoutParams(-1, dp(2)));
         layout.addView(engineSlot, new LinearLayout.LayoutParams(-1, 0, 1));
+        attachComposeHome();
 
         status = new TextView(this);
-        status.setTextColor(Color.rgb(181, 196, 214));
+        status.setTextColor(RudyDialogUi.MUTED);
         status.setBackgroundColor(TOOLBAR_BG);
         status.setPadding(dp(12), dp(4), dp(12), dp(4));
         status.setSingleLine(true);
@@ -441,7 +446,22 @@ public final class MainActivity extends ComponentActivity {
                         }
                         @Override public void bookmark() { toggleBookmark(); }
                         @Override public void extensions() { showExtensions(); }
-                        @Override public void menu() { showMenu(); }
+                        @Override public void menu() { showToolsManager(); }
+                        @Override public void tabs() { showBrowserTabs(); }
+                        @Override public void about() { showAboutDialog(); }
+                        @Override public void selectTab(int index) { switchBrowserTab(index); }
+                        @Override public void closeTab(int index) { closeBrowserTab(index); }
+                        @Override public void newTab() {
+                            createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                        }
+                        @Override public void newPrivateTab() {
+                            if (!createBrowserTab(EnginePolicy.GECKO, null, true))
+                                toast("Private GeckoView requires Android 8+ and the Gecko APK");
+                        }
+                        @Override public void closeAllTabs() { confirmCloseAllTabs(); }
+                        @Override public void history() { showHistoryManager(); }
+                        @Override public void bookmarks() { showBookmarkManager(); }
+                        @Override public void settings() { showSettingsDialog(); }
                     });
             candidateView = chrome.view();
             parent.addView(candidateView, 1, new LinearLayout.LayoutParams(-1, -2));
@@ -476,6 +496,7 @@ public final class MainActivity extends ComponentActivity {
     /** Draw the homepage with Material 3 instead of relying on flaky old WebView glyphs. */
     private void attachComposeHome() {
         if (composeChrome == null || tvDevice || Build.VERSION.SDK_INT < 21) return;
+        if (composeHome != null) return;
         try {
             Class<?> implementation = Class.forName(
                     "io.rudycity.tvbrowser.compose.ComposeBrowserHome");
@@ -487,6 +508,19 @@ public final class MainActivity extends ComponentActivity {
                         }
                         @Override public void focusAddress() {
                             MainActivity.this.focusAddress();
+                        }
+                        @Override public void openTabs() { showBrowserTabs(); }
+                        @Override public void openBookmarks() { showBookmarkManager(); }
+                        @Override public void openHistory() { showHistoryManager(); }
+                        @Override public void openSettings() { showSettingsDialog(); }
+                        @Override public void openTools() { showToolsManager(); }
+                        @Override public void openExtensions() { showExtensions(); }
+                        @Override public void newTab() {
+                            createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                        }
+                        @Override public void newPrivateTab() {
+                            if (!createBrowserTab(EnginePolicy.GECKO, null, true))
+                                toast("Private GeckoView requires Android 8+ and the Gecko APK");
                         }
                     });
             View landing = home.view();
@@ -500,8 +534,17 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void showComposeHome(boolean visible) {
-        if (composeHome != null) composeHome.view().setVisibility(
-                visible ? View.VISIBLE : View.GONE);
+        if (composeHome != null) {
+            View v = composeHome.view();
+            v.setVisibility(visible ? View.VISIBLE : View.GONE);
+            if (visible) {
+                v.bringToFront();
+                composeHome.refreshData();
+                if (composeChrome != null) {
+                    composeChrome.update("", false, 0, false, false, false, tabs.size());
+                }
+            }
+        }
     }
 
     private void navigateFromCompose(String input) {
@@ -516,10 +559,25 @@ public final class MainActivity extends ComponentActivity {
     private void syncComposeChrome() {
         if (composeChrome == null) return;
         String url = engine == null ? null : engine.currentUrl();
+        if (homeRequested || (activeTab != null && activeTab.home) || "about:blank".equalsIgnoreCase(url)) {
+            url = "";
+        }
         composeChrome.update(url, pageLoading, pageProgress,
                 engine != null && engine.canGoBack(),
                 engine != null && engine.canGoForward(),
-                UrlTools.isWebUrl(url) && isBookmarked(url));
+                UrlTools.isWebUrl(url) && isBookmarked(url),
+                tabs.size());
+        syncTabsToChrome();
+    }
+
+    private void syncTabsToChrome() {
+        if (tabsButton != null) {
+            tabsButton.setText(String.valueOf(tabs.size()));
+            tabsButton.setContentDescription("Tabs (" + tabs.size() + " open)");
+        }
+        if (composeChrome != null) {
+            composeChrome.updateTabs(buildTabItems(), maxTabs());
+        }
     }
 
     private void addToolbarButton(LinearLayout row, Button button, int sizeDp) {
@@ -548,9 +606,10 @@ public final class MainActivity extends ComponentActivity {
         secondaryRow.removeAllViews();
 
         if (mode == BrowserLayoutPolicy.MOBILE) {
-            // Chrome-inspired compact phone: no duplicate navigation or fake tab button.
+            // Chrome-inspired compact phone: Back, Omnibox, live Tabs counter, Menu.
             addToolbarButton(primaryRow, backButton, 44);
             addAddressBar(primaryRow, 46);
+            if (tabsButton != null) addToolbarButton(primaryRow, tabsButton, 44);
             addToolbarButton(primaryRow, menuButton, 44);
         } else if (mode == BrowserLayoutPolicy.TABLET) {
             addToolbarButton(primaryRow, backButton, 44);
@@ -560,6 +619,7 @@ public final class MainActivity extends ComponentActivity {
             addToolbarButton(primaryRow, reloadButton, 44);
             addToolbarButton(primaryRow, bookmarkButton, 44);
             if (widthDp >= 840) addToolbarButton(primaryRow, extensionsButton, 44);
+            if (tabsButton != null) addToolbarButton(primaryRow, tabsButton, 44);
             addToolbarButton(primaryRow, menuButton, 44);
         } else {
             // TV retains larger focusable targets and an optional second row.
@@ -580,6 +640,7 @@ public final class MainActivity extends ComponentActivity {
             }
             addToolbarButton(actions, bookmarkButton, size);
             addToolbarButton(actions, extensionsButton, size);
+            if (tabsButton != null) addToolbarButton(actions, tabsButton, size);
             if (!compactTv || widthDp >= 360)
                 addToolbarButton(actions, pointerButton, size);
             addToolbarButton(actions, menuButton, size);
@@ -592,6 +653,11 @@ public final class MainActivity extends ComponentActivity {
         if (goButton != null) goButton.setTextSize(16);
         if (extensionsButton != null) extensionsButton.setTextSize(15);
         if (pointerButton != null) pointerButton.setTextSize(15);
+        if (tabsButton != null) {
+            tabsButton.setText(String.valueOf(tabs.size()));
+            tabsButton.setTextSize(tvDevice ? 15 : 14);
+            tabsButton.setContentDescription("Tabs (" + tabs.size() + " open)");
+        }
     }
 
     private final BrowserEngine.Listener rendererEvents = new BrowserEngine.Listener() {
@@ -669,23 +735,24 @@ public final class MainActivity extends ComponentActivity {
             if (!BrowserSessionPolicy.canAutoFallback(crashedTab.privateMode, 1)) {
                 // A private Gecko process must NEVER silently reopen in WebView,
                 // where it could disclose the page to shared cookies or history.
-                status.setText("Private tab crashed — it cannot be recovered in shared WebView");
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Private tab unavailable")
-                        .setMessage("This private renderer crashed. The private page will not " +
-                                "be opened in another browser engine. Close this tab to continue.")
-                        .setNegativeButton("Keep closed renderer", null)
-                        .setPositiveButton("Close private tab", (dialog, which) -> {
-                            int index = tabs.indexOf(crashedTab);
-                            if (index >= 0) closeBrowserTab(index);
-                        }).show();
+                status.setText("Private tab crashed: it cannot be recovered in shared WebView");
+                RudyDialogUi.showStyled(
+                        RudyDialogUi.builder(MainActivity.this)
+                                .setTitle("Private tab unavailable")
+                                .setMessage("This private renderer crashed. The private page will not " +
+                                        "be opened in another browser engine. Close this tab to continue.")
+                                .setNegativeButton("Keep closed renderer", null)
+                                .setPositiveButton("Close private tab", (dialog, which) -> {
+                                    int index = tabs.indexOf(crashedTab);
+                                    if (index >= 0) closeBrowserTab(index);
+                                }).create());
                 return;
             }
             if (!BrowserSessionPolicy.canAutoFallback(false, ++recoveryAttempts)) {
-                status.setText(reason + " — recovery stopped to avoid a crash loop");
+                status.setText(reason + ": recovery stopped to avoid a crash loop");
                 return;
             }
-            status.setText(reason + " — switching to WebView…");
+            status.setText(reason + ": switching to WebView...");
             String remembered = null;
             try { if (engine != null) remembered = engine.currentUrl(); }
             catch (RuntimeException ignored) { /* crash recovery still proceeds */ }
@@ -717,20 +784,29 @@ public final class MainActivity extends ComponentActivity {
                 // Invalidates any open popup approval when this tab navigates,
                 // including redirects back to the same URL.
                 tab.navigationSequence++;
-                tab.url = UrlTools.isWebUrl(url) ? url : null;
-                tab.home = !UrlTools.isWebUrl(url);
+                boolean web = UrlTools.isWebUrl(url);
+                tab.url = web ? url : null;
+                tab.home = !web;
+                if (!web) {
+                    tab.title = tab.home ? "Home" : "New Tab";
+                }
                 tab.loading = true;
                 tab.progress = 5;
                 persistTabs();
                 if (active()) rendererEvents.onPageStarted(url);
             }
             @Override public void onPageFinished(String url, String title) {
-                tab.url = UrlTools.isWebUrl(url) ? url : null;
-                tab.title = title;
+                boolean web = UrlTools.isWebUrl(url);
+                tab.url = web ? url : null;
+                if (title == null || title.trim().isEmpty() || "about:blank".equalsIgnoreCase(title.trim())) {
+                    tab.title = web && tab.url != null ? Uri.parse(tab.url).getHost() : (tab.home ? "Home" : "New Tab");
+                } else {
+                    tab.title = title;
+                }
                 tab.loading = false;
                 tab.progress = 100;
                 persistTabs();
-                if (active()) rendererEvents.onPageFinished(url, title);
+                if (active()) rendererEvents.onPageFinished(url, tab.title);
             }
             @Override public void onProgress(int progress) {
                 tab.progress = progress;
@@ -838,6 +914,7 @@ public final class MainActivity extends ComponentActivity {
                 " • tab " + tabs.size() + "/" + maxTabs());
         engine.onResume();
         persistTabs();
+        syncTabsToChrome();
         return true;
     }
 
@@ -846,13 +923,14 @@ public final class MainActivity extends ComponentActivity {
         BrowserTab selected = tabs.get(index);
         if (selected == activeTab) return;
         if (selected.crashed) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Tab renderer unavailable")
-                    .setMessage("This tab's rendering process crashed. Close the tab or " +
-                            "switch to another tab; it will not reload silently.")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Close crashed tab",
-                            (dialog, which) -> closeBrowserTab(index)).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this)
+                            .setTitle("Tab renderer unavailable")
+                            .setMessage("This tab's rendering process crashed. Close the tab or " +
+                                    "switch to another tab; it will not reload silently.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Close crashed tab",
+                                    (dialog, which) -> closeBrowserTab(index)).create());
             return;
         }
         if (popupDialog != null) popupDialog.dismiss();
@@ -886,6 +964,7 @@ public final class MainActivity extends ComponentActivity {
                 " • tab " + (index + 1) + "/" + tabs.size());
         engine.view().requestFocus();
         persistTabs();
+        syncTabsToChrome();
     }
 
     private void closeBrowserTab(int index) {
@@ -908,11 +987,86 @@ public final class MainActivity extends ComponentActivity {
             switchBrowserTab(Math.min(index, tabs.size() - 1));
         }
         persistTabs();
+        syncTabsToChrome();
+    }
+
+    private void confirmCloseAllTabs() {
+        Runnable closeAll = () -> {
+            clearAllTabSessions();
+            createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+        };
+        if (composeChrome != null) {
+            composeChrome.showConfirmation(
+                    "Close all browser tabs?",
+                    "All current tab sessions, including private tabs, will be closed. A clean home tab will remain.",
+                    "Close all",
+                    closeAll);
+            return;
+        }
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(MainActivity.this)
+                        .setTitle("Close all browser tabs?")
+                        .setMessage("All current tab sessions, including private tabs, " +
+                                "will be closed. A clean home tab will remain.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Close all", (x, y) -> closeAll.run()).create());
+    }
+
+    private List<BrowserChrome.TabItem> buildTabItems() {
+        List<BrowserChrome.TabItem> items = new ArrayList<>();
+        for (BrowserTab tab : tabs) {
+            String label = tab.title;
+            String host = UrlTools.isWebUrl(tab.url) ? Uri.parse(tab.url).getHost() : "";
+            if (label == null || label.trim().isEmpty() || "about:blank".equalsIgnoreCase(label.trim())) {
+                label = (host == null || host.isEmpty()) ? (tab.home ? "Home" : "New Tab") : host;
+            }
+            items.add(new BrowserChrome.TabItem(
+                    label,
+                    host == null ? "" : host,
+                    tab == activeTab,
+                    tab.privateMode,
+                    tab.loading,
+                    tab.progress,
+                    tab.crashed));
+        }
+        return items;
+    }
+
+    private void duplicateBrowserTab(int index) {
+        if (index < 0 || index >= tabs.size()) return;
+        BrowserTab target = tabs.get(index);
+        String url = target.browser != null ? target.browser.currentUrl() : target.url;
+        String pref = target.privateMode ? EnginePolicy.GECKO : prefs.getString(ENGINE, EnginePolicy.AUTO);
+        createBrowserTab(pref, url, target.privateMode);
     }
 
     /** Visual tab manager: real renderer sessions, not a synthetic counter. */
     private void showBrowserTabs() {
         if (tabs.isEmpty()) return;
+        if (composeChrome != null) {
+            List<BrowserChrome.TabItem> items = buildTabItems();
+            if (composeChrome.showTabManager(items, maxTabs(), new BrowserChrome.TabSheetHandler() {
+                @Override public void onSelect(int index) { switchBrowserTab(index); }
+                @Override public void onClose(int index) {
+                    closeBrowserTab(index);
+                    showBrowserTabs();
+                }
+                @Override public void onNewTab() {
+                    createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
+                }
+                @Override public void onNewPrivateTab() {
+                    if (!createBrowserTab(EnginePolicy.GECKO, null, true))
+                        toast("Private GeckoView requires Android 8+ and the Gecko APK");
+                }
+                @Override public void onCloseAll() { confirmCloseAllTabs(); }
+                @Override public void onDuplicate(int index) {
+                    duplicateBrowserTab(index);
+                    showBrowserTabs();
+                }
+            })) {
+                return;
+            }
+        }
         final int widthDp = Math.max(320,
                 getResources().getConfiguration().screenWidthDp);
         final int columns = BrowserLayoutPolicy.tabGridColumns(widthDp);
@@ -920,6 +1074,7 @@ public final class MainActivity extends ComponentActivity {
                 Math.max(112, (widthDp - (tvDevice ? 110 : 72)) / columns - 8)));
         final ScrollView scroller = new ScrollView(this);
         scroller.setFillViewport(false);
+        scroller.setBackgroundColor(RudyDialogUi.SURFACE_ELEVATED);
         final GridLayout grid = new GridLayout(this);
         grid.setColumnCount(columns);
         grid.setPadding(dp(8), dp(8), dp(8), dp(8));
@@ -928,61 +1083,121 @@ public final class MainActivity extends ComponentActivity {
 
         for (int i = 0; i < tabs.size(); i++) {
             final int tabIndex = i;
-            BrowserTab tab = tabs.get(i);
+            final BrowserTab tab = tabs.get(i);
+            final boolean isActive = tab == activeTab;
             String label = tab.title;
             if (label == null || label.trim().isEmpty()) {
                 String url = tab.url;
                 String host = UrlTools.isWebUrl(url) ? Uri.parse(url).getHost() : null;
                 label = host == null ? "New tab" : host;
             }
-            if (label.length() > 48) label = label.substring(0, 48) + "…";
+            if (label.length() > 48) label = label.substring(0, 48) + "...";
             String subtitle = tab.crashed ? "Renderer crashed" :
                     tab.loading ? "Loading " + tab.progress + "%" :
                     tab.privateMode ? "Private Gecko" : "Browser tab";
             LinearLayout tile = new LinearLayout(this);
             tile.setOrientation(LinearLayout.VERTICAL);
-            tile.setPadding(dp(4), dp(4), dp(4), dp(4));
+            tile.setPadding(dp(6), dp(6), dp(6), dp(6));
+            tile.setBackgroundDrawable(RudyDialogUi.cardDrawable(this, isActive, false));
+
+            if (isActive || tab.privateMode) {
+                LinearLayout badges = new LinearLayout(this);
+                badges.setOrientation(LinearLayout.HORIZONTAL);
+                badges.setPadding(dp(4), dp(2), dp(4), dp(4));
+                if (isActive) {
+                    badges.addView(RudyDialogUi.badge(
+                            this, "ACTIVE", RudyDialogUi.ACCENT, RudyDialogUi.ON_ACCENT));
+                }
+                if (tab.privateMode) {
+                    TextView privateBadge = RudyDialogUi.badge(
+                            this, "PRIVATE", RudyDialogUi.HIGHLIGHT, RudyDialogUi.TEXT);
+                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+                    if (isActive) lp.setMargins(dp(4), 0, 0, 0);
+                    badges.addView(privateBadge, lp);
+                }
+                tile.addView(badges);
+            }
 
             Button select = new Button(this);
             select.setAllCaps(false);
-            select.setText((tab == activeTab ? "● " : "○ ") +
-                    (tab.privateMode ? "🔒 " : "") + label + "\n" + subtitle);
-            select.setTextSize(tvDevice ? 16 : 13);
+            select.setText(label + "\n" + subtitle);
+            select.setTextColor(RudyDialogUi.TEXT);
+            select.setTextSize(tvDevice ? 15 : 13);
             select.setMaxLines(3);
+            select.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            select.setPadding(dp(10), dp(6), dp(10), dp(6));
             select.setContentDescription("Switch to " +
                     (tab.privateMode ? "private" : "normal") + " tab " + (i + 1) + ": " + label);
-            select.setBackgroundDrawable(buttonBackground(tab == activeTab));
+            select.setBackgroundDrawable(RudyDialogUi.toolbarButtonDrawable(this, tvDevice, false));
+            select.setOnFocusChangeListener((v, hasFocus) ->
+                    select.setBackgroundDrawable(
+                            RudyDialogUi.toolbarButtonDrawable(this, tvDevice, hasFocus)));
             select.setOnClickListener(v -> {
                 if (visible[0] != null) visible[0].dismiss();
                 switchBrowserTab(tabIndex);
             });
             tile.addView(select, new LinearLayout.LayoutParams(
-                    -1, dp(tvDevice ? 102 : 90)));
+                    -1, dp(tvDevice ? 84 : 74)));
+
+            LinearLayout actionsRow = new LinearLayout(this);
+            actionsRow.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, dp(tvDevice ? 44 : 40));
+            rowParams.setMargins(0, dp(4), 0, 0);
+
+            Button duplicate = new Button(this);
+            duplicate.setAllCaps(false);
+            duplicate.setText("Duplicate");
+            duplicate.setTextColor(RudyDialogUi.TEXT);
+            duplicate.setTextSize(tvDevice ? 13 : 11);
+            duplicate.setContentDescription("Duplicate tab " + (i + 1));
+            duplicate.setBackgroundDrawable(RudyDialogUi.toolbarButtonDrawable(this, tvDevice, false));
+            duplicate.setOnFocusChangeListener((v, hasFocus) ->
+                    duplicate.setBackgroundDrawable(
+                            RudyDialogUi.toolbarButtonDrawable(this, tvDevice, hasFocus)));
+            duplicate.setOnClickListener(v -> {
+                if (visible[0] != null) visible[0].dismiss();
+                duplicateBrowserTab(tabIndex);
+                showBrowserTabs();
+            });
+            LinearLayout.LayoutParams dupParams = new LinearLayout.LayoutParams(0, -1, 1);
+            dupParams.setMargins(0, 0, dp(2), 0);
+            actionsRow.addView(duplicate, dupParams);
 
             Button close = new Button(this);
             close.setAllCaps(false);
-            close.setText("× Close");
-            close.setTextSize(tvDevice ? 14 : 12);
+            close.setText("Close");
+            close.setTextColor(RudyDialogUi.MUTED);
+            close.setTextSize(tvDevice ? 13 : 11);
             close.setContentDescription("Close tab " + (i + 1));
+            close.setBackgroundDrawable(RudyDialogUi.toolbarButtonDrawable(this, tvDevice, false));
+            close.setOnFocusChangeListener((v, hasFocus) ->
+                    close.setBackgroundDrawable(
+                            RudyDialogUi.toolbarButtonDrawable(this, tvDevice, hasFocus)));
             close.setOnClickListener(v -> {
                 if (visible[0] != null) visible[0].dismiss();
                 closeBrowserTab(tabIndex);
                 showBrowserTabs();
             });
-            tile.addView(close, new LinearLayout.LayoutParams(-1,
-                    dp(tvDevice ? 44 : 38)));
+            LinearLayout.LayoutParams closeParams = new LinearLayout.LayoutParams(0, -1, 1);
+            closeParams.setMargins(dp(2), 0, 0, 0);
+            actionsRow.addView(close, closeParams);
+            tile.addView(actionsRow);
 
             GridLayout.LayoutParams cell = new GridLayout.LayoutParams();
             cell.width = cardWidth;
             cell.height = -2;
-            cell.setMargins(dp(3), dp(3), dp(3), dp(3));
+            cell.setMargins(dp(4), dp(4), dp(4), dp(4));
             grid.addView(tile, cell);
         }
 
         final Button newTab = new Button(this);
         newTab.setAllCaps(false);
         newTab.setText("+ New tab");
+        newTab.setTextColor(RudyDialogUi.TEXT);
         newTab.setContentDescription("Create new independent browser tab");
+        newTab.setBackgroundDrawable(RudyDialogUi.cardDrawable(this, false, false));
+        newTab.setOnFocusChangeListener((v, hasFocus) ->
+                newTab.setBackgroundDrawable(RudyDialogUi.cardDrawable(this, false, hasFocus)));
         newTab.setOnClickListener(v -> {
             if (visible[0] != null) visible[0].dismiss();
             createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
@@ -990,13 +1205,17 @@ public final class MainActivity extends ComponentActivity {
         GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
         newParams.width = cardWidth;
         newParams.height = dp(tvDevice ? 112 : 95);
-        newParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+        newParams.setMargins(dp(4), dp(4), dp(4), dp(4));
         grid.addView(newTab, newParams);
 
         final Button privateTab = new Button(this);
         privateTab.setAllCaps(false);
         privateTab.setText("+ Private Gecko");
+        privateTab.setTextColor(RudyDialogUi.TEXT);
         privateTab.setContentDescription("Create a GeckoView private tab");
+        privateTab.setBackgroundDrawable(RudyDialogUi.cardDrawable(this, false, false));
+        privateTab.setOnFocusChangeListener((v, hasFocus) ->
+                privateTab.setBackgroundDrawable(RudyDialogUi.cardDrawable(this, false, hasFocus)));
         privateTab.setOnClickListener(v -> {
             if (visible[0] != null) visible[0].dismiss();
             if (!createBrowserTab(EnginePolicy.GECKO, null, true))
@@ -1005,25 +1224,17 @@ public final class MainActivity extends ComponentActivity {
         GridLayout.LayoutParams privateParams = new GridLayout.LayoutParams();
         privateParams.width = cardWidth;
         privateParams.height = dp(tvDevice ? 112 : 95);
-        privateParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+        privateParams.setMargins(dp(4), dp(4), dp(4), dp(4));
         grid.addView(privateTab, privateParams);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Browser tabs (" + tabs.size() + ")")
+        AlertDialog dialog = RudyDialogUi.builder(this)
+                .setTitle("Browser tabs (" + tabs.size() + " / " + maxTabs() + ")")
                 .setView(scroller)
                 .setNegativeButton("Done", null)
-                .setNeutralButton("Close all", (ignored, which) ->
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("Close all browser tabs?")
-                                .setMessage("All current tab sessions, including private tabs, " +
-                                        "will be closed. A clean home tab will remain.")
-                                .setNegativeButton("Cancel", null)
-                                .setPositiveButton("Close all", (x, y) -> {
-                                    clearAllTabSessions();
-                                    createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), null);
-                                }).show()).create();
+                .setNeutralButton("Close all", (ignored, which) -> confirmCloseAllTabs())
+                .create();
         visible[0] = dialog;
-        dialog.show();
+        RudyDialogUi.showStyled(dialog);
         // TV starts on a safe tab selection, never the destructive Close all action.
         if (tvDevice && grid.getChildCount() > 0)
             grid.getChildAt(Math.min(Math.max(0, tabs.indexOf(activeTab)),
@@ -1043,10 +1254,11 @@ public final class MainActivity extends ComponentActivity {
             engineReason = "No working rendering engine available";
             status.setText(engineReason);
             syncComposeChrome();
-            new AlertDialog.Builder(this).setTitle("Browser unavailable")
-                    .setMessage("Neither GeckoView, embedded Chromium, nor System WebView " +
-                            "could start. Check the device firmware and installed WebView.")
-                    .setPositiveButton("OK", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle("Browser unavailable")
+                            .setMessage("Neither GeckoView, embedded Chromium, nor System WebView " +
+                                    "could start. Check the device firmware and installed WebView.")
+                            .setPositiveButton("OK", null).create());
         }
     }
 
@@ -1088,6 +1300,14 @@ public final class MainActivity extends ComponentActivity {
         if (activeTab != null) {
             activeTab.home = false;
             activeTab.url = url;
+            if (activeTab.title == null || activeTab.title.trim().isEmpty() || "about:blank".equalsIgnoreCase(activeTab.title.trim())) {
+                try {
+                    String host = new java.net.URI(url).getHost();
+                    activeTab.title = (host != null && !host.isEmpty()) ? host : url;
+                } catch (Exception ignored) {
+                    activeTab.title = url;
+                }
+            }
         }
         showComposeHome(false);
         engine.loadUrl(url);
@@ -1106,21 +1326,32 @@ public final class MainActivity extends ComponentActivity {
         address.setText("");
         bookmarkButton.setText("☆");
         String html = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-                "<style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#0c1524;" +
-                "color:#f1f6ff;margin:0;padding:clamp(24px,6vw,72px)}main{max-width:1100px;margin:auto}" +
-                "h1{font-size:clamp(30px,5vw,48px);margin:0 0 12px}p{color:#afc0da;font-size:18px;" +
-                "line-height:1.55}nav{display:flex;flex-wrap:wrap;gap:12px;margin:28px 0}" +
-                "a{color:#f1f6ff;text-decoration:none;display:inline-block;background:#203957;" +
-                "border:1px solid #36516f;border-radius:12px;padding:18px 22px;font-size:19px;" +
-                "min-width:120px;text-align:center}a:focus{outline:4px solid #58b5ff}" +
-                "@media(max-width:420px){nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}" +
-                "a{min-width:0;padding:16px 8px;font-size:17px}}</style></head><body><main>" +
-                "<h1>Rudy Browser</h1><p>Browse comfortably on your phone, tablet or TV.</p><nav>" +
-                "<a href='https://www.google.com/'>Google</a>" +
-                "<a href='https://www.youtube.com/'>YouTube</a>" +
-                "<a href='https://www.wikipedia.org/'>Wikipedia</a>" +
-                "<a href='https://www.bing.com/'>Bing</a></nav>" +
-                "<p>Enter a website or search above. The menu has bookmarks, history and settings.</p>" +
+                "<style>*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif;" +
+                "background:#0C131E;color:#F1F5FB;margin:0;padding:clamp(20px,5vw,56px)}" +
+                "main{max-width:880px;margin:0 auto}" +
+                "header{padding-bottom:24px;border-bottom:1px solid #394B63;margin-bottom:24px}" +
+                "h1{font-size:clamp(26px,4.5vw,38px);font-weight:600;letter-spacing:-0.02em;margin:0 0 8px;color:#F1F5FB}" +
+                ".sub{color:#B5C3D4;font-size:15px;line-height:1.5;margin:0;max-width:52ch}" +
+                "h2{font-size:15px;font-weight:600;margin:0 0 12px;color:#F1F5FB}" +
+                "nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 24px}" +
+                "a{display:flex;align-items:center;gap:12px;color:#F1F5FB;text-decoration:none;" +
+                "background:#1B2536;border:1px solid #6E89AA;border-radius:14px;padding:14px;min-height:64px}" +
+                "a:focus,a:focus-visible{outline:3px solid #9DC6FC;outline-offset:2px;background:#244C82;border-color:#9DC6FC}" +
+                ".mark{width:34px;height:34px;border-radius:10px;background:#222E42;border:1px solid #394B63;" +
+                "color:#9DC6FC;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}" +
+                ".meta{min-width:0}.name{display:block;font-size:15px;font-weight:600;color:#F1F5FB}" +
+                ".host{display:block;font-family:monospace;font-size:12px;color:#B5C3D4;margin-top:2px}" +
+                ".hint{color:#B5C3D4;font-size:13px;line-height:1.5;margin:0;max-width:60ch}" +
+                "@media(max-width:600px){nav{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
+                "@media(max-width:340px){nav{grid-template-columns:1fr}}</style></head><body><main>" +
+                "<header><h1>Rudy Browser</h1>" +
+                "<p class='sub'>Focused browsing for phone, tablet, and TV.</p></header>" +
+                "<section aria-label='Quick access'><h2>Quick access</h2><nav>" +
+                "<a href='https://www.google.com/'><span class='mark'>G</span><span class='meta'><span class='name'>Google</span><span class='host'>google.com</span></span></a>" +
+                "<a href='https://www.youtube.com/'><span class='mark'>Y</span><span class='meta'><span class='name'>YouTube</span><span class='host'>youtube.com</span></span></a>" +
+                "<a href='https://www.wikipedia.org/'><span class='mark'>W</span><span class='meta'><span class='name'>Wikipedia</span><span class='host'>wikipedia.org</span></span></a>" +
+                "<a href='https://www.bing.com/'><span class='mark'>B</span><span class='meta'><span class='name'>Bing</span><span class='host'>bing.com</span></span></a></nav></section>" +
+                "<p class='hint'>Use the address bar above to enter a link or search, or open Menu for tabs, bookmarks, and renderer tools.</p>" +
                 "</main></body></html>";
         if (engine != null) engine.loadHomeHtml(html);
         showComposeHome(true);
@@ -1193,22 +1424,236 @@ public final class MainActivity extends ComponentActivity {
         persistList(HISTORY, next);
     }
 
+    private List<BrowserChrome.HistoryItem> buildHistoryItems() {
+        JSONArray data = loadList(HISTORY);
+        List<BrowserChrome.HistoryItem> list = new ArrayList<>();
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject item = data.optJSONObject(i);
+            if (item == null) continue;
+            String url = item.optString("url");
+            if (!UrlTools.isWebUrl(url)) continue;
+            String title = item.optString("title", url);
+            String host = Uri.parse(url).getHost();
+            list.add(new BrowserChrome.HistoryItem(title, url, host == null ? "" : host));
+        }
+        return list;
+    }
+
+    private List<BrowserChrome.BookmarkItem> buildBookmarkItems() {
+        JSONArray data = loadList(BOOKMARKS);
+        List<BrowserChrome.BookmarkItem> list = new ArrayList<>();
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject item = data.optJSONObject(i);
+            if (item == null) continue;
+            String url = item.optString("url");
+            if (!UrlTools.isWebUrl(url)) continue;
+            String title = item.optString("title", url);
+            String host = Uri.parse(url).getHost();
+            list.add(new BrowserChrome.BookmarkItem(title, url, host == null ? "" : host));
+        }
+        return list;
+    }
+
+    private BrowserChrome.SettingsState buildSettingsState() {
+        String themeMode = prefs.getString(APP_THEME_MODE, "system");
+        boolean isDark = isDarkThemeEffective();
+        return new BrowserChrome.SettingsState(
+                isDark,
+                themeMode,
+                prefs.getBoolean(DESKTOP, false),
+                prefs.getString(ENGINE, EnginePolicy.AUTO),
+                engine == null ? "unavailable" : engine.name(),
+                tvDevice,
+                cursorMode,
+                tabs.size(),
+                new ExtensionSettings(prefs).enabledCount()
+        );
+    }
+
+    private void addBookmarkManual(String title, String url) {
+        if (!UrlTools.isWebUrl(url)) {
+            toast("Please enter a valid web URL");
+            return;
+        }
+        JSONArray old = loadList(BOOKMARKS);
+        JSONArray next = new JSONArray();
+        next.put(entry(url, title == null || title.trim().isEmpty() ? url : title));
+        for (int i = 0; i < old.length() && next.length() < 100; i++) {
+            JSONObject item = old.optJSONObject(i);
+            if (item != null && !url.equals(item.optString("url"))) next.put(item);
+        }
+        persistList(BOOKMARKS, next);
+        refreshBookmarkButton();
+        toast("Bookmark added");
+    }
+
+    private void removeBookmark(String url) {
+        if (url == null) return;
+        JSONArray old = loadList(BOOKMARKS);
+        JSONArray next = new JSONArray();
+        for (int i = 0; i < old.length(); i++) {
+            JSONObject item = old.optJSONObject(i);
+            if (item != null && !url.equals(item.optString("url"))) next.put(item);
+        }
+        persistList(BOOKMARKS, next);
+        refreshBookmarkButton();
+        toast("Bookmark removed");
+    }
+
+    private void removeHistoryItem(String url) {
+        if (url == null) return;
+        JSONArray old = loadList(HISTORY);
+        JSONArray next = new JSONArray();
+        for (int i = 0; i < old.length(); i++) {
+            JSONObject item = old.optJSONObject(i);
+            if (item != null && !url.equals(item.optString("url"))) next.put(item);
+        }
+        persistList(HISTORY, next);
+        toast("History item removed");
+    }
+
+    private void clearAllHistory() {
+        persistList(HISTORY, new JSONArray());
+        toast("Browsing history cleared");
+    }
+
+    private void confirmClearHistory() {
+        Runnable clear = () -> {
+            clearAllHistory();
+            showHistoryManager();
+        };
+        if (composeChrome != null) {
+            composeChrome.showConfirmation(
+                    "Clear browsing history?",
+                    "This will remove all recorded web page visits from history. Bookmarks and open tabs will not be affected.",
+                    "Clear history",
+                    clear);
+            return;
+        }
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(this)
+                        .setTitle("Clear browsing history?")
+                        .setMessage("This will remove all recorded web page visits.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Clear", (x, y) -> clear.run()).create());
+    }
+
+    private void showHistoryManager() {
+        if (composeChrome != null) {
+            List<BrowserChrome.HistoryItem> items = buildHistoryItems();
+            if (composeChrome.showHistoryManager(items, new BrowserChrome.HistoryHandler() {
+                @Override public void onOpen(String url) { open(url); }
+                @Override public void onOpenInNewTab(String url) {
+                    createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), url);
+                }
+                @Override public void onRemove(String url) {
+                    removeHistoryItem(url);
+                    showHistoryManager();
+                }
+                @Override public void onClearAll() {
+                    confirmClearHistory();
+                }
+            })) {
+                return;
+            }
+        }
+        showSavedList(HISTORY, false);
+    }
+
+    private void showBookmarkManager() {
+        if (composeChrome != null) {
+            List<BrowserChrome.BookmarkItem> items = buildBookmarkItems();
+            if (composeChrome.showBookmarkManager(items, new BrowserChrome.BookmarkHandler() {
+                @Override public void onOpen(String url) { open(url); }
+                @Override public void onOpenInNewTab(String url) {
+                    createBrowserTab(prefs.getString(ENGINE, EnginePolicy.AUTO), url);
+                }
+                @Override public void onAdd(String title, String url) {
+                    addBookmarkManual(title, url);
+                    showBookmarkManager();
+                }
+                @Override public void onRemove(String url) {
+                    removeBookmark(url);
+                    showBookmarkManager();
+                }
+            })) {
+                return;
+            }
+        }
+        showSavedList(BOOKMARKS, false);
+    }
+
+    private void showSettingsDialog() {
+        if (composeChrome != null) {
+            BrowserChrome.SettingsState state = buildSettingsState();
+            if (composeChrome.showSettings(state, new BrowserChrome.SettingsHandler() {
+                @Override public void onToggleDarkMode(boolean enabled) {
+                    onSetThemeMode(enabled ? "dark" : "light");
+                }
+                @Override public void onSetThemeMode(String mode) {
+                    prefs.edit().putString(APP_THEME_MODE, mode)
+                                .putBoolean(DARK_THEME, "dark".equalsIgnoreCase(mode) || ("system".equalsIgnoreCase(mode) && isDarkThemeEffective()))
+                                .apply();
+                    boolean dark = isDarkThemeEffective();
+                    if (composeChrome != null) composeChrome.setDarkTheme(dark);
+                    if (composeHome != null) composeHome.setDarkTheme(dark);
+                    toast("Theme: " + mode.toUpperCase(java.util.Locale.US));
+                    showSettingsDialog();
+                }
+                @Override public void onToggleDesktopMode(boolean enabled) {
+                    prefs.edit().putBoolean(DESKTOP, enabled).apply();
+                    updateUserAgent();
+                    if (engine != null) engine.reload();
+                    toast(enabled ? "Desktop mode enabled" : "Desktop mode disabled");
+                    showSettingsDialog();
+                }
+                @Override public void onChangeEngine() {
+                    chooseEngine();
+                }
+                @Override public void onClearBrowsingData() {
+                    confirmClear();
+                }
+                @Override public void onOpenExtensions() {
+                    showExtensions();
+                }
+                @Override public void onTogglePointerMode() {
+                    if (tvDevice) {
+                        toggleCursorMode();
+                        showSettingsDialog();
+                    } else {
+                        toast("Remote pointer is only for Android TV");
+                    }
+                }
+                @Override public void onShowAbout() {
+                    showAboutDialog();
+                }
+            })) {
+                return;
+            }
+        }
+        showToolsMenu();
+    }
+
     private void showSavedList(String key, boolean remove) {
         JSONArray data = loadList(key);
         final List<JSONObject> entries = new ArrayList<JSONObject>();
         final List<String> labels = new ArrayList<String>();
+        final List<BrowserChrome.ActionItem> richItems = new ArrayList<BrowserChrome.ActionItem>();
         for (int i = 0; i < data.length(); i++) {
             JSONObject item = data.optJSONObject(i);
             if (item == null || !UrlTools.isWebUrl(item.optString("url"))) continue;
+            String url = item.optString("url");
+            String label = item.optString("title", url);
+            String host = Uri.parse(url).getHost();
             entries.add(item);
-            labels.add(item.optString("title", item.optString("url")));
+            labels.add(label);
+            richItems.add(new BrowserChrome.ActionItem(label, host == null ? url : host, false));
         }
-        if (entries.isEmpty()) { toast("No saved pages yet"); return; }
         final String title = remove ? "Remove bookmark"
                 : key.equals(BOOKMARKS) ? "Bookmarks" : "Recently visited";
-        final String[] options = labels.toArray(new String[0]);
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
+                        if (which < 0 || which >= entries.size()) return;
                         String selected = entries.get(which).optString("url");
                         if (remove) {
                             JSONArray next = new JSONArray();
@@ -1222,12 +1667,27 @@ public final class MainActivity extends ComponentActivity {
                     }
                 };
         if (composeChrome != null) {
+            String emptyTitle = key.equals(BOOKMARKS) ? "No bookmarks saved" : "No browsing history yet";
+            String emptyDetail = key.equals(BOOKMARKS)
+                    ? "Use the bookmark button in the toolbar or menu while viewing a page to save it here."
+                    : "Pages you visit in normal tabs appear here so you can reopen them quickly.";
+            if (composeChrome.showRichActions(title, richItems, emptyTitle, emptyDetail,
+                    new BrowserChrome.ChoiceHandler() {
+                        @Override public void onChoice(int index) { selection.onClick(null, index); }
+                    })) {
+                return;
+            }
+        }
+        if (entries.isEmpty()) { toast("No saved pages yet"); return; }
+        final String[] options = labels.toArray(new String[0]);
+        if (composeChrome != null) {
             composeChrome.showActions(title, options, new BrowserChrome.ChoiceHandler() {
                 @Override public void onChoice(int index) { selection.onClick(null, index); }
             });
         } else {
-            new AlertDialog.Builder(this).setTitle(title)
-                    .setItems(options, selection).setNegativeButton("Cancel", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle(title)
+                            .setItems(options, selection).setNegativeButton("Cancel", null).create());
         }
     }
 
@@ -1241,12 +1701,84 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         address.requestFocus();
-        address.selectAll();
+        String current = address.getText().toString().trim();
+        if ("about:blank".equalsIgnoreCase(current) || current.isEmpty()) {
+            address.setText("");
+        } else {
+            address.selectAll();
+        }
         InputMethodManager input = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (input != null) input.showSoftInput(address, InputMethodManager.SHOW_IMPLICIT);
     }
 
+    private List<BrowserChrome.ExtensionItem> buildExtensionItems(String host) {
+        ExtensionSettings extSettings = new ExtensionSettings(prefs);
+        List<BrowserChrome.ExtensionItem> list = new ArrayList<>();
+        for (int i = 0; i < ExtensionPolicy.IDS.length; i++) {
+            String id = ExtensionPolicy.IDS[i];
+            String name = ExtensionPolicy.NAMES[i];
+            String desc = ExtensionPolicy.DESCRIPTIONS[i];
+            boolean enabled = extSettings.enabled(id);
+            String rule = host == null ? "inherit" : extSettings.siteRule(id, host);
+            list.add(new BrowserChrome.ExtensionItem(id, name, desc, enabled, true, rule));
+        }
+        return list;
+    }
+
     private void showExtensions() {
+        if (composeChrome != null) {
+            String currentUrl = engine == null ? null : engine.currentUrl();
+            final String host = ExtensionPolicy.host(currentUrl);
+            List<BrowserChrome.ExtensionItem> items = buildExtensionItems(host);
+            final ExtensionSettings extSettings = new ExtensionSettings(prefs);
+            if (composeChrome.showExtensionManager(items, host, new BrowserChrome.ExtensionManagerHandler() {
+                @Override public void onToggleExtension(String id, boolean enabled) {
+                    extSettings.setEnabled(id, enabled);
+                    if (engine != null) {
+                        try { engine.reload(); } catch (RuntimeException ignored) {}
+                    }
+                    showExtensions();
+                }
+                @Override public void onSetSiteRule(String id, String rule) {
+                    if (host != null) {
+                        try {
+                            extSettings.setSiteRule(id, host, rule);
+                            if (engine != null) {
+                                try { engine.reload(); } catch (RuntimeException ignored) {}
+                            }
+                            showExtensions();
+                        } catch (IllegalArgumentException e) {
+                            toast("Cannot apply rule to this host");
+                        }
+                    }
+                }
+                @Override public void onOpenUserscriptEditor() {
+                    new ExtensionUi(MainActivity.this, prefs, engine).confirmUserscriptEditor();
+                }
+                @Override public void onOpenVideoControls() {
+                    new ExtensionUi(MainActivity.this, prefs, engine).showVideoControls();
+                }
+                @Override public void onResetAllExtensions() {
+                    composeChrome.showConfirmation(
+                        "Reset extensions & scripts?",
+                        "This will reset all built-in add-ons to default settings and delete all custom userscripts.",
+                        "Reset",
+                        new Runnable() {
+                            @Override public void run() {
+                                extSettings.resetAll();
+                                if (engine != null) {
+                                    try { engine.reload(); } catch (RuntimeException ignored) {}
+                                }
+                                toast("Extensions and scripts reset");
+                                showExtensions();
+                            }
+                        }
+                    );
+                }
+            })) {
+                return;
+            }
+        }
         if (engine instanceof BrowserExtensions) {
             showRealFirefoxExtensions((BrowserExtensions) engine);
             return;
@@ -1262,34 +1794,36 @@ public final class MainActivity extends ComponentActivity {
             final String[] choices = new String[addons.size() + 2];
             for (int i = 0; i < addons.size(); i++) {
                 BrowserExtensions.AddonInfo addon = addons.get(i);
-                choices[i] = (addon.enabled ? "● " : "○ ") + addon.name +
+                choices[i] = (addon.enabled ? "[ON] " : "[OFF] ") + addon.name +
                         " · " + addon.version + (addon.builtIn ? " (bundled)" : "");
             }
             choices[addons.size()] = "Install bundled Firefox test extension";
             choices[addons.size() + 1] = "Install Mozilla-signed HTTPS .xpi";
-            new AlertDialog.Builder(this)
-                    .setTitle("Firefox WebExtensions")
-                    .setItems(choices, (dialog, choice) -> {
-                        if (engine != provider) return;
-                        if (choice < addons.size()) {
-                            showFirefoxAddonDetail(provider, addons.get(choice));
-                        } else if (choice == addons.size()) {
-                            new AlertDialog.Builder(this)
-                                    .setTitle("Install bundled extension?")
-                                    .setMessage("Rudy Page Marker is an original, local Firefox " +
-                                            "WebExtension. It only marks https://example.com " +
-                                            "for testing and requests no privileged APIs.")
-                                    .setNegativeButton("Cancel", null)
-                                    .setPositiveButton("Install", (ignored, which) ->
-                                            provider.installBundledTestAddon((ok, msg) -> {
-                                                toast(msg);
-                                                if (engine == provider) showRealFirefoxExtensions(provider);
-                                            })).show();
-                        } else {
-                            promptSignedFirefoxXpi(provider);
-                        }
-                    })
-                    .setNegativeButton("Close", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this)
+                            .setTitle("Firefox WebExtensions")
+                            .setItems(choices, (dialog, choice) -> {
+                                if (engine != provider) return;
+                                if (choice < addons.size()) {
+                                    showFirefoxAddonDetail(provider, addons.get(choice));
+                                } else if (choice == addons.size()) {
+                                    RudyDialogUi.showStyled(
+                                            RudyDialogUi.builder(this)
+                                                    .setTitle("Install bundled extension?")
+                                                    .setMessage("Rudy Page Marker is an original, local Firefox " +
+                                                            "WebExtension. It only marks https://example.com " +
+                                                            "for testing and requests no privileged APIs.")
+                                                    .setNegativeButton("Cancel", null)
+                                                    .setPositiveButton("Install", (ignored, which) ->
+                                                            provider.installBundledTestAddon((ok, msg) -> {
+                                                                toast(msg);
+                                                                if (engine == provider) showRealFirefoxExtensions(provider);
+                                                            })).create());
+                                } else {
+                                    promptSignedFirefoxXpi(provider);
+                                }
+                            })
+                            .setNegativeButton("Close", null).create());
         });
     }
 
@@ -1300,62 +1834,71 @@ public final class MainActivity extends ComponentActivity {
                 "\nAPI permissions: " + addon.requiredPermissions +
                 "\nWebsite access: " + addon.requiredOrigins +
                 "\nBundled: " + addon.builtIn;
-        new AlertDialog.Builder(this).setTitle(addon.name)
-                .setMessage(detail)
-                .setNegativeButton("Back", (ignored, which) -> showRealFirefoxExtensions(provider))
-                .setNeutralButton("Uninstall", (ignored, which) ->
-                        new AlertDialog.Builder(this)
-                                .setTitle("Uninstall Firefox extension?")
-                                .setMessage(addon.name + "\n" + addon.id +
-                                        "\nThis also deletes extension-specific data.")
-                                .setNegativeButton("Cancel", null)
-                                .setPositiveButton("Uninstall", (x, y) ->
-                                        provider.uninstallAddon(addon.id, (ok, msg) -> {
-                                            toast(msg);
-                                            if (engine == provider) showRealFirefoxExtensions(provider);
-                                        })).show())
-                .setPositiveButton(addon.enabled ? "Disable" : "Enable", (ignored, which) ->
-                        provider.setAddonEnabled(addon.id, !addon.enabled, (ok, msg) -> {
-                            toast(msg);
-                            if (engine == provider) showRealFirefoxExtensions(provider);
-                        })).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(this).setTitle(addon.name)
+                        .setMessage(detail)
+                        .setNegativeButton("Back", (ignored, which) -> showRealFirefoxExtensions(provider))
+                        .setNeutralButton("Uninstall", (ignored, which) ->
+                                RudyDialogUi.showStyled(
+                                        RudyDialogUi.builder(this)
+                                                .setTitle("Uninstall Firefox extension?")
+                                                .setMessage(addon.name + "\n" + addon.id +
+                                                        "\nThis also deletes extension-specific data.")
+                                                .setNegativeButton("Cancel", null)
+                                                .setPositiveButton("Uninstall", (x, y) ->
+                                                        provider.uninstallAddon(addon.id, (ok, msg) -> {
+                                                            toast(msg);
+                                                            if (engine == provider) showRealFirefoxExtensions(provider);
+                                                        })).create()))
+                        .setPositiveButton(addon.enabled ? "Disable" : "Enable", (ignored, which) ->
+                                provider.setAddonEnabled(addon.id, !addon.enabled, (ok, msg) -> {
+                                    toast(msg);
+                                    if (engine == provider) showRealFirefoxExtensions(provider);
+                                })).create());
     }
 
     private void promptSignedFirefoxXpi(final BrowserExtensions provider) {
         final EditText url = new EditText(this);
+        int pad = dp(12);
+        url.setPadding(pad, pad, pad, pad);
         url.setSingleLine(true);
+        url.setTextColor(RudyDialogUi.TEXT);
+        url.setHintTextColor(RudyDialogUi.MUTED);
+        url.setBackgroundDrawable(RudyDialogUi.omniboxDrawable(this, tvDevice, true));
         url.setHint("https://trusted.example/addon.xpi");
         url.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
                 android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        new AlertDialog.Builder(this)
-                .setTitle("Install signed Firefox XPI")
-                .setMessage("Enter a trusted HTTPS .xpi URL. Mozilla will validate the " +
-                        "add-on signature and its requested permissions will require " +
-                        "separate approval. Chrome .crx files are not supported.")
-                .setView(url)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Review source", (ignored, which) -> {
-                    final String value = url.getText().toString().trim();
-                    if (value.length() > 2048) { toast("Extension URL is too long"); return; }
-                    Uri uri = Uri.parse(value);
-                    final String host = uri.getHost();
-                    if (!"https".equalsIgnoreCase(uri.getScheme()) ||
-                            host == null || uri.getPath() == null ||
-                            !uri.getPath().toLowerCase(java.util.Locale.ROOT).endsWith(".xpi")) {
-                        toast("Direct HTTPS .xpi URL required");
-                        return;
-                    }
-                    new AlertDialog.Builder(this)
-                            .setTitle("Trust this extension source?")
-                            .setMessage("Domain: " + host + "\nFull URL: " + value +
-                                    "\n\nOnly install from a publisher you trust.")
-                            .setNegativeButton("Cancel", null)
-                            .setPositiveButton("Continue", (x, y) ->
-                                    provider.installSignedXpi(value, (ok, msg) -> {
-                                        toast(msg);
-                                        if (engine == provider) showRealFirefoxExtensions(provider);
-                                    })).show();
-                }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(this)
+                        .setTitle("Install signed Firefox XPI")
+                        .setMessage("Enter a trusted HTTPS .xpi URL. Mozilla will validate the " +
+                                "add-on signature and its requested permissions will require " +
+                                "separate approval. Chrome .crx files are not supported.")
+                        .setView(url)
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Review source", (ignored, which) -> {
+                            final String value = url.getText().toString().trim();
+                            if (value.length() > 2048) { toast("Extension URL is too long"); return; }
+                            Uri uri = Uri.parse(value);
+                            final String host = uri.getHost();
+                            if (!"https".equalsIgnoreCase(uri.getScheme()) ||
+                                    host == null || uri.getPath() == null ||
+                                    !uri.getPath().toLowerCase(java.util.Locale.ROOT).endsWith(".xpi")) {
+                                toast("Direct HTTPS .xpi URL required");
+                                return;
+                            }
+                            RudyDialogUi.showStyled(
+                                    RudyDialogUi.builder(this)
+                                            .setTitle("Trust this extension source?")
+                                            .setMessage("Domain: " + host + "\nFull URL: " + value +
+                                                    "\n\nOnly install from a publisher you trust.")
+                                            .setNegativeButton("Cancel", null)
+                                            .setPositiveButton("Continue", (x, y) ->
+                                                    provider.installSignedXpi(value, (ok, msg) -> {
+                                                        toast(msg);
+                                                        if (engine == provider) showRealFirefoxExtensions(provider);
+                                                    })).create());
+                        }).create());
     }
 
     private void toggleCursorMode() {
@@ -1407,36 +1950,38 @@ public final class MainActivity extends ComponentActivity {
     /** Launches a separate, manually installed Chromium browser without sharing URL or cookies. */
     private void showNativeChromium() {
         if (Build.VERSION.SDK_INT < 29) {
-            new AlertDialog.Builder(this).setTitle("Native Chromium unavailable")
-                .setMessage("Native Chromium requires Android 10+. Continue browsing with WebView.")
-                .setPositiveButton("OK", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle("Native Chromium unavailable")
+                            .setMessage("Native Chromium requires Android 10+. Continue browsing with WebView.")
+                            .setPositiveButton("OK", null).create());
             return;
         }
-        new AlertDialog.Builder(this).setTitle("Open separate Chromium app?")
-            .setMessage("This is an independent browser with its own data and Chrome "
-                + "extension manager, not an embedded engine. Your current URL, cookies, "
-                + "account sessions and scripts are not transferred. Rudy Browser remains "
-                + "available as the WebView fallback if the companion isn't installed.")
-            .setNegativeButton("Stay here", null)
-            .setPositiveButton("Open", new DialogInterface.OnClickListener() {
-                @Override public void onClick(DialogInterface dialog, int which) {
-                    final String pkg = "io.rudycity.tvbrowser.chromium";
-                    Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
-                    if (launch == null && Build.VERSION.SDK_INT >= 21)
-                        launch = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
-                    if (launch == null) {
-                        toast("Native Chromium companion is not installed");
-                        return;
-                    }
-                    try {
-                        startActivity(launch);
-                    } catch (android.content.ActivityNotFoundException invalid) {
-                        toast("Native Chromium could not be launched");
-                    } catch (SecurityException denied) {
-                        toast("Native Chromium launch was denied");
-                    }
-                }
-            }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(this).setTitle("Open separate Chromium app?")
+                        .setMessage("This is an independent browser with its own data and Chrome "
+                                + "extension manager, not an embedded engine. Your current URL, cookies, "
+                                + "account sessions and scripts are not transferred. Rudy Browser remains "
+                                + "available as the WebView fallback if the companion isn't installed.")
+                        .setNegativeButton("Stay here", null)
+                        .setPositiveButton("Open", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface dialog, int which) {
+                                final String pkg = "io.rudycity.tvbrowser.chromium";
+                                Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+                                if (launch == null && Build.VERSION.SDK_INT >= 21)
+                                    launch = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+                                if (launch == null) {
+                                    toast("Native Chromium companion is not installed");
+                                    return;
+                                }
+                                try {
+                                    startActivity(launch);
+                                } catch (android.content.ActivityNotFoundException invalid) {
+                                    toast("Native Chromium could not be launched");
+                                } catch (SecurityException denied) {
+                                    toast("Native Chromium launch was denied");
+                                }
+                            }
+                        }).create());
     }
 
     /** Frequent page actions first; advanced settings stay out of the main browser UI. */
@@ -1455,7 +2000,8 @@ public final class MainActivity extends ComponentActivity {
                 "Recent history",
                 "Android downloads",
                 "Find in page",
-                "More tools and settings"
+                "About Rudy Browser",
+                "Settings & browser tools"
         };
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
@@ -1467,11 +2013,12 @@ public final class MainActivity extends ComponentActivity {
                             case 3: showBrowserTabs(); break;
                             case 4: toggleBookmark(); break;
                             case 5: showExtensions(); break;
-                            case 6: showSavedList(BOOKMARKS, false); break;
-                            case 7: showSavedList(HISTORY, false); break;
+                            case 6: showBookmarkManager(); break;
+                            case 7: showHistoryManager(); break;
                             case 8: showSystemDownloads(); break;
                             case 9: showFindInPage(); break;
-                            case 10: showToolsMenu(); break;
+                            case 10: showAboutDialog(); break;
+                            case 11: showSettingsDialog(); break;
                         }
                     }
                 };
@@ -1480,26 +2027,28 @@ public final class MainActivity extends ComponentActivity {
                 @Override public void onChoice(int index) { selection.onClick(null, index); }
             });
         } else {
-            new AlertDialog.Builder(this).setTitle("Rudy Browser")
-                    .setItems(options, selection).setNegativeButton("Close", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle("Rudy Browser")
+                            .setItems(options, selection).setNegativeButton("Close", null).create());
         }
     }
 
     private void showSystemDownloads() {
-        new AlertDialog.Builder(this)
-                .setTitle("Saved downloads")
-                .setMessage("System WebView downloads appear in Android Downloads. " +
-                        "GeckoView files are saved to the folder you chose in the " +
-                        "Android document picker. Rudy Browser does not silently " +
-                        "collect files or open downloaded installers.")
-                .setNegativeButton("Close", null)
-                .setPositiveButton("Open Android Downloads", (ignored, which) -> {
-                    try {
-                        startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
-                    } catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
-                        toast("No downloads app is available on this device");
-                    }
-                }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(this)
+                        .setTitle("Saved downloads")
+                        .setMessage("System WebView downloads appear in Android Downloads. " +
+                                "GeckoView files are saved to the folder you chose in the " +
+                                "Android document picker. Rudy Browser does not silently " +
+                                "collect files or open downloaded installers.")
+                        .setNegativeButton("Close", null)
+                        .setPositiveButton("Open Android Downloads", (ignored, which) -> {
+                            try {
+                                startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS));
+                            } catch (android.content.ActivityNotFoundException | SecurityException unavailable) {
+                                toast("No downloads app is available on this device");
+                            }
+                        }).create());
     }
 
     private void showFindInPage() {
@@ -1509,12 +2058,17 @@ public final class MainActivity extends ComponentActivity {
         }
         final BrowserEngine target = engine;
         final EditText search = new EditText(this);
+        int pad = dp(12);
+        search.setPadding(pad, pad, pad, pad);
         search.setSingleLine(true);
+        search.setTextColor(RudyDialogUi.TEXT);
+        search.setHintTextColor(RudyDialogUi.MUTED);
+        search.setBackgroundDrawable(RudyDialogUi.omniboxDrawable(this, tvDevice, true));
         search.setHint("Text to find");
         search.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         search.setFilters(new android.text.InputFilter[]{
                 new android.text.InputFilter.LengthFilter(256)});
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = RudyDialogUi.builder(this)
                 .setTitle("Find in page")
                 .setView(search)
                 .setNegativeButton("Done", (ignored, which) -> target.clearFindInPage())
@@ -1541,6 +2095,7 @@ public final class MainActivity extends ComponentActivity {
         }
         final FindAction find = new FindAction();
         dialog.setOnShowListener(ignored -> {
+            RudyDialogUi.styleShownDialog(dialog);
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v ->
                     find.run(false));
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
@@ -1549,6 +2104,98 @@ public final class MainActivity extends ComponentActivity {
         });
         dialog.setOnDismissListener(ignored -> target.clearFindInPage());
         dialog.show();
+    }
+
+    private BrowserChrome.ToolsState buildToolsState() {
+        String currentUrl = engine == null ? "" : engine.currentUrl();
+        String currentHost = ExtensionPolicy.host(currentUrl);
+        String engineName = engine == null ? "System WebView" : engine.name();
+        boolean desktop = prefs.getBoolean(DESKTOP, false);
+        boolean darkTheme = prefs.getBoolean(DARK_THEME, true);
+        boolean canSavePdf = engine != null && UrlTools.isWebUrl(currentUrl);
+        boolean hasSitePermissions = engine != null && "Firefox GeckoView".equals(engine.name());
+        return new BrowserChrome.ToolsState(
+                currentUrl,
+                currentHost,
+                engineName,
+                desktop,
+                darkTheme,
+                tvDevice,
+                cursorMode,
+                canSavePdf,
+                hasSitePermissions
+        );
+    }
+
+    private void showToolsManager() {
+        if (composeChrome != null) {
+            BrowserChrome.ToolsState state = buildToolsState();
+            if (composeChrome.showToolsManager(state, new BrowserChrome.ToolsHandler() {
+                @Override public void onZoomIn() {
+                    if (engine != null) engine.zoomIn();
+                }
+                @Override public void onZoomOut() {
+                    if (engine != null) engine.zoomOut();
+                }
+                @Override public void onScrollDown() {
+                    if (engine == null || !engine.scrollPage(true)) toast("Scrolling unavailable");
+                }
+                @Override public void onScrollUp() {
+                    if (engine == null || !engine.scrollPage(false)) toast("Scrolling unavailable");
+                }
+                @Override public void onSavePdf() {
+                    if (engine == null || !engine.savePagePdf())
+                        toast("PDF export unavailable for this page or device");
+                }
+                @Override public void onFindInPage() {
+                    showFindInPage();
+                }
+                @Override public void onSitePermissions() {
+                    if (engine == null || !engine.showSitePermissions())
+                        toast("Site permissions are available for Gecko HTTPS pages");
+                }
+                @Override public void onVideoControls() {
+                    new ExtensionUi(MainActivity.this, prefs, engine).showVideoControls();
+                }
+                @Override public void onChangeEngine() {
+                    chooseEngine();
+                }
+                @Override public void onToggleDesktop(boolean enabled) {
+                    prefs.edit().putBoolean(DESKTOP, enabled).apply();
+                    updateUserAgent();
+                    if (engine != null) engine.reload();
+                    toast(enabled ? "Desktop mode enabled" : "Desktop mode disabled");
+                    showToolsManager();
+                }
+                @Override public void onToggleDarkMode(boolean enabled) {
+                    prefs.edit().putBoolean(DARK_THEME, enabled).apply();
+                    if (composeChrome != null) composeChrome.setDarkTheme(enabled);
+                    if (composeHome != null) composeHome.setDarkTheme(enabled);
+                    toast(enabled ? "Dark browser chrome enabled" : "Light browser chrome enabled");
+                    showToolsManager();
+                }
+                @Override public void onTogglePointerMode() {
+                    if (tvDevice) {
+                        toggleCursorMode();
+                        showToolsManager();
+                    } else {
+                        toast("Remote pointer is only for Android TV");
+                    }
+                }
+                @Override public void onClearBrowsingData() {
+                    confirmClear();
+                }
+                @Override public void onShowMemoryAndTabs() {
+                    showMemoryAndTabs();
+                }
+                @Override public void onFocusAddress() {
+                    focusAddress();
+                }
+            })) {
+                return;
+            }
+        }
+        showToolsMenu();
     }
 
     private void showToolsMenu() {
@@ -1622,16 +2269,7 @@ public final class MainActivity extends ComponentActivity {
                                 if (engine == null || !engine.showSitePermissions())
                                     toast("Site permissions are available for Gecko HTTPS pages");
                                 break;
-                            case 10: new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("About Rudy Browser")
-                                    .setMessage("Version " + BuildConfig.VERSION_NAME + " • Android API " + Build.VERSION.SDK_INT + "\nActive: " +
-                                            (engine == null ? "none" : engine.name()) +
-                                            "\n" + engineReason +
-                                            "\nModern embedded Chromium requires Android 10+ and " +
-                                            "a bundled Chromium provider. This build uses WebView " +
-                                            "unless that independent engine is provided.")
-                                    .setPositiveButton("OK", null).show();
-                                    break;
+                            case 10: showAboutDialog(); break;
                         }
                     }
                 };
@@ -1640,14 +2278,47 @@ public final class MainActivity extends ComponentActivity {
                 @Override public void onChoice(int index) { selection.onClick(null, index); }
             });
         } else {
-            new AlertDialog.Builder(this).setTitle("Browser tools")
-                    .setItems(options, selection)
-                    .setNegativeButton("Back", new DialogInterface.OnClickListener() {
-                        @Override public void onClick(DialogInterface dialog, int which) {
-                            showMenu();
-                        }
-                    }).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle("Browser tools")
+                            .setItems(options, selection)
+                            .setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                                @Override public void onClick(DialogInterface dialog, int which) {
+                                    showMenu();
+                                }
+                            }).create());
         }
+    }
+
+    private void showAboutDialog() {
+        String activeEngine = engine == null ? "Unavailable" : engine.name();
+        String detail = (engineReason == null ? "Active renderer verified at startup." : engineReason) +
+                " Modern embedded Chromium requires Android 10+ and a bundled Chromium provider. " +
+                "This build uses its configured renderer unless that independent engine is provided.";
+        boolean allowHttp = BrowserNetworkPolicy.allowHttpForFlavor(BuildConfig.FLAVOR);
+        if (composeChrome != null && composeChrome.showAbout(
+                "Rudy Browser",
+                BuildConfig.VERSION_NAME,
+                BuildConfig.APPLICATION_ID,
+                BuildConfig.FLAVOR,
+                Build.VERSION.SDK_INT,
+                activeEngine,
+                detail,
+                allowHttp,
+                tabs.size())) {
+            return;
+        }
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(MainActivity.this)
+                        .setTitle("About Rudy Browser")
+                        .setMessage("Version: " + BuildConfig.VERSION_NAME +
+                                "\nPackage: " + BuildConfig.APPLICATION_ID +
+                                "\nFlavor: " + BuildConfig.FLAVOR +
+                                "\nAndroid API: " + Build.VERSION.SDK_INT +
+                                "\nActive engine: " + activeEngine +
+                                "\nOpen tabs: " + tabs.size() +
+                                "\nHTTP policy: " + (allowHttp ? "HTTP allowed (legacy)" : "HTTPS-only") +
+                                "\n\n" + detail)
+                        .setPositiveButton("OK", null).create());
     }
 
     /** Explicit resource reclamation: never discard unsaved forms silently. */
@@ -1673,29 +2344,37 @@ public final class MainActivity extends ComponentActivity {
                 "in this single-process figure. Inactive tab renderers stay " +
                 "paused to preserve unsaved form state. You may explicitly " +
                 "close them to reclaim their memory.";
-        final AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+        final AlertDialog.Builder dialog = RudyDialogUi.builder(this)
                 .setTitle("Memory and browser tabs")
                 .setMessage(details)
                 .setNegativeButton("Back", null);
         if (inactive > 0) dialog.setPositiveButton("Close inactive tabs",
-                (ignored, which) -> new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Close " + inactive + " inactive tabs?")
-                        .setMessage("Inactive pages and unsaved form input will be lost. " +
-                                "The current page and its session remain open.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Close inactive tabs", (d, button) -> {
-                            final BrowserTab keep = activeTab;
-                            for (int i = tabs.size() - 1; i >= 0; i--) {
-                                if (tabs.get(i) != keep) closeBrowserTab(i);
-                            }
-                            toast("Inactive browser tabs closed");
-                        }).show());
-        dialog.show();
+                (ignored, which) -> RudyDialogUi.showStyled(
+                        RudyDialogUi.builder(MainActivity.this)
+                                .setTitle("Close " + inactive + " inactive tabs?")
+                                .setMessage("Inactive pages and unsaved form input will be lost. " +
+                                        "The current page and its session remain open.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Close inactive tabs", (d, button) -> {
+                                    final BrowserTab keep = activeTab;
+                                    for (int i = tabs.size() - 1; i >= 0; i--) {
+                                        if (tabs.get(i) != keep) closeBrowserTab(i);
+                                    }
+                                    toast("Inactive browser tabs closed");
+                                }).create()));
+        RudyDialogUi.showStyled(dialog.create());
     }
 
     private void chooseEngine() {
         final String[] labels = {"Automatic (GeckoView / Chromium / WebView)", "Firefox GeckoView", "Standalone Chromium", "System WebView"};
+        final String[] notes = {
+                "Selects the best available engine on this device",
+                "Mozilla Gecko engine with Firefox WebExtensions (Gecko build)",
+                "Requires Android 10+ and bundled Chromium AAR",
+                "Built-in Android System WebView"
+        };
         final String[] values = {EnginePolicy.AUTO, EnginePolicy.GECKO, EnginePolicy.CHROMIUM, EnginePolicy.WEBVIEW};
+        final String current = prefs.getString(ENGINE, EnginePolicy.AUTO);
         final DialogInterface.OnClickListener selection = new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int index) {
                         final String next = values[index];
@@ -1710,26 +2389,48 @@ public final class MainActivity extends ComponentActivity {
                             toast(engineReason);
                         };
                         if (tabs.size() > 1) {
-                            new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("Switch rendering engine for all tabs?")
-                                    .setMessage("This closes the other " + (tabs.size() - 1) +
-                                            " tab sessions. Cookies, history and site permissions " +
-                                            "are not transferred between GeckoView and WebView.")
-                                    .setNegativeButton("Cancel", null)
-                                    .setPositiveButton("Switch and close other tabs",
-                                            (ignored, which) -> apply.run()).show();
+                            String msg = "This closes the other " + (tabs.size() - 1) +
+                                    " tab sessions. Cookies, history and site permissions " +
+                                    "are not transferred between GeckoView and WebView.";
+                            if (composeChrome != null) {
+                                composeChrome.showConfirmation(
+                                        "Switch rendering engine for all tabs?",
+                                        msg,
+                                        "Switch and close other tabs",
+                                        apply);
+                            } else {
+                                RudyDialogUi.showStyled(
+                                        RudyDialogUi.builder(MainActivity.this)
+                                                .setTitle("Switch rendering engine for all tabs?")
+                                                .setMessage(msg)
+                                                .setNegativeButton("Cancel", null)
+                                                .setPositiveButton("Switch and close other tabs",
+                                                        (ignored, which) -> apply.run()).create());
+                            }
                         } else {
                             apply.run();
                         }
                     }
                 };
         if (composeChrome != null) {
+            List<BrowserChrome.ActionItem> items = new ArrayList<>();
+            for (int i = 0; i < labels.length; i++) {
+                items.add(new BrowserChrome.ActionItem(labels[i], notes[i], values[i].equals(current)));
+            }
+            if (composeChrome.showRichActions("Rendering engine", items,
+                    "No rendering engines available", "Check device WebView installation.",
+                    new BrowserChrome.ChoiceHandler() {
+                        @Override public void onChoice(int index) { selection.onClick(null, index); }
+                    })) {
+                return;
+            }
             composeChrome.showActions("Rendering engine", labels, new BrowserChrome.ChoiceHandler() {
                 @Override public void onChoice(int index) { selection.onClick(null, index); }
             });
         } else {
-            new AlertDialog.Builder(this).setTitle("Rendering engine")
-                    .setItems(labels, selection).setNegativeButton("Cancel", null).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle("Rendering engine")
+                            .setItems(labels, selection).setNegativeButton("Cancel", null).create());
         }
     }
 
@@ -1788,13 +2489,14 @@ public final class MainActivity extends ComponentActivity {
                 @Override public void run() { clearBrowsingDataNow(); }
             });
         } else {
-            new AlertDialog.Builder(this).setTitle(title).setMessage(detail)
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Clear", new DialogInterface.OnClickListener() {
-                        @Override public void onClick(DialogInterface dialog, int which) {
-                            clearBrowsingDataNow();
-                        }
-                    }).show();
+            RudyDialogUi.showStyled(
+                    RudyDialogUi.builder(this).setTitle(title).setMessage(detail)
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Clear", new DialogInterface.OnClickListener() {
+                                @Override public void onClick(DialogInterface dialog, int which) {
+                                    clearBrowsingDataNow();
+                                }
+                            }).create());
         }
     }
 
@@ -1826,6 +2528,40 @@ public final class MainActivity extends ComponentActivity {
         }
         // Show the actual engine URL, not a website-supplied opener string.
         String opener = PopupPolicy.isPreviewable(requestingUrl) ? requestingUrl : "Browser home";
+        final Runnable approvePopup = () -> {
+            if (!BrowserSessionPolicy.popupApprovalCurrent(
+                    activeTab == requestingTab && engine == requestingEngine,
+                    requestingSequence,
+                    requestingTab == null ? -1 : requestingTab.navigationSequence,
+                    requestingUrl,
+                    requestingEngine == null ? null : requestingEngine.currentUrl())) {
+                toast("Popup expired because the originating page changed");
+                return;
+            }
+            createBrowserTab(privatePopup ? EnginePolicy.GECKO :
+                    prefs.getString(ENGINE, EnginePolicy.AUTO),
+                    destinationUrl, privatePopup);
+        };
+        StringBuilder warningBuilder = new StringBuilder();
+        if (PopupPolicy.mightInstallSoftware(destinationUrl))
+            warningBuilder.append("The link looks like an installer or executable.");
+        if (PopupPolicy.usesPlainHttp(destinationUrl)) {
+            if (warningBuilder.length() > 0) warningBuilder.append(" ");
+            warningBuilder.append("The destination does not use HTTPS.");
+        }
+        String warning = warningBuilder.length() > 0 ? warningBuilder.toString() : null;
+        if (composeChrome != null && composeChrome.showSecurityConfirmation(
+                "Open this new-tab link?",
+                "Approved popup links open in a separate tab after human consent. Block this popup unless you trust the link.",
+                opener,
+                PopupPolicy.host(destinationUrl) + "\n" + destinationUrl,
+                warning,
+                "Block",
+                "Open link",
+                warning != null,
+                approvePopup)) {
+            return;
+        }
         StringBuilder details = new StringBuilder("Opened from:\n").append(opener)
                 .append("\n\nDestination domain:\n").append(PopupPolicy.host(destinationUrl))
                 .append("\n\nFull destination link:\n").append(destinationUrl)
@@ -1835,24 +2571,13 @@ public final class MainActivity extends ComponentActivity {
         if (PopupPolicy.usesPlainHttp(destinationUrl))
             details.append("\n\nWARNING: The destination does not use HTTPS.");
         details.append("\n\nBlock this popup unless you trust the link.");
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = RudyDialogUi.builder(this)
                 .setTitle("Open this new-tab link?")
                 .setMessage(details.toString())
                 .setNegativeButton("Block", null)
                 .setPositiveButton("Open link", new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface ignored, int which) {
-                        if (!BrowserSessionPolicy.popupApprovalCurrent(
-                                activeTab == requestingTab && engine == requestingEngine,
-                                requestingSequence,
-                                requestingTab == null ? -1 : requestingTab.navigationSequence,
-                                requestingUrl,
-                                requestingEngine == null ? null : requestingEngine.currentUrl())) {
-                            toast("Popup expired because the originating page changed");
-                            return;
-                        }
-                        createBrowserTab(privatePopup ? EnginePolicy.GECKO :
-                                prefs.getString(ENGINE, EnginePolicy.AUTO),
-                                destinationUrl, privatePopup);
+                        approvePopup.run();
                     }
                 }).create();
         popupDialog = dialog;
@@ -1861,7 +2586,7 @@ public final class MainActivity extends ComponentActivity {
                 if (popupDialog == dialog) popupDialog = null;
             }
         });
-        dialog.show();
+        RudyDialogUi.showStyled(dialog);
         // On a TV remote, the initial focus is always the safe choice.
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
     }
@@ -1896,32 +2621,55 @@ public final class MainActivity extends ComponentActivity {
         // Content-Disposition is untrusted. Limit its filename before displaying
         // a TV consent dialog or passing the name to Android DownloadManager.
         final String filename = BrowserDownloadPolicy.safeFilename(guessed);
-        StringBuilder details = new StringBuilder("File:\n").append(filename)
-                .append("\n\nSource link:\n").append(url);
-        if (PopupPolicy.mightInstallSoftware(url) ||
+        final Runnable approveDownload = () -> {
+            if (!BrowserSessionPolicy.downloadApprovalCurrent(
+                    activeTab == requestingTab && engine == requestingEngine,
+                    requestingSequence,
+                    requestingTab == null ? -1 : requestingTab.navigationSequence,
+                    requestingUrl,
+                    requestingEngine == null ? null : requestingEngine.currentUrl())) {
+                toast("Download expired because the originating page changed");
+                return;
+            }
+            enqueueDownload(url, userAgent, mimeType, filename);
+        };
+        boolean installerRisk = PopupPolicy.mightInstallSoftware(url) ||
                 PopupPolicy.mightInstallSoftware("https://example.invalid/" + filename) ||
                 (mimeType != null && mimeType.toLowerCase(java.util.Locale.US)
-                        .contains("android.package-archive")))
+                        .contains("android.package-archive"));
+        StringBuilder warningBuilder = new StringBuilder();
+        if (installerRisk) warningBuilder.append("Possible installer. Never install untrusted APKs.");
+        if (PopupPolicy.usesPlainHttp(url)) {
+            if (warningBuilder.length() > 0) warningBuilder.append(" ");
+            warningBuilder.append("Download source is not HTTPS.");
+        }
+        String warning = warningBuilder.length() > 0 ? warningBuilder.toString() : null;
+        if (composeChrome != null && composeChrome.showSecurityConfirmation(
+                "Allow file download?",
+                "Nothing downloads without your approval.",
+                filename,
+                url,
+                warning,
+                "Block",
+                "Download",
+                warning != null,
+                approveDownload)) {
+            return;
+        }
+        StringBuilder details = new StringBuilder("File:\n").append(filename)
+                .append("\n\nSource link:\n").append(url);
+        if (installerRisk)
             details.append("\n\nWARNING: Possible installer. Never install untrusted APKs.");
         if (PopupPolicy.usesPlainHttp(url))
             details.append("\n\nWARNING: Download source is not HTTPS.");
         details.append("\n\nNothing downloads without your approval.");
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = RudyDialogUi.builder(this)
                 .setTitle("Allow file download?")
                 .setMessage(details.toString())
                 .setNegativeButton("Block", null)
                 .setPositiveButton("Download", new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface ignored, int which) {
-                        if (!BrowserSessionPolicy.downloadApprovalCurrent(
-                                activeTab == requestingTab && engine == requestingEngine,
-                                requestingSequence,
-                                requestingTab == null ? -1 : requestingTab.navigationSequence,
-                                requestingUrl,
-                                requestingEngine == null ? null : requestingEngine.currentUrl())) {
-                            toast("Download expired because the originating page changed");
-                            return;
-                        }
-                        enqueueDownload(url, userAgent, mimeType, filename);
+                        approveDownload.run();
                     }
                 }).create();
         downloadDialog = dialog;
@@ -1930,7 +2678,7 @@ public final class MainActivity extends ComponentActivity {
                 if (downloadDialog == dialog) downloadDialog = null;
             }
         });
-        dialog.show();
+        RudyDialogUi.showStyled(dialog);
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();
     }
 

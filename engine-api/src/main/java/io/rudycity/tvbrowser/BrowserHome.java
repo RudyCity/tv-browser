@@ -10,9 +10,19 @@ public interface BrowserHome {
     interface Actions {
         void openWebsite(String httpsUrl);
         void focusAddress();
+        default void openTabs() {}
+        default void openBookmarks() {}
+        default void openHistory() {}
+        default void openSettings() {}
+        default void openTools() {}
+        default void openExtensions() {}
+        default void newTab() {}
+        default void newPrivateTab() {}
     }
 
     View view();
     /** Optional native landing-page theme; legacy engines ignore this. */
     default void setDarkTheme(boolean dark) {}
+    /** Refreshes active home data (history, bookmarks, tabs, speed dial) upon visibility change. */
+    default void refreshData() {}
 }

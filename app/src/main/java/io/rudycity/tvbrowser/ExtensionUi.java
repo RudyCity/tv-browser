@@ -28,8 +28,9 @@ public final class ExtensionUi {
     }
 
     private void info(String title, String detail) {
-        new AlertDialog.Builder(activity).setTitle(title).setMessage(detail)
-                .setPositiveButton("OK", null).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle(title).setMessage(detail)
+                        .setPositiveButton("OK", null).create());
     }
 
     private String pageUrl() {
@@ -66,24 +67,25 @@ public final class ExtensionUi {
         names[count + 3] = "HTML5 video playback controls";
         names[count + 4] = "Reset add-ons and saved scripts";
         names[count + 5] = "Chrome Web Store / .crx compatibility";
-        new AlertDialog.Builder(activity)
-                .setTitle(supportedRenderer() ? "Extensions - WebView" : "Extensions - WebView only")
-                .setItems(names, new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface dialog, int item) {
-                        if (item < count) { showDetails(item); return; }
-                        switch (item - count) {
-                            case 0: showSitePermissions(); break;
-                            case 1: confirmUserscriptEditor(); break;
-                            case 2: showTrackerStatus(); break;
-                            case 3: showVideoControls(); break;
-                            case 4: confirmResetAll(); break;
-                            default: info("Chrome extensions not available",
-                                "Chrome Web Store / .crx files are not supported by Android WebView. "
-                                + "The standalone Chromium embedder and the required extension APIs "
-                                + "are not integrated. No extension is downloaded or installed.");
-                        }
-                    }
-                }).setNegativeButton("Close", null).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity)
+                        .setTitle(supportedRenderer() ? "Extensions: WebView" : "Extensions: WebView only")
+                        .setItems(names, new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface dialog, int item) {
+                                if (item < count) { showDetails(item); return; }
+                                switch (item - count) {
+                                    case 0: showSitePermissions(); break;
+                                    case 1: confirmUserscriptEditor(); break;
+                                    case 2: showTrackerStatus(); break;
+                                    case 3: showVideoControls(); break;
+                                    case 4: confirmResetAll(); break;
+                                    default: info("Chrome extensions not available",
+                                        "Chrome Web Store / .crx files are not supported by Android WebView. "
+                                        + "The standalone Chromium embedder and the required extension APIs "
+                                        + "are not integrated. No extension is downloaded or installed.");
+                                }
+                            }
+                        }).setNegativeButton("Close", null).create());
     }
 
     /** Accessible from extensions and the browser's video menu. */
@@ -103,28 +105,29 @@ public final class ExtensionUi {
         }
         final String[] labels = {
                 "Play / pause", "Rewind (engine interval)", "Forward (engine interval)",
-                "Mute / unmute", "Speed 0.75×", "Speed normal (1×)", "Speed 1.5×"
+                "Mute / unmute", "Speed 0.75x", "Speed normal (1x)", "Speed 1.5x"
         };
-        new AlertDialog.Builder(activity).setTitle(
-                    gecko ? "Firefox media controls" : "HTML5 video controls")
-                .setMessage(gecko ? "Controls use Gecko's native active MediaSession. " +
-                        "Playback-speed controls are not supported by this API. " +
-                        "No website scripts are injected." : null)
-                .setItems(labels, (dialog, index) -> {
-                    if (index < 0 || index >= VideoTools.COMMANDS.length) return;
-                    boolean sent = gecko
-                            ? engine.executeMediaCommand(VideoTools.COMMANDS[index])
-                            : ((WebViewEngine) engine)
-                                    .executeVideoCommand(VideoTools.COMMANDS[index]);
-                    Toast.makeText(activity, sent
-                            ? "Playback command sent"
-                            : gecko && index >= 4 ?
-                                    "Gecko does not expose playback speed controls" :
-                                    "No controllable media on this site",
-                            Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton("Back", (dialog, which) -> show())
-                .show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity)
+                        .setTitle(gecko ? "Firefox media controls" : "HTML5 video controls")
+                        .setMessage(gecko ? "Controls use Gecko's native active MediaSession. " +
+                                "Playback-speed controls are not supported by this API. " +
+                                "No website scripts are injected." : null)
+                        .setItems(labels, (dialog, index) -> {
+                            if (index < 0 || index >= VideoTools.COMMANDS.length) return;
+                            boolean sent = gecko
+                                    ? engine.executeMediaCommand(VideoTools.COMMANDS[index])
+                                    : ((WebViewEngine) engine)
+                                            .executeVideoCommand(VideoTools.COMMANDS[index]);
+                            Toast.makeText(activity, sent
+                                    ? "Playback command sent"
+                                    : gecko && index >= 4 ?
+                                            "Gecko does not expose playback speed controls" :
+                                            "No controllable media on this site",
+                                    Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Back", (dialog, which) -> show())
+                        .create());
     }
 
     private void showTrackerStatus() {
@@ -140,7 +143,7 @@ public final class ExtensionUi {
                     + "Blocked subresource requests this page: " + total + "\n\n"
                     + "These numbers cover only a small built-in tracker list. "
                     + "Older Android 4.4 / API 19-20 disables interception to protect top-level navigation.";
-        AlertDialog.Builder dialog = new AlertDialog.Builder(activity)
+        AlertDialog.Builder dialog = RudyDialogUi.builder(activity)
                 .setTitle("Tracker protection")
                 .setMessage(text)
                 .setNegativeButton("Back", new DialogInterface.OnClickListener() {
@@ -161,24 +164,25 @@ public final class ExtensionUi {
                         }
                     });
         }
-        dialog.show();
+        RudyDialogUi.showStyled(dialog.create());
     }
 
     private void confirmResetAll() {
-        new AlertDialog.Builder(activity).setTitle("Reset all add-ons?")
-                .setMessage("Removes all per-site permissions and "
-                        + settings.savedScriptCount() + " saved userscript(s), "
-                        + "then restores built-in add-on defaults. "
-                        + "Bookmarks, engine choice and history are not deleted. "
-                        + "This action cannot be undone.")
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Reset add-ons", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) {
-                        settings.resetAll();
-                        changed();
-                        show();
-                    }
-                }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle("Reset all add-ons?")
+                        .setMessage("Removes all per-site permissions and "
+                                + settings.savedScriptCount() + " saved userscript(s), "
+                                + "then restores built-in add-on defaults. "
+                                + "Bookmarks, engine choice and history are not deleted. "
+                                + "This action cannot be undone.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Reset add-ons", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) {
+                                settings.resetAll();
+                                changed();
+                                show();
+                            }
+                        }).create());
     }
 
     private void showDetails(final int index) {
@@ -189,7 +193,7 @@ public final class ExtensionUi {
                 + "Site: " + (host == null ? "Open a website to set its permissions"
                     : host + " (" + settings.siteRule(id, host) + ")") + "\n"
                 + "Renderer: " + (supportedRenderer() ? "System WebView" : "Unavailable");
-        AlertDialog.Builder dialog = new AlertDialog.Builder(activity)
+        AlertDialog.Builder dialog = RudyDialogUi.builder(activity)
                 .setTitle(ExtensionPolicy.NAMES[index])
                 .setMessage(details)
                 .setPositiveButton(settings.enabled(id) ? "Disable" : "Enable",
@@ -210,7 +214,7 @@ public final class ExtensionUi {
                 }
             });
         }
-        dialog.show();
+        RudyDialogUi.showStyled(dialog.create());
     }
 
     private void showSitePermissions() {
@@ -224,15 +228,16 @@ public final class ExtensionUi {
             String id = ExtensionPolicy.IDS[i];
             options[i] = ExtensionPolicy.NAMES[i] + "  •  " + settings.siteRule(id, host);
         }
-        new AlertDialog.Builder(activity).setTitle("Permissions: " + host)
-                .setItems(options, new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int index) {
-                        showSiteRule(index);
-                    }
-                })
-                .setNegativeButton("Back", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) { show(); }
-                }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle("Permissions: " + host)
+                        .setItems(options, new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int index) {
+                                showSiteRule(index);
+                            }
+                        })
+                        .setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) { show(); }
+                        }).create());
     }
 
     private void showSiteRule(final int index) {
@@ -245,27 +250,28 @@ public final class ExtensionUi {
         String current = settings.siteRule(id, host);
         int selected = ExtensionSettings.ALLOW.equals(current) ? 1
                 : ExtensionSettings.DENY.equals(current) ? 2 : 0;
-        new AlertDialog.Builder(activity).setTitle(ExtensionPolicy.NAMES[index] + " on " + host)
-                .setSingleChoiceItems(new String[] {
-                    "Use global setting",
-                    "Allow when globally enabled",
-                    "Block on this site"
-                }, selected, new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int selection) {
-                        d.dismiss();
-                        settings.setSiteRule(id, host, rules[selection]);
-                        changed();
-                        showSitePermissions();
-                    }
-                })
-                .setNegativeButton("Back", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) {
-                        showSitePermissions();
-                    }
-                }).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle(ExtensionPolicy.NAMES[index] + " on " + host)
+                        .setSingleChoiceItems(new String[] {
+                            "Use global setting",
+                            "Allow when globally enabled",
+                            "Block on this site"
+                        }, selected, new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int selection) {
+                                d.dismiss();
+                                settings.setSiteRule(id, host, rules[selection]);
+                                changed();
+                                showSitePermissions();
+                            }
+                        })
+                        .setNegativeButton("Back", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) {
+                                showSitePermissions();
+                            }
+                        }).create());
     }
 
-    private void confirmUserscriptEditor() {
+    public void confirmUserscriptEditor() {
         final String url = pageUrl();
         if (!ExtensionPolicy.userscriptOrigin(url)) {
             info("Userscripts", "Navigate to an HTTPS website before adding a userscript. "
@@ -273,55 +279,62 @@ public final class ExtensionUi {
             return;
         }
         final String host = ExtensionPolicy.host(url);
-        new AlertDialog.Builder(activity).setTitle("Script safety: " + host)
-                .setMessage("Only paste JavaScript you wrote or trust. It runs inside the page "
-                        + "and can read and change website content. Scripts are stored locally "
-                        + "for this exact hostname and run after page load only when the global "
-                        + "Userscript manager is enabled and this site is not blocked.")
-                .setPositiveButton("I understand", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) {
-                        editUserscript(host);
-                    }
-                })
-                .setNegativeButton("Cancel", null).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle("Script safety: " + host)
+                        .setMessage("Only paste JavaScript you wrote or trust. It runs inside the page "
+                                + "and can read and change website content. Scripts are stored locally "
+                                + "for this exact hostname and run after page load only when the global "
+                                + "Userscript manager is enabled and this site is not blocked.")
+                        .setPositiveButton("I understand", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) {
+                                editUserscript(host);
+                            }
+                        })
+                        .setNegativeButton("Cancel", null).create());
     }
 
     private void editUserscript(final String host) {
         final EditText editor = new EditText(activity);
+        int pad = RudyDialogUi.dp(activity, 12);
+        editor.setPadding(pad, pad, pad, pad);
         editor.setSingleLine(false);
         editor.setMinLines(7);
         editor.setMaxLines(12);
         editor.setGravity(Gravity.TOP);
         editor.setTextSize(14);
+        editor.setTextColor(RudyDialogUi.TEXT);
+        editor.setHintTextColor(RudyDialogUi.MUTED);
+        editor.setBackgroundDrawable(RudyDialogUi.omniboxDrawable(activity, true, true));
         editor.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         editor.setHint("// JavaScript for " + host);
         editor.setText(settings.savedScript(host));
         editor.setSelectAllOnFocus(false);
-        new AlertDialog.Builder(activity).setTitle("Userscript: " + host)
-                .setMessage("Runs at document-end on HTTPS, exact hostname only. "
-                        + "Maximum 32 KiB. Leave empty to remove.")
-                .setView(editor)
-                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) {
-                        String script = editor.getText().toString();
-                        if (script.getBytes(StandardCharsets.UTF_8).length > ExtensionSettings.MAX_SCRIPT_BYTES) {
-                            info("Script too long", "Userscripts are limited to 32 KiB.");
-                            return;
-                        }
-                        settings.setScript(host, script);
-                        changed();
-                        Toast.makeText(activity, script.trim().isEmpty()
-                                ? "Userscript removed" : "Userscript saved", Toast.LENGTH_LONG).show();
-                    }
-                })
-                .setNeutralButton("Delete", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int button) {
-                        settings.setScript(host, "");
-                        changed();
-                        Toast.makeText(activity, "Userscript removed", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Cancel", null).show();
+        RudyDialogUi.showStyled(
+                RudyDialogUi.builder(activity).setTitle("Userscript: " + host)
+                        .setMessage("Runs at document-end on HTTPS, exact hostname only. "
+                                + "Maximum 32 KiB. Leave empty to remove.")
+                        .setView(editor)
+                        .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) {
+                                String script = editor.getText().toString();
+                                if (script.getBytes(StandardCharsets.UTF_8).length > ExtensionSettings.MAX_SCRIPT_BYTES) {
+                                    info("Script too long", "Userscripts are limited to 32 KiB.");
+                                    return;
+                                }
+                                settings.setScript(host, script);
+                                changed();
+                                Toast.makeText(activity, script.trim().isEmpty()
+                                        ? "Userscript removed" : "Userscript saved", Toast.LENGTH_LONG).show();
+                            }
+                        })
+                        .setNeutralButton("Delete", new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface d, int button) {
+                                settings.setScript(host, "");
+                                changed();
+                                Toast.makeText(activity, "Userscript removed", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton("Cancel", null).create());
     }
 }

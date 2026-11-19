@@ -1,10 +1,44 @@
+# Gradle & Build caches
 .gradle/
+**/build/
+build/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+
+# Android Studio & IDEs
 .idea/
 *.iml
+.vscode/
 local.properties
-**/build/
+
+# Android artifacts
 *.apk
 *.aab
+*.ap_
+*.dex
+*.class
+
+# Signing keys & secrets
 *.keystore
 *.jks
+
+# Logs & profiling
+*.log
+captures/
+
+# Temporary UI dumps and root adb screencaps
+*.dump
+*.dump.xml
+*_dump.xml
+*_ui.xml
+ui_dump.xml
+/current_screen_now.png
+/screen_*.png
+
+# OS metadata
 .DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/

@@ -1,49 +1,54 @@
-# Rudy Design System v1 — Kotlin Compose Material 3
+# Rudy Design System v2: Cross-Surface Browser Chrome & Workspace
 
 ## Product intent
 
-Browser UI is navigation chrome, not a social/dashboard app. Favor viewport,
-fast access to the omnibox, quiet surfaces, simple icon states and readable
-focus indications. Taste Design / Antislop checks: consistent visual rhythm,
-no unexplained cards, no double toolbar/loading indicators, no oversized
-decorative buttons, no fake tabs, and no styling injected into user websites.
+Browser UI is navigation chrome, not a social or dashboard app. Favor viewport
+area, immediate access to the omnibox, calm cool-slate surfaces, high-contrast
+keyboard/D-pad focus indicators, and honest empty/loading/error states.
+No unexplained cards, no duplicate loading bars, no fake tab counters, no emoji
+ornaments, and no styling injected into user websites.
 
-## Tokens (dark baseline)
+Canonical specification and WCAG AA contrast proofs live in
+[DESIGN.md](../DESIGN.md).
 
-Source: `compose-ui/src/main/java/io/rudycity/tvbrowser/compose/RudyDesignSystem.kt`.
+## Tokens (Dark & Light Slate)
 
-- Toolbar `#151C27`, omnibox `#283444`, foreground `#F0F4FA`.
-- Muted text `#B3C0CF`, active accent `#9DC6FC`.
-- Spacing `2 / 4 / 8 / 12 / 16 dp`; same spacing scale across controls.
-- Minimum actionable icon touch target **48dp**; icon drawings 24dp.
-- Omnibox 56dp high, toolbar 68dp high, navigation loading bar 2dp.
-- Shapes: 6/10/14/22/28dp corner scale; omnibox uses 28dp.
-- Typography: Material 3-based body/label/title with deliberate weights,
-  line-height and contrast.
+Source: `compose-ui/src/main/java/io/rudycity/tvbrowser/compose/RudyDesignSystem.kt`
+and `app/src/main/java/io/rudycity/tvbrowser/RudyDialogUi.java`.
+
+- **Dark baseline**: root `#0C131E`, toolbar `#131B28`, elevated surface `#1B2536`,
+  omnibox `#222E42`, foreground `#F1F5FB`, muted `#B5C3D4`, accent `#9DC6FC`,
+  interactive border `#6E89AA`, positive `#7AD894`, danger `#F48B82`.
+- **Light theme**: root `#F2F5FA`, toolbar `#FFFFFF`, elevated surface `#F8FAFD`,
+  omnibox `#E7EDF6`, foreground `#142030`, muted `#445468`, accent `#1E54A8`,
+  interactive border `#708297`, positive `#1A6B35`, danger `#B3261E`.
+- **Spacing**: `2 / 4 / 8 / 12 / 16 / 24 / 32 dp`.
+- **Targets & sizing**: Minimum actionable touch/D-pad target **48dp**;
+  icon drawings 24dp; omnibox 52dp high inside 68dp toolbar; progress line 2dp.
+- **Shapes**: `6 / 10 / 14 / 18 / 28 dp` scale (omnibox `28dp` pill, modals `18dp`,
+  cards/tiles `14dp`, buttons `10dp`, status tags `6dp`).
+- **Typography**: Material 3 scale with tight display tracking, readable `65ch`
+  line measure on home guidance, and monospace reserved strictly for URLs,
+  tab metrics, and security destination hosts.
 
 ## Form-factor rules
 
-- Phone: one row, Back + omnibox + overflow; never create a fake tab count.
-- Tablet >=600dp: Forward and Reload become visible; Home from 760dp.
-- TV: Java big-target, D-pad-first toolbar until focus UX on actual TV is
-  runtime-tested; do not assume touch Compose controls work well by remote.
-- Existing page/iframe/video remains owned by BrowserEngine/WebView.
+- **Phone (`< 600dp`)**: single toolbar row (Back + omnibox + overflow); never
+  display a fake tab counter.
+- **Tablet (`>= 600dp`)**: Forward, Reload, and Bookmark toggle appear inline;
+  Home and Extensions join from `760dp`.
+- **Android TV**: large 48–52dp D-pad-first controls with 2.5dp `#9DC6FC` focus
+  halos, high-contrast dual-ring cursor reticle (`TvCursorOverlay`), and dark
+  slate dialog styling (`RudyDialogUi`).
+- Existing page, iframe, and video surfaces remain owned by `BrowserEngine`.
 
-## Evidence and next steps
+## Native home & dialog composition
 
-- Kotlin unit tests enforce minimum touch size and nontransparent theme colors.
-- API29 emulator smoke tests verify Activity/Compose connection, loading
-  ownership and modern network policy.
-- Emulator screenshot captured as workflow artifact for visual audit. Human
-  screenshot review and 320/390/600/768dp device snapshots remain pending.
-- M3 still requires font scaling and contrast verification, RTL, light mode,
-  accessible focus/keyboard behavior, and unification of bookmarks, settings,
-  download and consent dialogs in M4.
-
-## Native home composition (0.7.1 refinement)
-
-- Keep exactly one editable omnibox in the browser toolbar; the homepage must not duplicate search input.
-- Use a concise brand heading and subdued helper text.
-- Quick-access shortcuts are labeled Material 3 buttons, 48dp minimum height, medium corner radius and explicit accessibility descriptions.
-- Do not add a fake tab count or fill unused viewport space with decorative widgets.
-- Validate a real rendered screenshot from the Android emulator, not just layout source.
+- Keep exactly one editable omnibox in the browser toolbar; the homepage may
+  provide a button that focuses the toolbar omnibox, never a second text input.
+- Quick-access tiles use explicit accessibility labels (`Open <Site> website`),
+  monogram marks, host captions, 48dp+ height, and visible focus rings.
+- Rich Compose dialogs cover overflow actions, saved Bookmarks/History (with
+  explicit empty states), Tab Manager (active/private badges, crash/loading
+  states, safe close-all flow), and security confirmations (popup/download/data
+  clear with source/destination details).

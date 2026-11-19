@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="120 110 280 290" width="280" height="290">
+  <defs>
+    <!-- Primary Ribbon Gradient -->
+    <linearGradient id="glyphRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0f9ff"/>
+      <stop offset="18%" stop-color="#bae6fd"/>
+      <stop offset="45%" stop-color="#38bdf8"/>
+      <stop offset="75%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- Leg Gradient -->
+    <linearGradient id="glyphLeg" x1="0%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="45%" stop-color="#2563eb"/>
+      <stop offset="85%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Specular Highlight -->
+    <linearGradient id="glyphSpecular" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#bae6fd" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Overlap Shadow -->
+    <filter id="glyphShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="-4" dy="8" stdDeviation="8" flood-color="#010409" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Left Pillar -->
+  <rect x="136" y="124" width="60" height="264" rx="30" ry="30" fill="url(#glyphRibbon)"/>
+
+  <!-- Kinetic Leg -->
+  <path d="M 196 244
+           L 264 244
+           C 288 244 310 258 322 280
+           L 374 366
+           C 382 378 372 388 358 388
+           L 300 388
+           C 282 388 266 376 256 360
+           L 208 280
+           C 202 270 196 258 196 244 Z"
+        fill="url(#glyphLeg)"/>
+
+  <!-- Orbital Loop -->
+  <path d="M 166 124
+           L 272 124
+           C 338 124 386 170 386 228
+           C 386 286 338 332 272 332
+           L 196 332
+           C 179 332 166 319 166 302
+           L 166 288
+           C 166 271 179 258 196 258
+           L 264 258
+           C 292 258 316 242 316 228
+           C 316 214 292 198 264 198
+           L 166 198 Z"
+        fill="url(#glyphRibbon)"
+        filter="url(#glyphShadow)"/>
+
+  <!-- Specular Ridge -->
+  <path d="M 166 126
+           L 272 126
+           C 334 126 382 170 384 226"
+        fill="none"
+        stroke="url(#glyphSpecular)"
+        stroke-width="3"
+        stroke-linecap="round"/>
+</svg>

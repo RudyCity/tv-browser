@@ -1,12 +1,10 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
-## Development 0.8.0 Beta — release available, smaller APKs under testing
+## Development 0.8.1 Beta — Edge-to-edge UI, Rudy Design System v2 & Flagship Modals
 
-[Rudy Browser 0.8.0 Beta](https://github.com/RudyCity/tv-browser/releases/tag/v0.8.0-beta.db0f0e71) is published with debug-signed Legacy, Preview and Gecko APKs. **Its Gecko universal APK is still 547.5 MB**; prior releases are immutable and are not replaced by this size optimization.
+[Rudy Browser 0.8.1 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
 
-**Smaller Gecko per-ABI builds** are implemented in source and validated in the [Gecko build CI](https://github.com/RudyCity/tv-browser/actions/runs/44266897359): 64-bit ARM 213.0 MB, 32-bit ARM 173.7 MB, x86-64 232.5 MB. The [Actions ZIP artifact](https://github.com/RudyCity/tv-browser/actions/runs/44266897359/artifacts/14410463019) contains all three smaller debug APKs (not a new Release). For implementation and remaining gates see [Gecko APK size optimization](docs/GECKO_SIZE_OPTIMIZATION.md).
-
-VersionName 0.8.0 / versionCode 12 remains unchanged; no native Chromium AAR is bundled. Physical hardware testing, production signing, and full Gecko emulator verification must not be inferred from the successful size build.
+VersionName 0.8.1 / versionCode 13; no native Chromium AAR is bundled.
 
 ## Download / GitHub Pre-release (18 November 2026)
 

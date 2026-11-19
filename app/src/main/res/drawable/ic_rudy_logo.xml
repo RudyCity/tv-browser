@@ -1,0 +1,118 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Background Squircle Container -->
+    <path
+        android:pathData="M 140,24 L 372,24 C 436,24 488,76 488,140 L 488,372 C 488,436 436,488 372,488 L 140,488 C 76,488 24,436 24,372 L 24,140 C 24,76 76,24 140,24 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="512"
+                android:endY="512">
+                <item android:color="#FF0C1322" android:offset="0.0" />
+                <item android:color="#FF070A12" android:offset="0.5" />
+                <item android:color="#FF020408" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Squircle Hairline Cyan Rim -->
+    <path
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M 140,24 L 372,24 C 436,24 488,76 488,140 L 488,372 C 488,436 436,488 372,488 L 140,488 C 76,488 24,436 24,372 L 24,140 C 24,76 76,24 140,24 Z">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="512"
+                android:endY="512">
+                <item android:color="#D938BDF8" android:offset="0.0" />
+                <item android:color="#4D2563EB" android:offset="0.35" />
+                <item android:color="#1A0F172A" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Part A: Left Pillar -->
+    <path
+        android:pathData="M 166,124 L 166,124 C 182.5,124 196,137.5 196,154 L 196,358 C 196,374.5 182.5,388 166,388 L 166,388 C 149.5,388 136,374.5 136,358 L 136,154 C 136,137.5 149.5,124 166,124 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="136"
+                android:startY="124"
+                android:endX="386"
+                android:endY="388">
+                <item android:color="#FFF0F9FF" android:offset="0.0" />
+                <item android:color="#FFBAE6FD" android:offset="0.18" />
+                <item android:color="#FF38BDF8" android:offset="0.45" />
+                <item android:color="#FF2563EB" android:offset="0.75" />
+                <item android:color="#FF1D4ED8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Part B: Dynamic Kinetic Leg -->
+    <path
+        android:pathData="M 196,244 L 264,244 C 288,244 310,258 322,280 L 374,366 C 382,378 372,388 358,388 L 300,388 C 282,388 266,376 256,360 L 208,280 C 202,270 196,258 196,244 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="196"
+                android:startY="244"
+                android:endX="374"
+                android:endY="388">
+                <item android:color="#FF60A5FA" android:offset="0.0" />
+                <item android:color="#FF2563EB" android:offset="0.45" />
+                <item android:color="#FF1D4ED8" android:offset="0.85" />
+                <item android:color="#FF0F172A" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Part C: The Orbital Compass Loop -->
+    <path
+        android:pathData="M 166,124 L 272,124 C 338,124 386,170 386,228 C 386,286 338,332 272,332 L 196,332 C 179,332 166,319 166,302 L 166,288 C 166,271 179,258 196,258 L 264,258 C 292,258 316,242 316,228 C 316,214 292,198 264,198 L 166,198 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="166"
+                android:startY="124"
+                android:endX="386"
+                android:endY="332">
+                <item android:color="#FFF0F9FF" android:offset="0.0" />
+                <item android:color="#FFBAE6FD" android:offset="0.18" />
+                <item android:color="#FF38BDF8" android:offset="0.45" />
+                <item android:color="#FF2563EB" android:offset="0.75" />
+                <item android:color="#FF1D4ED8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Part D: Precision Specular Highlight Ridge -->
+    <path
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 166,126 L 272,126 C 334,126 382,170 384,226">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="166"
+                android:startY="126"
+                android:endX="384"
+                android:endY="126">
+                <item android:color="#F2FFFFFF" android:offset="0.0" />
+                <item android:color="#BFBAE6FD" android:offset="0.5" />
+                <item android:color="#0038BDF8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
