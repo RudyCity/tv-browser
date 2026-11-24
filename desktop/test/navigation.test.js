@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeDestination } from "../src/navigation.js";
+import { normalizeDestination, normalizeNavigationState } from "../src/navigation.js";
 
 test("preserves valid HTTP and HTTPS URLs", () => {
   assert.equal(normalizeDestination("https://example.com/path"), "https://example.com/path");
@@ -30,4 +30,19 @@ test("rejects empty and malformed input", () => {
   assert.equal(normalizeDestination("   "), null);
   assert.equal(normalizeDestination(null), null);
   assert.equal(normalizeDestination("https://"), null);
+});
+
+test("normalizes native navigation availability without guessing", () => {
+  assert.deepEqual(
+    normalizeNavigationState({ canGoBack: true, canGoForward: false }),
+    { canGoBack: true, canGoForward: false }
+  );
+  assert.deepEqual(
+    normalizeNavigationState({ canGoBack: 1, canGoForward: "yes" }),
+    { canGoBack: false, canGoForward: false }
+  );
+  assert.deepEqual(
+    normalizeNavigationState(null),
+    { canGoBack: false, canGoForward: false }
+  );
 });
