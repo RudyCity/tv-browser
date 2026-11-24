@@ -24,3 +24,14 @@ export function normalizeDestination(raw) {
     return url.hostname ? url.href : null;
   } catch { return null; }
 }
+
+export function normalizeNavigationState(state) {
+  if (state === null || typeof state !== "object") {
+    return { canGoBack: false, canGoForward: false };
+  }
+
+  return {
+    canGoBack: state.canGoBack === true,
+    canGoForward: state.canGoForward === true
+  };
+}
