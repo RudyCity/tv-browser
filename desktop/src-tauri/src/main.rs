@@ -267,6 +267,7 @@ fn main() {
 
                 let main_thread_handle = popup_handle.clone();
                 let scheduling_handle = popup_handle.clone();
+                let callback_popup_url = popup_url.clone();
                 let scheduled = scheduling_handle.run_on_main_thread(move || {
                     let navigation = content_webview(&main_thread_handle).and_then(|webview| {
                         webview.show().map_err(|error| error.to_string())?;
@@ -276,7 +277,7 @@ fn main() {
                         "browser-popup",
                         json!({
                             "opened": navigation.is_ok(),
-                            "url": popup_url,
+                            "url": callback_popup_url,
                             "error": navigation.err()
                         }),
                     );
