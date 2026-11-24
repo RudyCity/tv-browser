@@ -107,18 +107,37 @@ fn browser_navigate(app: tauri::AppHandle, url: String) -> Result<(), String> {
     webview.navigate(parsed).map_err(|error| error.to_string())
 }
 
+fn navigation_state(webview: &tauri::webview::Webview) -> Result<serde_json::Value, String> {
+    let can_go_back = webview.can_go_back().map_err(|error| error.to_string())?;
+    let can_go_forward = webview.can_go_forward().map_err(|error| error.to_string())?;
+
+    Ok(json!({
+        "canGoBack": can_go_back,
+        "canGoForward": can_go_forward
+    }))
+}
+
+#[tauri::command]
+fn browser_navigation_state(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    navigation_state(&content_webview(&app)?)
+}
+
 #[tauri::command]
 fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
-    content_webview(&app)?
-        .eval("history.back();")
-        .map_err(|error| error.to_string())
+    let webview = content_webview(&app)?;
+    if webview.can_go_back().map_err(|error| error.to_string())? {
+        webview.go_back().map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
 fn browser_forward(app: tauri::AppHandle) -> Result<(), String> {
-    content_webview(&app)?
-        .eval("history.forward();")
-        .map_err(|error| error.to_string())
+    let webview = content_webview(&app)?;
+    if webview.can_go_forward().map_err(|error| error.to_string())? {
+        webview.go_forward().map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -206,7 +225,8 @@ fn main() {
             browser_reload,
             browser_home,
             browser_layout,
-            browser_current_url
+            browser_current_url,
+            browser_navigation_state
         ])
         .setup(|app| {
             let window = tauri::Window::builder(app, "main")
@@ -297,7 +317,7 @@ fn main() {
                 NewWindowResponse::Deny
             })
             .on_permission_request(|_webview, _kind| PermissionResponse::Deny)
-            .on_page_load(move |_webview, payload| {
+            .on_page_load(move |webview, payload| {
                 let phase = match payload.event() {
                     PageLoadEvent::Started => "started",
                     PageLoadEvent::Finished => "finished",
@@ -309,6 +329,14 @@ fn main() {
                         "url": payload.url().as_str()
                     }),
                 );
+                match navigation_state(&webview) {
+                    Ok(state) => {
+                        let _ = event_handle.emit("browser-navigation-state", state);
+                    }
+                    Err(error) => {
+                        let _ = event_handle.emit("browser-navigation-state-error", error);
+                    }
+                }
             })
             .on_document_title_changed(move |_webview, title| {
                 let trimmed = title.trim();
