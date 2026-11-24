@@ -8,7 +8,7 @@ use tauri::{
     webview::{
         DownloadEvent, NewWindowResponse, PageLoadEvent, PermissionResponse, WebviewBuilder,
     },
-    Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, Window,
+    Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, Window, WindowEvent,
 };
 use url::Url;
 
@@ -25,6 +25,74 @@ fn is_allowed_browser_url(url: &Url) -> bool {
 fn content_webview(app: &tauri::AppHandle) -> Result<tauri::webview::Webview, String> {
     app.get_webview(BROWSER_CONTENT_LABEL)
         .ok_or_else(|| "Browser content webview is not ready".to_string())
+}
+
+fn calculate_browser_layout(
+    physical_width: u32,
+    physical_height: u32,
+    scale_factor: f64,
+) -> Result<BrowserLayout, String> {
+    if !scale_factor.is_finite() || scale_factor <= 0.0 {
+        return Err("Window scale factor must be a finite positive number".into());
+    }
+
+    let width = (f64::from(physical_width) / scale_factor).max(1.0);
+    let height = (f64::from(physical_height) / scale_factor).max(1.0);
+    let content_top = TOOLBAR_HEIGHT.min(height);
+    let status_height = STATUS_HEIGHT.min((height - content_top).max(0.0));
+    let content_height = (height - content_top - status_height).max(1.0);
+
+    Ok(BrowserLayout {
+        window_width: width,
+        window_height: height,
+        content_top,
+        content_height,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct BrowserLayout {
+    window_width: f64,
+    window_height: f64,
+    content_top: f64,
+    content_height: f64,
+}
+
+fn layout_browser_views(
+    app: &tauri::AppHandle,
+    window: &Window,
+) -> Result<(), String> {
+    let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
+    let physical_size = window.inner_size().map_err(|error| error.to_string())?;
+    let layout = calculate_browser_layout(
+        physical_size.width,
+        physical_size.height,
+        scale_factor,
+    )?;
+
+    let main_ui = app
+        .get_webview(MAIN_UI_LABEL)
+        .ok_or_else(|| "Main UI webview is not ready".to_string())?;
+    main_ui
+        .set_position(LogicalPosition::new(0.0, 0.0))
+        .map_err(|error| error.to_string())?;
+    main_ui
+        .set_size(LogicalSize::new(
+            layout.window_width,
+            layout.window_height,
+        ))
+        .map_err(|error| error.to_string())?;
+
+    let content = content_webview(app)?;
+    content
+        .set_position(LogicalPosition::new(0.0, layout.content_top))
+        .map_err(|error| error.to_string())?;
+    content
+        .set_size(LogicalSize::new(
+            layout.window_width,
+            layout.content_height,
+        ))
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -77,18 +145,7 @@ fn browser_current_url(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn browser_layout(app: tauri::AppHandle, window: Window) -> Result<(), String> {
-    let webview = content_webview(&app)?;
-    let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
-    let physical_size = window.inner_size().map_err(|error| error.to_string())?;
-    let logical_size = physical_size.to_logical::<f64>(scale_factor);
-    let content_height = (logical_size.height - TOOLBAR_HEIGHT - STATUS_HEIGHT).max(0.0);
-
-    webview
-        .set_position(LogicalPosition::new(0.0, TOOLBAR_HEIGHT))
-        .map_err(|error| error.to_string())?;
-    webview
-        .set_size(LogicalSize::new(logical_size.width, content_height))
-        .map_err(|error| error.to_string())
+    layout_browser_views(&app, &window)
 }
 
 fn download_filename(url: &Url) -> String {
@@ -187,13 +244,57 @@ fn main() {
             let title_window = window.clone();
             let download_handle = app.handle().clone();
             let download_dir = download_directory.clone();
+            let popup_handle = app.handle().clone();
 
             let content_builder = WebviewBuilder::new(
                 BROWSER_CONTENT_LABEL,
                 WebviewUrl::External("about:blank".parse()?),
             )
             .on_navigation(is_allowed_browser_url)
-            .on_new_window(|_url, _features| NewWindowResponse::Deny)
+            .on_new_window(move |url, _features| {
+                let popup_url = url.as_str().to_string();
+                if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+                    let _ = popup_handle.emit(
+                        "browser-popup",
+                        json!({
+                            "opened": false,
+                            "url": popup_url,
+                            "reason": "Only HTTP and HTTPS popups can be opened"
+                        }),
+                    );
+                    return NewWindowResponse::Deny;
+                }
+
+                let main_thread_handle = popup_handle.clone();
+                let scheduling_handle = popup_handle.clone();
+                let scheduled = scheduling_handle.run_on_main_thread(move || {
+                    let navigation = content_webview(&main_thread_handle).and_then(|webview| {
+                        webview.show().map_err(|error| error.to_string())?;
+                        webview.navigate(url).map_err(|error| error.to_string())
+                    });
+                    let _ = main_thread_handle.emit(
+                        "browser-popup",
+                        json!({
+                            "opened": navigation.is_ok(),
+                            "url": popup_url,
+                            "error": navigation.err()
+                        }),
+                    );
+                });
+
+                if let Err(error) = scheduled {
+                    let _ = popup_handle.emit(
+                        "browser-popup",
+                        json!({
+                            "opened": false,
+                            "url": popup_url,
+                            "error": error.to_string()
+                        }),
+                    );
+                }
+
+                NewWindowResponse::Deny
+            })
             .on_permission_request(|_webview, _kind| PermissionResponse::Deny)
             .on_page_load(move |_webview, payload| {
                 let phase = match payload.event() {
@@ -247,10 +348,34 @@ fn main() {
                 LogicalPosition::new(0.0, TOOLBAR_HEIGHT),
                 LogicalSize::new(
                     logical_size.width,
-                    (logical_size.height - TOOLBAR_HEIGHT - STATUS_HEIGHT).max(0.0),
+                    (logical_size.height - TOOLBAR_HEIGHT - STATUS_HEIGHT).max(1.0),
                 ),
             )?;
             content_view.hide()?;
+
+            layout_browser_views(app.handle(), &window)
+                .map_err(std::io::Error::other)?;
+
+            let layout_app = app.handle().clone();
+            let layout_window = window.clone();
+            window.on_window_event(move |event| {
+                if matches!(
+                    event,
+                    WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }
+                ) {
+                    let app_handle = layout_app.clone();
+                    let event_window = layout_window.clone();
+                    let scheduling_handle = layout_app.clone();
+                    if let Err(error) = scheduling_handle.run_on_main_thread(move || {
+                        if let Err(layout_error) = layout_browser_views(&app_handle, &event_window)
+                        {
+                            let _ = app_handle.emit("browser-layout-error", layout_error);
+                        }
+                    }) {
+                        let _ = layout_app.emit("browser-layout-error", error.to_string());
+                    }
+                }
+            });
 
             Ok(())
         })
@@ -261,6 +386,48 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn browser_layout_uses_logical_bounds_at_one_x_scale() {
+        let layout = calculate_browser_layout(1280, 800, 1.0).unwrap();
+
+        assert_eq!(layout.window_width, 1280.0);
+        assert_eq!(layout.window_height, 800.0);
+        assert_eq!(layout.content_top, TOOLBAR_HEIGHT);
+        assert_eq!(
+            layout.content_height,
+            800.0 - TOOLBAR_HEIGHT - STATUS_HEIGHT
+        );
+    }
+
+    #[test]
+    fn browser_layout_converts_physical_bounds_for_high_dpi() {
+        let layout = calculate_browser_layout(2560, 1600, 2.0).unwrap();
+
+        assert_eq!(layout.window_width, 1280.0);
+        assert_eq!(layout.window_height, 800.0);
+        assert_eq!(layout.content_top, TOOLBAR_HEIGHT);
+        assert_eq!(
+            layout.content_height,
+            800.0 - TOOLBAR_HEIGHT - STATUS_HEIGHT
+        );
+    }
+
+    #[test]
+    fn browser_layout_rejects_invalid_scale_factor() {
+        assert!(calculate_browser_layout(1280, 800, 0.0).is_err());
+        assert!(calculate_browser_layout(1280, 800, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn browser_layout_keeps_a_nonzero_content_extent_for_tiny_windows() {
+        let layout = calculate_browser_layout(20, 20, 1.0).unwrap();
+
+        assert!(layout.window_width >= 1.0);
+        assert!(layout.window_height >= 1.0);
+        assert!(layout.content_height >= 1.0);
+        assert!(layout.content_top <= layout.window_height);
+    }
 
     #[test]
     fn only_http_https_and_blank_are_navigable() {
