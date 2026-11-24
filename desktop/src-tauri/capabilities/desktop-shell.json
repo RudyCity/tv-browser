@@ -12,6 +12,7 @@
     "allow-browser-reload",
     "allow-browser-home",
     "allow-browser-layout",
-    "allow-browser-current-url"
+    "allow-browser-current-url",
+    "allow-browser-navigation-state"
   ]
 }
