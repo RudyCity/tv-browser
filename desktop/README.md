@@ -34,6 +34,17 @@ depends on that API.
 - Address/search bar, URL-stack-based Back/Forward, reload and home.
 - HTTPS by default for domain input; only HTTP and HTTPS external navigation
   are allowed (plus the internal \`about:blank\` initialization page).
+- Bookmarks are stored in the local browser UI profile, can be added or removed
+  from the toolbar, and are available from the home dashboard and searchable
+  bookmarks manager. Ctrl+D toggles the current page; Ctrl+B opens the manager.
+- A searchable history manager records completed top-level page visits, keeps
+  visit counts and titles, and can be cleared independently. Ctrl+H opens it.
+- A download activity manager keeps a bounded list of completed download
+  results, including success/failure and the saved path when supplied by the
+  native WebView. It is an activity list, not a transfer controller. Ctrl+J
+  opens it.
+- Home shows recent pages and saved bookmarks. Escape closes a data manager
+  and returns to Home.
 - Downloads are accepted automatically and saved to the operating system's
   Downloads directory, with a temporary-directory fallback if that path cannot
   be resolved. Filenames are sanitized and collisions receive a numeric suffix.
@@ -42,9 +53,13 @@ depends on that API.
   Other popup URL schemes are denied.
 - Web permission requests are denied. There is no per-origin permission prompt
   or user-configurable grant UI.
+- Bookmark, history and download-activity records are stored by the local UI
+  webview using versioned local storage keys. They are not synchronized with
+  Android or other desktop operating-system profiles.
 
-Multi-tab management, bookmarks, a visible history manager, a download manager,
-and synchronized browser data are not implemented in this desktop target.
+Multi-tab management, session restore, split view, a visible transfer-progress
+controller, synchronized browser data and a private-window lifecycle are not
+implemented in this desktop target.
 
 ## Platform support and feature limits
 
@@ -54,13 +69,14 @@ and synchronized browser data are not implemented in this desktop target.
 | Installer artifact | NSIS and MSI | AppImage and DEB | DMG | Built by the platform CI matrix |
 | Separate private profile / incognito | Not implemented | Not implemented | Not implemented | One browser-content webview; no private-profile lifecycle or profile selector |
 | Per-origin site permissions | Not implemented | Not implemented | Not implemented | Permission requests are denied; no grant/remember UI |
-| Downloads | Supported, basic | Supported, basic | Supported, basic | Auto-save to Downloads (temporary fallback); no prompt, progress manager, pause or cancel UI |
+| Downloads | Supported, basic | Supported, basic | Supported, basic | Auto-save plus completed-download activity list; no prompt, progress, pause or cancel UI |
+| Bookmarks and history | Supported | Supported | Supported | Searchable local managers; stored in the local UI webview profile |
 | Extensions / WebExtensions | Not implemented | Not implemented | Not implemented | No extension runtime, store or install flow |
 | Ad/tracker filtering | Not implemented | Not implemented | Not implemented | No filter-list engine or blocking rules shipped |
+| Multi-tab / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets reuse the current content view |
 | Code signing | Not configured in CI | Not configured in CI | Not configured in CI | Current macOS CI artifact is unsigned; no production signing identity is configured |
 | Notarization | Not applicable | Not applicable | Not configured | macOS public distribution still requires Apple Developer ID signing and notarization |
 | In-app updater | Not implemented | Not implemented | Not implemented | No updater plugin, update endpoint or signed update feed is configured |
-| Multi-tab / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets reuse the current content view |
 
 The matrix describes the current source and CI configuration, not a statement
 that a feature is impossible on a platform. These items need design, security
