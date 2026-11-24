@@ -235,7 +235,7 @@ fn browser_layout(app: tauri::AppHandle, window: Window) -> Result<(), String> {
 fn download_filename(url: &Url) -> String {
     let raw_name = url
         .path_segments()
-        .and_then(|segments| segments.filter(|part| !part.is_empty()).last())
+        .and_then(|segments| segments.filter(|part| !part.is_empty()).next_back())
         .unwrap_or("download.bin");
 
     let sanitized: String = raw_name
