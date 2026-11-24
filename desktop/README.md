@@ -8,14 +8,14 @@ its package IDs.
 
 The desktop app uses Tauri's native multi-webview API in one native window:
 
-- The local `main-ui` webview renders Rudy Browser's toolbar and home screen.
-- The `browser-content` webview renders websites using the operating system's
+- The local \`main-ui\` webview renders Rudy Browser's toolbar and home screen.
+- The \`browser-content\` webview renders websites using the operating system's
   native webview engine: WebView2 on Windows, WebKitGTK on Linux, and WKWebView
   on macOS.
 - Rust sizes both child webviews from the native window's physical dimensions
   and scale factor. Native resize and scale-factor events reapply their logical
   bounds, including after maximize/restore and display-DPI changes.
-- The local toolbar and remote page are separate webviews. Only `main-ui`
+- The local toolbar and remote page are separate webviews. Only \`main-ui\`
   receives the capability to call browser Rust commands; remote page content
   receives no Tauri IPC capability. This is a capability boundary, not a claim
   that the browser profile is private or isolated from other sites.
@@ -23,9 +23,9 @@ The desktop app uses Tauri's native multi-webview API in one native window:
   URL-based navigation stack and refreshes it on page-load events and periodic
   URL checks, which also observes many same-document history changes. This
   lightweight stack cannot distinguish every duplicate-URL or
-  `replaceState` history entry exactly.
+  \`replaceState\` history entry exactly.
 
-Tauri's multi-webview API is currently behind its `unstable` Cargo feature.
+Tauri's multi-webview API is currently behind its \`unstable\` Cargo feature.
 The Rust and CLI versions are pinned in this repository because this layout
 depends on that API.
 
@@ -33,11 +33,11 @@ depends on that API.
 
 - Address/search bar, URL-stack-based Back/Forward, reload and home.
 - HTTPS by default for domain input; only HTTP and HTTPS external navigation
-  are allowed (plus the internal `about:blank` initialization page).
+  are allowed (plus the internal \`about:blank\` initialization page).
 - Downloads are accepted automatically and saved to the operating system's
   Downloads directory, with a temporary-directory fallback if that path cannot
   be resolved. Filenames are sanitized and collisions receive a numeric suffix.
-- An HTTP(S) `window.open` request is redirected into the existing browser
+- An HTTP(S) \`window.open\` request is redirected into the existing browser
   content view. This is a single-view fallback, not a new tab or popup window.
   Other popup URL schemes are denied.
 - Web permission requests are denied. There is no per-origin permission prompt
@@ -94,7 +94,7 @@ From the repository root:
     npm run tauri -- build --bundles dmg
 
 Build on the target operating system or use the GitHub Actions desktop matrix.
-Artifacts are emitted under `src-tauri/target/release/bundle/`:
+Artifacts are emitted under \`src-tauri/target/release/bundle/\`:
 
 | Platform | Installer |
 |---|---|
@@ -102,10 +102,17 @@ Artifacts are emitted under `src-tauri/target/release/bundle/`:
 | Linux | AppImage and .deb |
 | macOS | DMG containing the .app bundle |
 
-The desktop workflow generates the native icon set from `art/rudy_browser_mark.svg`, then runs JavaScript tests, Rust formatting checks, Rust tests,
-Clippy with warnings denied, a frontend production build and native installer
-builds for Windows, Linux and macOS. It uploads per-platform artifacts to the
-GitHub Actions run; it does not publish a GitHub Release.
+The desktop workflow generates the native icon set from
+\`art/rudy_browser_mark.svg\`, then runs JavaScript tests, Rust formatting
+checks, Rust tests, Clippy with warnings denied, a frontend production build
+and native installer builds for Windows, Linux and macOS. Every successful
+platform job uploads its installer artifact to the GitHub Actions run.
+
+A commit to \`main\` whose message begins with \`release(desktop):\` also publishes
+a GitHub **pre-release** tagged \`desktop-v<version>\` after all three platform
+jobs succeed. The release includes the Windows EXE/MSI, Linux AppImage/DEB,
+macOS DMG and a \`SHA256SUMS.txt\` file. Ordinary pushes, pull requests and
+manual workflow runs do not publish a release.
 
 The current GitHub Actions jobs may be blocked before runner startup by account
 billing or spending-limit restrictions. A workflow being queued or rejected
