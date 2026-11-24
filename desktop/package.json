@@ -6,7 +6,7 @@
   "description": "Rudy Browser for Windows, Linux and macOS",
   "main": "main.cjs",
   "scripts": { "start": "electron .", "dist": "electron-builder" },
-  "devDependencies": { "electron": "^36.0.0", "electron-builder": "^26.0.0" },
+  "devDependencies": { "electron": "45.4.1", "electron-builder": "26.18.1" },
   "build": {
     "appId": "io.rudycity.tvbrowser.desktop",
     "productName": "Rudy Browser",
