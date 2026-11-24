@@ -11,6 +11,7 @@ fn main() {
                 "browser_home",
                 "browser_layout",
                 "browser_current_url",
+                "browser_navigation_state",
             ]),
         ),
     )
