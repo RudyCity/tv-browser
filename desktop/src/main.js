@@ -87,6 +87,17 @@ listen("browser-download-finished", event => {
     : "Download failed";
 }).catch(error => console.error("Download listener unavailable", error));
 
+listen("browser-popup", event => {
+  const payload = event.payload || {};
+  status.textContent = payload.opened
+    ? "Popup opened in current tab (single-view mode)"
+    : "Popup blocked: " + (payload.reason || payload.error || "unsupported destination");
+}).catch(error => console.error("Popup listener unavailable", error));
+
+listen("browser-layout-error", event => {
+  status.textContent = "Browser layout error: " + String(event.payload || "unknown error");
+}).catch(error => console.error("Layout listener unavailable", error));
+
 void runCommand("browser_layout");
 
 let layoutFrame = 0;
