@@ -224,23 +224,22 @@ tablets and Android TV with D-pad; verify address entry and IME, orientation cha
 back stack, popup default Block, download confirmation, fullscreen video, and TV pointer.
 
 
-## Desktop builds (Windows, Linux and macOS)
+## Desktop application (Rust + Tauri 2)
 
-Rudy Browser now has a separate Electron + Chromium desktop target. Android remains unchanged.
+Rudy Browser Desktop is a separate **Rust + Tauri 2** application that uses native
+operating-system webviews: WebView2 on Windows, WebKitGTK on Linux and WKWebView
+on macOS. The Android Kotlin/Java applications, package IDs and build pipelines
+remain separate and unchanged.
 
-- Windows: NSIS setup installer and portable EXE.
-- Linux: AppImage and Debian package.
-- macOS: DMG and ZIP containing the app bundle (unsigned preview; signing/notarization is still required for public distribution).
+The desktop target does **not** use Electron or bundle Chromium. Its native
+multi-webview layout keeps the local browser chrome separate from remote page
+content; remote content does not receive the local Tauri command capability.
 
-See [desktop setup and build instructions](desktop/README.md). The [Desktop builds workflow](.github/workflows/desktop.yml) creates per-platform artifacts when a desktop change is pushed to main; artifacts are currently CI downloads, not a published GitHub Release.
+- Windows CI bundles: NSIS installer and MSI.
+- Linux CI bundles: AppImage and Debian package.
+- macOS CI bundle: DMG (unsigned CI build).
+- Desktop artifacts are uploaded to the corresponding GitHub Actions run; this
+  workflow does not publish a GitHub Release.
 
-
-## Desktop builds (Rust + Tauri)
-
-Rudy Browser has a separate Rust + Tauri 2 desktop target for Windows, Linux and macOS. It uses native OS webviews and leaves the Android Kotlin/Java app unchanged.
-
-- Windows: NSIS installer and MSI.
-- Linux: AppImage and Debian package.
-- macOS: DMG containing the app bundle (unsigned CI build).
-
-Desktop setup, multi-webview security boundaries and build instructions are documented in [desktop/README.md](desktop/README.md). GitHub Actions produces per-platform CI artifacts; these are not yet a published desktop release.
+See [desktop setup, implementation status and platform support](desktop/README.md)
+and the [Rust + Tauri desktop workflow](.github/workflows/desktop.yml).
