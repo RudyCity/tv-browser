@@ -1,6 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
 
 use serde_json::json;
@@ -94,28 +95,99 @@ fn browser_navigate(app: tauri::AppHandle, url: String) -> Result<(), String> {
     webview.navigate(parsed).map_err(|error| error.to_string())
 }
 
-fn navigation_state(webview: &tauri::webview::Webview) -> Result<serde_json::Value, String> {
-    let can_go_back = webview.can_go_back().map_err(|error| error.to_string())?;
-    let can_go_forward = webview
-        .can_go_forward()
-        .map_err(|error| error.to_string())?;
+#[derive(Default)]
+struct NavigationHistory {
+    stack: Mutex<NavigationHistoryStack>,
+}
 
-    Ok(json!({
-        "canGoBack": can_go_back,
-        "canGoForward": can_go_forward
-    }))
+#[derive(Default)]
+struct NavigationHistoryStack {
+    entries: Vec<String>,
+    index: usize,
+}
+
+impl NavigationHistoryStack {
+    fn record(&mut self, url: &str) {
+        if self.entries.is_empty() {
+            self.entries.push(url.to_string());
+            self.index = 0;
+            return;
+        }
+
+        if self.entries.get(self.index).map(String::as_str) == Some(url) {
+            return;
+        }
+
+        if self.index > 0 && self.entries[self.index - 1] == url {
+            self.index -= 1;
+            return;
+        }
+
+        if self.index + 1 < self.entries.len() && self.entries[self.index + 1] == url {
+            self.index += 1;
+            return;
+        }
+
+        self.entries.truncate(self.index + 1);
+        self.entries.push(url.to_string());
+        self.index = self.entries.len() - 1;
+    }
+
+    fn state(&self) -> serde_json::Value {
+        json!({
+            "canGoBack": !self.entries.is_empty() && self.index > 0,
+            "canGoForward": !self.entries.is_empty() && self.index + 1 < self.entries.len()
+        })
+    }
+}
+
+impl NavigationHistory {
+    fn record(&self, raw_url: &str) -> Result<serde_json::Value, String> {
+        let parsed = match Url::parse(raw_url) {
+            Ok(url) if matches!(url.scheme(), "http" | "https") => url,
+            _ => return self.state(),
+        };
+        let mut stack = self
+            .stack
+            .lock()
+            .map_err(|error| format!("Navigation history lock failed: {error}"))?;
+        stack.record(parsed.as_str());
+        Ok(stack.state())
+    }
+
+    fn state(&self) -> Result<serde_json::Value, String> {
+        let stack = self
+            .stack
+            .lock()
+            .map_err(|error| format!("Navigation history lock failed: {error}"))?;
+        Ok(stack.state())
+    }
+}
+
+fn navigation_state(
+    webview: &tauri::webview::Webview,
+    history: &NavigationHistory,
+) -> Result<serde_json::Value, String> {
+    let current_url = webview.url().map_err(|error| error.to_string())?;
+    history.record(current_url.as_str())
 }
 
 #[tauri::command]
 fn browser_navigation_state(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    navigation_state(&content_webview(&app)?)
+    let webview = content_webview(&app)?;
+    let history = app.state::<NavigationHistory>();
+    navigation_state(&webview, history.inner())
 }
 
 #[tauri::command]
 fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
     let webview = content_webview(&app)?;
-    if webview.can_go_back().map_err(|error| error.to_string())? {
-        webview.go_back().map_err(|error| error.to_string())?;
+    let history = app.state::<NavigationHistory>();
+    let state = navigation_state(&webview, history.inner())?;
+    if state["canGoBack"].as_bool().unwrap_or(false) {
+        webview
+            .eval("window.history.back();")
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -123,11 +195,12 @@ fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn browser_forward(app: tauri::AppHandle) -> Result<(), String> {
     let webview = content_webview(&app)?;
-    if webview
-        .can_go_forward()
-        .map_err(|error| error.to_string())?
-    {
-        webview.go_forward().map_err(|error| error.to_string())?;
+    let history = app.state::<NavigationHistory>();
+    let state = navigation_state(&webview, history.inner())?;
+    if state["canGoForward"].as_bool().unwrap_or(false) {
+        webview
+            .eval("window.history.forward();")
+            .map_err(|error| error.to_string())?;
     }
     Ok(())
 }
@@ -224,6 +297,8 @@ fn main() {
             browser_navigation_state
         ])
         .setup(|app| {
+            app.manage(NavigationHistory::default());
+
             let window = tauri::Window::builder(app, "main")
                 .title("Rudy Browser")
                 .inner_size(1280.0, 820.0)
@@ -255,6 +330,7 @@ fn main() {
             fs::create_dir_all(&download_directory)?;
 
             let event_handle = app.handle().clone();
+            let navigation_handle = app.handle().clone();
             let title_handle = app.handle().clone();
             let title_window = window.clone();
             let download_handle = app.handle().clone();
@@ -324,7 +400,10 @@ fn main() {
                         "url": payload.url().as_str()
                     }),
                 );
-                match navigation_state(&webview) {
+                match navigation_state(
+                    &webview,
+                    navigation_handle.state::<NavigationHistory>().inner(),
+                ) {
                     Ok(state) => {
                         let _ = event_handle.emit("browser-navigation-state", state);
                     }
@@ -466,6 +545,52 @@ mod tests {
         assert!(!is_allowed_browser_url(
             &Url::parse("ftp://example.com").unwrap()
         ));
+    }
+
+    #[test]
+    fn history_stack_tracks_back_and_forward() {
+        let mut history = NavigationHistoryStack::default();
+
+        history.record("https://example.com/one");
+        assert_eq!(history.state()["canGoBack"], false);
+        assert_eq!(history.state()["canGoForward"], false);
+
+        history.record("https://example.com/two");
+        assert_eq!(history.state()["canGoBack"], true);
+        assert_eq!(history.state()["canGoForward"], false);
+
+        history.record("https://example.com/one");
+        assert_eq!(history.state()["canGoBack"], false);
+        assert_eq!(history.state()["canGoForward"], true);
+
+        history.record("https://example.com/two");
+        assert_eq!(history.state()["canGoBack"], true);
+        assert_eq!(history.state()["canGoForward"], false);
+    }
+
+    #[test]
+    fn history_stack_truncates_forward_entries_after_new_navigation() {
+        let mut history = NavigationHistoryStack::default();
+
+        history.record("https://example.com/one");
+        history.record("https://example.com/two");
+        history.record("https://example.com/one");
+        history.record("https://example.com/three");
+
+        assert_eq!(history.state()["canGoBack"], true);
+        assert_eq!(history.state()["canGoForward"], false);
+    }
+
+    #[test]
+    fn history_stack_does_not_duplicate_the_current_url() {
+        let mut history = NavigationHistoryStack::default();
+
+        history.record("https://example.com/one");
+        history.record("https://example.com/one");
+
+        assert_eq!(history.entries.len(), 1);
+        assert_eq!(history.state()["canGoBack"], false);
+        assert_eq!(history.state()["canGoForward"], false);
     }
 
     #[test]
