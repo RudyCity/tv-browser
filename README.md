@@ -233,3 +233,14 @@ Rudy Browser now has a separate Electron + Chromium desktop target. Android rema
 - macOS: DMG and ZIP containing the app bundle (unsigned preview; signing/notarization is still required for public distribution).
 
 See [desktop setup and build instructions](desktop/README.md). The [Desktop builds workflow](.github/workflows/desktop.yml) creates per-platform artifacts when a desktop change is pushed to main; artifacts are currently CI downloads, not a published GitHub Release.
+
+
+## Desktop builds (Rust + Tauri)
+
+Rudy Browser has a separate Rust + Tauri 2 desktop target for Windows, Linux and macOS. It uses native OS webviews and leaves the Android Kotlin/Java app unchanged.
+
+- Windows: NSIS installer and MSI.
+- Linux: AppImage and Debian package.
+- macOS: DMG containing the app bundle (unsigned CI build).
+
+Desktop setup, multi-webview security boundaries and build instructions are documented in [desktop/README.md](desktop/README.md). GitHub Actions produces per-platform CI artifacts; these are not yet a published desktop release.

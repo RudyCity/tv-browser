@@ -1,50 +1,117 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { normalizeDestination } from "./navigation.js";
 
-const page = document.querySelector("#page");
-const welcome = document.querySelector("#welcome");
 const address = document.querySelector("#address");
 const homeAddress = document.querySelector("#home-address");
+const welcome = document.querySelector("#welcome");
 const status = document.querySelector("#status");
-const back = document.querySelector("#back");
-const forward = document.querySelector("#forward");
+const backButton = document.querySelector("#back");
+const forwardButton = document.querySelector("#forward");
 
-function navigate(raw) {
+async function runCommand(name, args) {
+  try {
+    return await invoke(name, args);
+  } catch (error) {
+    status.textContent = String(error);
+    return undefined;
+  }
+}
+
+async function navigate(raw) {
   const target = normalizeDestination(raw);
-  if (!target) { status.textContent = "Enter a valid address or search term"; return; }
+  if (!target) {
+    status.textContent = "Enter a valid address or search term";
+    return;
+  }
+
   address.value = target;
   homeAddress.value = target;
   welcome.hidden = true;
-  page.style.display = "block";
-  page.src = target;
-  status.textContent = "Loading";
-}
-document.querySelector("#navigate").addEventListener("submit", event => { event.preventDefault(); navigate(address.value); });
-document.querySelector("#home-search").addEventListener("submit", event => { event.preventDefault(); navigate(homeAddress.value); });
-back.addEventListener("click", () => page.goBack());
-forward.addEventListener("click", () => page.goForward());
-document.querySelector("#reload").addEventListener("click", () => page.reload());
-document.querySelector("#home").addEventListener("click", () => {
-  page.src = "about:blank"; page.style.display = "none"; welcome.hidden = false;
-  address.value = ""; back.disabled = true; forward.disabled = true; status.textContent = "Home";
-});
-page.addEventListener("did-start-loading", () => { status.textContent = "Loading"; });
-page.addEventListener("did-stop-loading", () => {
-  status.textContent = "Ready"; back.disabled = !page.canGoBack(); forward.disabled = !page.canGoForward();
-  try { address.value = page.getURL(); } catch { /* Keep current address during transient navigation. */ }
-});
-page.addEventListener("did-navigate", event => { address.value = event.url; homeAddress.value = event.url; });
-page.addEventListener("did-fail-load", event => { if (event.errorCode !== -3) status.textContent = `Could not load page (${event.errorCode})`; });
 
-// Browser keyboard conventions: Cmd on macOS, Ctrl on Windows/Linux.
+  const result = await runCommand("browser_navigate", { url: target });
+  if (result !== undefined) status.textContent = "Loading";
+}
+
+document.querySelector("#navigate").addEventListener("submit", event => {
+  event.preventDefault();
+  void navigate(address.value);
+});
+
+document.querySelector("#home-search").addEventListener("submit", event => {
+  event.preventDefault();
+  void navigate(homeAddress.value);
+});
+
+backButton.addEventListener("click", () => void runCommand("browser_back"));
+forwardButton.addEventListener("click", () => void runCommand("browser_forward"));
+document.querySelector("#reload").addEventListener("click", () => void runCommand("browser_reload"));
+
+document.querySelector("#home").addEventListener("click", async () => {
+  await runCommand("browser_home");
+  welcome.hidden = false;
+  address.value = "";
+  backButton.disabled = true;
+  forwardButton.disabled = true;
+  status.textContent = "Home";
+});
+
+listen("browser-load", event => {
+  const payload = event.payload;
+  if (payload.event === "started") {
+    welcome.hidden = true;
+    status.textContent = "Loading";
+    address.value = payload.url;
+    homeAddress.value = payload.url;
+    return;
+  }
+
+  status.textContent = "Ready";
+  address.value = payload.url;
+  homeAddress.value = payload.url;
+  backButton.disabled = false;
+  forwardButton.disabled = false;
+}).catch(error => {
+  status.textContent = "Browser event listener unavailable: " + String(error);
+});
+
+listen("browser-title", event => {
+  const title = String(event.payload || "").trim();
+  document.title = title ? title + " — Rudy Browser" : "Rudy Browser";
+}).catch(error => console.error("Title listener unavailable", error));
+
+listen("browser-download-finished", event => {
+  const payload = event.payload;
+  status.textContent = payload.success
+    ? "Downloaded: " + (payload.path || "file saved")
+    : "Download failed";
+}).catch(error => console.error("Download listener unavailable", error));
+
+void runCommand("browser_layout");
+
+let layoutFrame = 0;
+window.addEventListener("resize", () => {
+  if (layoutFrame) return;
+  layoutFrame = requestAnimationFrame(() => {
+    layoutFrame = 0;
+    void runCommand("browser_layout");
+  });
+});
+
 document.addEventListener("keydown", event => {
   const command = event.ctrlKey || event.metaKey;
   if (command && event.key.toLowerCase() === "l") {
-    event.preventDefault(); address.focus(); address.select();
+    event.preventDefault();
+    address.focus();
+    address.select();
   } else if (command && event.key.toLowerCase() === "r") {
-    event.preventDefault(); page.reload();
-  } else if (event.altKey && event.key === "ArrowLeft" && !back.disabled) {
-    event.preventDefault(); page.goBack();
-  } else if (event.altKey && event.key === "ArrowRight" && !forward.disabled) {
-    event.preventDefault(); page.goForward();
+    event.preventDefault();
+    void runCommand("browser_reload");
+  } else if (event.altKey && event.key === "ArrowLeft" && !backButton.disabled) {
+    event.preventDefault();
+    void runCommand("browser_back");
+  } else if (event.altKey && event.key === "ArrowRight" && !forwardButton.disabled) {
+    event.preventDefault();
+    void runCommand("browser_forward");
   }
 });

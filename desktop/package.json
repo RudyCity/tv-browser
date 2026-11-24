@@ -3,61 +3,18 @@
   "productName": "Rudy Browser",
   "private": true,
   "version": "0.1.0",
-  "description": "Rudy Browser for Windows, Linux and macOS",
-  "main": "main.cjs",
+  "type": "module",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "tauri": "tauri",
     "test": "node --test"
   },
-  "devDependencies": {
-    "electron": "45.4.1",
-    "electron-builder": "26.18.1"
+  "dependencies": {
+    "@tauri-apps/api": "2.12.5"
   },
-  "build": {
-    "appId": "io.rudycity.tvbrowser.desktop",
-    "productName": "Rudy Browser",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "index.html",
-      "src/**/*",
-      "main.cjs"
-    ],
-    "asar": true,
-    "npmRebuild": false,
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "artifactName": "Rudy-Browser-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    },
-    "mac": {
-      "identity": null,
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "artifactName": "Rudy-Browser-${version}-macOS-${arch}.${ext}"
-    },
-    "dmg": {
-      "sign": false
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Network",
-      "artifactName": "Rudy-Browser-${version}-linux-${arch}.${ext}"
-    }
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.6",
+    "vite": "7.2.2"
   }
 }

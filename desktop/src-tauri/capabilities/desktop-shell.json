@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-shell",
+  "description": "Tauri IPC access for Rudy Browser's trusted local toolbar only.",
+  "webviews": ["main-ui"],
+  "platforms": ["windows", "linux", "macOS"],
+  "permissions": [
+    "core:event:default",
+    "allow-browser-navigate",
+    "allow-browser-back",
+    "allow-browser-forward",
+    "allow-browser-reload",
+    "allow-browser-home",
+    "allow-browser-layout",
+    "allow-browser-current-url"
+  ]
+}

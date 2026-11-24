@@ -10,27 +10,30 @@
 <body>
   <main class="browser">
     <header class="toolbar" aria-label="Browser controls">
-      <button id="back" aria-label="Back" title="Back" disabled>←</button>
-      <button id="forward" aria-label="Forward" title="Forward" disabled>→</button>
-      <button id="reload" aria-label="Reload" title="Reload">↻</button>
+      <button id="back" class="nav-button" aria-label="Back" title="Back" disabled>←</button>
+      <button id="forward" class="nav-button" aria-label="Forward" title="Forward" disabled>→</button>
+      <button id="reload" class="nav-button" aria-label="Reload" title="Reload">↻</button>
       <form id="navigate" class="address-form">
-        <input id="address" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="Search or enter address" aria-label="Address" />
-        <button type="submit">Go</button>
+        <input id="address" type="text" inputmode="url" autocomplete="url"
+          spellcheck="false" placeholder="Search or enter address" aria-label="Address" />
+        <button type="submit" class="go-button">Go</button>
       </form>
-      <button id="home" aria-label="Home" title="Home">⌂</button>
+      <button id="home" class="nav-button" aria-label="Home" title="Home">⌂</button>
     </header>
-    <section class="welcome" id="welcome">
+
+    <section class="welcome" id="welcome" aria-label="Rudy Browser home">
       <div class="brand-mark">R</div>
       <p class="eyebrow">RUDY BROWSER</p>
       <h1>Your web, your way.</h1>
       <p class="subtitle">A focused browsing space across your devices.</p>
       <form id="home-search" class="home-search">
-        <input id="home-address" type="text" placeholder="Search the web or enter a URL" aria-label="Search the web or enter a URL" />
+        <input id="home-address" type="text" placeholder="Search the web or enter a URL"
+          aria-label="Search the web or enter a URL" />
         <button type="submit">Explore</button>
       </form>
     </section>
-    <webview id="page" aria-label="Web page" src="about:blank"></webview>
-    <footer class="status" id="status" role="status">Ready</footer>
+
+    <footer class="status" id="status" role="status" aria-live="polite">Ready</footer>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

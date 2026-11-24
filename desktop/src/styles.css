@@ -1,23 +1,96 @@
-:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b1120; color: #f8fafc; }
+ :root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0b1120;
+  color: #f8fafc;
+}
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 360px; min-height: 100vh; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+body { min-width: 360px; min-height: 320px; }
 button, input { font: inherit; }
-button { min-width: 40px; min-height: 40px; border: 1px solid #334155; border-radius: 12px; color: #e2e8f0; background: #1e293b; cursor: pointer; }
-button:hover:not(:disabled) { background: #334155; }
+button {
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  color: #e2e8f0;
+  background: #1e293b;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+button:hover:not(:disabled) { background: #334155; border-color: #475569; }
+button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { opacity: .35; cursor: default; }
-.browser { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
-.toolbar { display: flex; gap: 8px; align-items: center; padding: 12px 16px; background: #111827; border-bottom: 1px solid #243244; }
-.address-form { display: flex; flex: 1; gap: 8px; }
-input { width: 100%; min-width: 0; border: 1px solid #334155; border-radius: 14px; background: #0f172a; color: #f8fafc; padding: 0 16px; min-height: 42px; outline: none; }
+.browser {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 68px minmax(0, 1fr) 28px;
+  background: #0b1120;
+}
+.toolbar {
+  grid-row: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  background: #111827;
+  border-bottom: 1px solid #243244;
+  z-index: 2;
+}
+.address-form { display: flex; flex: 1; gap: 8px; min-width: 0; }
+input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 0 16px;
+  min-height: 42px;
+  outline: none;
+}
 input:focus { border-color: #94a3b8; box-shadow: 0 0 0 3px #64748b33; }
-.welcome { grid-row: 2; align-self: center; justify-self: center; width: min(680px, 90vw); text-align: center; padding: 48px 20px; }
-.brand-mark { width: 64px; height: 64px; display: grid; place-items: center; margin: 0 auto 20px; border-radius: 20px; background: #334155; font-size: 32px; font-weight: 750; }
+.go-button { padding: 0 18px; }
+.welcome {
+  grid-row: 2;
+  align-self: center;
+  justify-self: center;
+  width: min(680px, 90vw);
+  text-align: center;
+  padding: 40px 20px;
+}
+.brand-mark {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+  border-radius: 20px;
+  background: #334155;
+  font-size: 32px;
+  font-weight: 750;
+}
 .eyebrow { color: #94a3b8; letter-spacing: .22em; font-size: 11px; font-weight: 700; }
 h1 { font-size: clamp(32px, 6vw, 52px); letter-spacing: -.04em; margin: 10px 0; }
 .subtitle { color: #94a3b8; }
 .home-search { display: flex; gap: 10px; margin-top: 30px; }
 .home-search input { min-height: 50px; }
 .home-search button { padding: 0 20px; }
-#page { display: none; grid-row: 2; width: 100%; height: 100%; border: 0; background: white; }
-.status { padding: 6px 14px; color: #94a3b8; font-size: 11px; border-top: 1px solid #243244; }
-@media (max-width: 560px) { .toolbar { gap: 5px; padding: 8px; } button { min-width: 36px; min-height: 38px; } .home-search { flex-direction: column; } }
+.status {
+  grid-row: 3;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 5px 12px;
+  color: #94a3b8;
+  font-size: 11px;
+  border-top: 1px solid #243244;
+  background: #0f172a;
+}
+@media (max-width: 560px) {
+  .toolbar { gap: 5px; padding: 8px; }
+  .nav-button { min-width: 36px; min-height: 38px; }
+  .home-search { flex-direction: column; }
+}

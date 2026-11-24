@@ -1,43 +1,72 @@
-# Rudy Browser Desktop
+# Rudy Browser Desktop — Rust + Tauri
 
-Desktop companion for Rudy Browser on Windows, Linux and macOS. This is a separate desktop target; it does not replace the Android app or change Android application IDs.
+The desktop application is built with **Rust and Tauri 2**. It is a separate
+desktop target and does not replace the existing Android application or change
+its package IDs.
 
-## Desktop engine
+## Native browser architecture
 
-The desktop browser uses Electron's bundled Chromium engine. The webview guest is enabled explicitly by the Electron main process and runs with Node integration disabled, context isolation, sandboxing, web security and popups disabled. Navigation is restricted to HTTP(S) and the initial blank page. Permission requests default to deny. Downloads pause until the user chooses a save destination in the native dialog.
+The desktop app uses Tauri's native multi-webview API in one native window:
 
-This provides a real browser renderer rather than a decorative shell. Android-only integrations (GeckoView extensions, Android runtime permissions, native Chromium companion and TV remote handling) are not claimed as available on desktop.
+- The local main-ui webview renders Rudy Browser's toolbar and home screen.
+- The browser-content webview renders the requested website using the operating
+  system's native webview engine: WebView2 on Windows, WebKitGTK on Linux, and
+  WKWebView on macOS.
+- The browser content view is positioned below the toolbar and above the status
+  bar. Rust updates its bounds when the desktop window is resized.
+- Site content is isolated from the local toolbar. Only main-ui receives the
+  capability to call the browser's Rust commands; the remote content webview
+  receives no Tauri IPC capability.
+
+Tauri's multi-webview API is currently behind its unstable Cargo feature.
+The Rust and CLI versions are pinned together in this repository because this
+desktop layout depends on that API.
+
+## Current desktop features
+
+- Native OS webview rendering.
+- Address/search bar, back, forward, reload and home.
+- Standard Ctrl/Cmd+L, Ctrl/Cmd+R and Alt+Arrow navigation shortcuts.
+- HTTPS by default for domain input; HTTP and HTTPS navigation only.
+- Downloads saved to the operating system's Downloads directory.
+- Popups and site permissions are denied by default.
+
+This is the initial desktop foundation. Multi-tab management, bookmarks,
+history UI, extensions, synchronized data and Android-specific integrations
+are not yet implemented in the desktop target.
 
 ## Prerequisites
 
-- Node.js 20+ and npm.
-- Linux: GTK3, NSS and standard Electron runtime libraries.
-- macOS: macOS 11+ recommended for current Electron builds.
-- Windows: Chromium is bundled by Electron; no separate WebView runtime is required.
+- Node.js 20.19+ and npm.
+- Rust stable toolchain.
+- Windows: Microsoft C++ Build Tools and WebView2 runtime.
+- Linux: GTK3, WebKitGTK 4.1 and the Tauri build dependencies.
+- macOS: Xcode Command Line Tools.
 
 ## Development
 
 From the repository root:
 
-```sh
-cd desktop
-npm install
-npm start
-```
+    cd desktop
+    npm install
+    npm run tauri -- dev
 
 ## Build installers
 
-```sh
-cd desktop
-npm run dist -- --win nsis portable
-npm run dist -- --linux AppImage deb
-npm run dist -- --mac dmg zip
-```
+    cd desktop
+    npm install
+    npm run tauri -- build --bundles nsis,msi
+    npm run tauri -- build --bundles appimage,deb
+    npm run tauri -- build --bundles dmg
 
-Build on the target OS or a compatible CI runner. Outputs are under desktop/release/:
+Build on the target operating system or use the GitHub Actions desktop matrix.
+Artifacts are emitted under src-tauri/target/release/bundle/:
 
-- Windows: NSIS installer EXE and portable EXE.
-- Linux: AppImage and Debian package.
-- macOS: DMG and ZIP containing the app bundle.
+| Platform | Installer |
+|---|---|
+| Windows | NSIS .exe and MSI |
+| Linux | AppImage and .deb |
+| macOS | DMG containing the .app bundle |
 
-GitHub Actions builds all three OS targets independently and uploads artifacts. macOS builds are unsigned; public distribution requires Apple Developer ID code signing and notarization. The app currently provides a single browsing surface; tabs, sync and parity with Android extensions are future desktop work.
+The macOS CI build is unsigned. Public distribution requires Apple Developer
+ID code signing and notarization.

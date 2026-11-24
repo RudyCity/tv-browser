@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Rudy Browser",
+  "version": "0.1.0",
+  "identifier": "io.rudycity.tvbrowser.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost",
+      "capabilities": ["desktop-shell"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi", "appimage", "deb", "dmg"],
+    "category": "Internet",
+    "shortDescription": "Rudy Browser desktop",
+    "longDescription": "Rudy Browser for Windows, Linux and macOS."
+  }
+}
