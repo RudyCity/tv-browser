@@ -44,9 +44,13 @@ jobs:
       - name: Install desktop dependencies
         working-directory: desktop
         run: npm install
-      - name: Validate JavaScript syntax
+      - name: Validate JavaScript syntax and navigation policy
         working-directory: desktop
-        run: node --check main.cjs && node --check src/main.js
+        run: |
+          node --check main.cjs
+          node --check src/main.js
+          node --check src/navigation.js
+          npm test
       - name: Build platform installers
         working-directory: desktop
         run: npm run dist -- ${{ matrix.args }}

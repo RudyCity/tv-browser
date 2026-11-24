@@ -222,3 +222,14 @@ Old system WebView/TLS/DRM/codec limitations cannot be fixed just by changing th
 Check 320 dp and 390 dp portrait, narrow landscape, 600–839 dp tablets, 840+ dp
 tablets and Android TV with D-pad; verify address entry and IME, orientation changes,
 back stack, popup default Block, download confirmation, fullscreen video, and TV pointer.
+
+
+## Desktop builds (Windows, Linux and macOS)
+
+Rudy Browser now has a separate Electron + Chromium desktop target. Android remains unchanged.
+
+- Windows: NSIS setup installer and portable EXE.
+- Linux: AppImage and Debian package.
+- macOS: DMG and ZIP containing the app bundle (unsigned preview; signing/notarization is still required for public distribution).
+
+See [desktop setup and build instructions](desktop/README.md). The [Desktop builds workflow](.github/workflows/desktop.yml) creates per-platform artifacts when a desktop change is pushed to main; artifacts are currently CI downloads, not a published GitHub Release.

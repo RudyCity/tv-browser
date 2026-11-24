@@ -5,19 +5,59 @@
   "version": "0.1.0",
   "description": "Rudy Browser for Windows, Linux and macOS",
   "main": "main.cjs",
-  "scripts": { "start": "electron .", "dist": "electron-builder" },
-  "devDependencies": { "electron": "45.4.1", "electron-builder": "26.18.1" },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "45.4.1",
+    "electron-builder": "26.18.1"
+  },
   "build": {
     "appId": "io.rudycity.tvbrowser.desktop",
     "productName": "Rudy Browser",
-    "directories": { "output": "release" },
-    "files": ["index.html", "src/**/*", "main.cjs"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "index.html",
+      "src/**/*",
+      "main.cjs"
+    ],
     "asar": true,
     "npmRebuild": false,
-    "win": { "target": ["nsis", "portable"], "artifactName": "Rudy-Browser-${version}-${arch}.${ext}" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true },
-    "mac": { "identity": null, "target": ["dmg", "zip"], "artifactName": "Rudy-Browser-${version}-macOS-${arch}.${ext}" },
-    "dmg": { "sign": false },
-    "linux": { "target": ["AppImage", "deb"], "category": "Network", "artifactName": "Rudy-Browser-${version}-linux-${arch}.${ext}" }
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "Rudy-Browser-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "Rudy-Browser-${version}-macOS-${arch}.${ext}"
+    },
+    "dmg": {
+      "sign": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "artifactName": "Rudy-Browser-${version}-linux-${arch}.${ext}"
+    }
   }
 }
