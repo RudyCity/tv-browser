@@ -1,33 +1,43 @@
 # Rudy Browser Desktop
 
-Desktop companion for Rudy Browser on Windows, Linux and macOS. It is a separate desktop target and does not replace the Android application, alter Android package IDs, or claim to reuse Android WebView/GeckoView.
+Desktop companion for Rudy Browser on Windows, Linux and macOS. This is a separate desktop target; it does not replace the Android app or change Android application IDs.
 
-## Architecture
+## Desktop engine
 
-The initial desktop shell uses Tauri 2 and the OS native webview: WebView2 on Windows, WebKitGTK on Linux, and WKWebView on macOS. It is not bundled Chromium or GeckoView. Android-only features are not advertised as desktop-supported until native desktop equivalents are implemented and tested.
+The desktop browser uses Electron's bundled Chromium engine. The webview guest is enabled explicitly by the Electron main process and runs with Node integration disabled, context isolation, sandboxing, web security and popups disabled. Navigation is restricted to HTTP(S) and the initial blank page. Permission requests default to deny. Downloads pause until the user chooses a save destination in the native dialog.
+
+This provides a real browser renderer rather than a decorative shell. Android-only integrations (GeckoView extensions, Android runtime permissions, native Chromium companion and TV remote handling) are not claimed as available on desktop.
 
 ## Prerequisites
 
-- Node.js 20+ and Rust stable
-- Windows: Visual Studio C++ Build Tools and WebView2 Runtime
-- Linux: WebKitGTK 4.1, GTK3, appindicator and build dependencies
-- macOS: Xcode Command Line Tools
+- Node.js 20+ and npm.
+- Linux: GTK3, NSS and standard Electron runtime libraries.
+- macOS: macOS 11+ recommended for current Electron builds.
+- Windows: Chromium is bundled by Electron; no separate WebView runtime is required.
 
 ## Development
 
-From repository root:
+From the repository root:
 
 ```sh
 cd desktop
 npm install
-npm run tauri dev
+npm start
 ```
 
-## Build
+## Build installers
 
 ```sh
 cd desktop
-npm run tauri build
+npm run dist -- --win nsis portable
+npm run dist -- --linux AppImage deb
+npm run dist -- --mac dmg zip
 ```
 
-Bundles are written to `desktop/src-tauri/target/release/bundle/`. CI creates Windows NSIS + MSI, Linux AppImage + Debian package, and macOS DMG + app bundle. Public macOS distribution still requires Apple Developer signing and notarization.
+Build on the target OS or a compatible CI runner. Outputs are under desktop/release/:
+
+- Windows: NSIS installer EXE and portable EXE.
+- Linux: AppImage and Debian package.
+- macOS: DMG and ZIP containing the app bundle.
+
+GitHub Actions builds all three OS targets independently and uploads artifacts. macOS builds are unsigned; public distribution requires Apple Developer ID code signing and notarization. The app currently provides a single browsing surface; tabs, sync and parity with Android extensions are future desktop work.

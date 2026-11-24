@@ -20,35 +20,40 @@ jobs:
         include:
           - platform: Windows
             os: windows-latest
-            args: "--bundles nsis,msi"
+            args: "--win nsis portable"
+            artifact: "desktop/release/*.exe"
           - platform: Linux
             os: ubuntu-22.04
-            args: "--bundles appimage,deb"
+            args: "--linux AppImage deb"
+            artifact: "desktop/release/*"
           - platform: macOS
             os: macos-latest
-            args: "--bundles dmg,app"
+            args: "--mac dmg zip"
+            artifact: "desktop/release/*"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install Linux system dependencies
+      - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+          sudo apt-get install -y build-essential libgtk-3-dev libnss3 libxss1 libasound2t64 libxtst6 libatspi2.0-0 libuuid1 fakeroot rpm
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Tauri CLI
+      - name: Install desktop dependencies
         working-directory: desktop
         run: npm install
-      - name: Build desktop bundles
+      - name: Validate JavaScript syntax
         working-directory: desktop
-        run: npm run tauri -- build ${{ matrix.args }}
+        run: node --check main.cjs && node --check src/main.js
+      - name: Build platform installers
+        working-directory: desktop
+        run: npm run dist -- ${{ matrix.args }}
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: rudy-browser-${{ matrix.platform }}-${{ github.sha }}
-          path: desktop/src-tauri/target/release/bundle/**
+          path: ${{ matrix.artifact }}
           if-no-files-found: error
           retention-days: 14
