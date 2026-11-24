@@ -18,7 +18,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi", "appimage", "deb", "dmg"],
-    "category": "Internet",
+    "category": "Utility",
     "shortDescription": "Rudy Browser desktop",
     "longDescription": "Rudy Browser for Windows, Linux and macOS."
   }
