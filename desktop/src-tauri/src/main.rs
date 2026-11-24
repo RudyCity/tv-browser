@@ -166,7 +166,7 @@ fn main() {
             // The local UI is created first. The browser content view is added
             // later so it overlays only the page area, never the toolbar/status.
             let ui_url = if cfg!(debug_assertions) {
-                WebviewUrl::External("http://localhost:1420".parse()?)
+                WebviewUrl::External("http://127.0.0.1:1420".parse()?)
             } else {
                 WebviewUrl::App("index.html".into())
             };
