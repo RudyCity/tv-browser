@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
+  <title>Rudy Browser</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <main class="browser">
+    <header class="toolbar" aria-label="Browser controls">
+      <button id="back" aria-label="Back" title="Back" disabled>←</button>
+      <button id="forward" aria-label="Forward" title="Forward" disabled>→</button>
+      <button id="reload" aria-label="Reload" title="Reload">↻</button>
+      <form id="navigate" class="address-form">
+        <input id="address" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="Search or enter address" aria-label="Address" />
+        <button type="submit">Go</button>
+      </form>
+      <button id="home" aria-label="Home" title="Home">⌂</button>
+    </header>
+    <section class="welcome" id="welcome">
+      <div class="brand-mark">R</div>
+      <p class="eyebrow">RUDY BROWSER</p>
+      <h1>Your web, your way.</h1>
+      <p class="subtitle">A focused browsing space across your devices.</p>
+      <form id="home-search" class="home-search">
+        <input id="home-address" type="text" placeholder="Search the web or enter a URL" aria-label="Search the web or enter a URL" />
+        <button type="submit">Explore</button>
+      </form>
+    </section>
+    <webview id="page" aria-label="Web page" src="about:blank"></webview>
+    <footer class="status" id="status" role="status">Ready</footer>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

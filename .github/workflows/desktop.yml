@@ -1,0 +1,54 @@
+name: Desktop builds
+
+on:
+  push:
+    branches: [main]
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Windows
+            os: windows-latest
+            args: "--bundles nsis,msi"
+          - platform: Linux
+            os: ubuntu-22.04
+            args: "--bundles appimage,deb"
+          - platform: macOS
+            os: macos-latest
+            args: "--bundles dmg,app"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Tauri CLI
+        working-directory: desktop
+        run: npm install
+      - name: Build desktop bundles
+        working-directory: desktop
+        run: npm run tauri -- build ${{ matrix.args }}
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: rudy-browser-${{ matrix.platform }}-${{ github.sha }}
+          path: desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+          retention-days: 14
