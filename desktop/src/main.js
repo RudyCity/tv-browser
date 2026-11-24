@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { normalizeDestination } from "./navigation.js";
+import { normalizeDestination, normalizeNavigationState } from "./navigation.js";
 
 const address = document.querySelector("#address");
 const homeAddress = document.querySelector("#home-address");
@@ -16,6 +16,22 @@ async function runCommand(name, args) {
     status.textContent = String(error);
     return undefined;
   }
+}
+
+function applyNavigationState(state) {
+  const availability = normalizeNavigationState(state);
+  backButton.disabled = !availability.canGoBack;
+  forwardButton.disabled = !availability.canGoForward;
+}
+
+async function refreshNavigationState() {
+  if (!welcome.hidden) {
+    applyNavigationState(null);
+    return;
+  }
+
+  const state = await runCommand("browser_navigation_state");
+  if (state !== undefined) applyNavigationState(state);
 }
 
 async function navigate(raw) {
@@ -43,8 +59,14 @@ document.querySelector("#home-search").addEventListener("submit", event => {
   void navigate(homeAddress.value);
 });
 
-backButton.addEventListener("click", () => void runCommand("browser_back"));
-forwardButton.addEventListener("click", () => void runCommand("browser_forward"));
+backButton.addEventListener("click", async () => {
+  await runCommand("browser_back");
+  await refreshNavigationState();
+});
+forwardButton.addEventListener("click", async () => {
+  await runCommand("browser_forward");
+  await refreshNavigationState();
+});
 document.querySelector("#reload").addEventListener("click", () => void runCommand("browser_reload"));
 
 document.querySelector("#home").addEventListener("click", async () => {
@@ -69,11 +91,18 @@ listen("browser-load", event => {
   status.textContent = "Ready";
   address.value = payload.url;
   homeAddress.value = payload.url;
-  backButton.disabled = false;
-  forwardButton.disabled = false;
+  void refreshNavigationState();
 }).catch(error => {
   status.textContent = "Browser event listener unavailable: " + String(error);
 });
+
+listen("browser-navigation-state", event => {
+  applyNavigationState(event.payload);
+}).catch(error => console.error("Navigation state listener unavailable", error));
+
+listen("browser-navigation-state-error", event => {
+  status.textContent = "Navigation state unavailable: " + String(event.payload || "unknown error");
+}).catch(error => console.error("Navigation state error listener unavailable", error));
 
 listen("browser-title", event => {
   const title = String(event.payload || "").trim();
@@ -99,6 +128,14 @@ listen("browser-layout-error", event => {
 }).catch(error => console.error("Layout listener unavailable", error));
 
 void runCommand("browser_layout");
+void refreshNavigationState();
+
+// Native WebView history also changes for same-document SPA navigation. Tauri
+// page-load events do not cover every pushState/replaceState transition, so poll
+// the native can-go-back/can-go-forward state while the website is visible.
+window.setInterval(() => {
+  if (welcome.hidden) void refreshNavigationState();
+}, 1000);
 
 let layoutFrame = 0;
 window.addEventListener("resize", () => {
