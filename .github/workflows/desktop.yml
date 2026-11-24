@@ -55,6 +55,10 @@ jobs:
         working-directory: desktop
         run: npm install
 
+      - name: Generate desktop application icons
+        working-directory: desktop
+        run: npm run tauri -- icon ../art/rudy_browser_mark.svg
+
       - name: Run JavaScript navigation tests
         working-directory: desktop
         run: npm test

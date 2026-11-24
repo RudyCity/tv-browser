@@ -130,9 +130,8 @@ listen("browser-layout-error", event => {
 void runCommand("browser_layout");
 void refreshNavigationState();
 
-// Native WebView history also changes for same-document SPA navigation. Tauri
-// page-load events do not cover every pushState/replaceState transition, so poll
-// the native can-go-back/can-go-forward state while the website is visible.
+// Same-document History API changes do not always trigger page-load events.
+// Poll the current URL so Rust can synchronize its URL-based back/forward stack.
 window.setInterval(() => {
   if (welcome.hidden) void refreshNavigationState();
 }, 1000);

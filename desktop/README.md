@@ -19,9 +19,11 @@ The desktop app uses Tauri's native multi-webview API in one native window:
   receives the capability to call browser Rust commands; remote page content
   receives no Tauri IPC capability. This is a capability boundary, not a claim
   that the browser profile is private or isolated from other sites.
-- Browser Back and Forward use the native webview's history availability and
-  navigation methods. The UI refreshes availability on native page-load events
-  and periodically to observe same-document history changes.
+- Browser Back and Forward call the page's History API. Rust maintains a
+  URL-based navigation stack and refreshes it on page-load events and periodic
+  URL checks, which also observes many same-document history changes. This
+  lightweight stack cannot distinguish every duplicate-URL or
+  `replaceState` history entry exactly.
 
 Tauri's multi-webview API is currently behind its `unstable` Cargo feature.
 The Rust and CLI versions are pinned in this repository because this layout
@@ -29,7 +31,7 @@ depends on that API.
 
 ## Current desktop behavior
 
-- Address/search bar, native Back/Forward, reload and home.
+- Address/search bar, URL-stack-based Back/Forward, reload and home.
 - HTTPS by default for domain input; only HTTP and HTTPS external navigation
   are allowed (plus the internal `about:blank` initialization page).
 - Downloads are accepted automatically and saved to the operating system's
@@ -79,12 +81,14 @@ From the repository root:
 
     cd desktop
     npm install
+    npm run tauri -- icon ../art/rudy_browser_mark.svg
     npm run tauri -- dev
 
 ## Build installers
 
     cd desktop
     npm install
+    npm run tauri -- icon ../art/rudy_browser_mark.svg
     npm run tauri -- build --bundles nsis,msi
     npm run tauri -- build --bundles appimage,deb
     npm run tauri -- build --bundles dmg
@@ -98,7 +102,7 @@ Artifacts are emitted under `src-tauri/target/release/bundle/`:
 | Linux | AppImage and .deb |
 | macOS | DMG containing the .app bundle |
 
-The desktop workflow runs JavaScript tests, Rust formatting checks, Rust tests,
+The desktop workflow generates the native icon set from `art/rudy_browser_mark.svg`, then runs JavaScript tests, Rust formatting checks, Rust tests,
 Clippy with warnings denied, a frontend production build and native installer
 builds for Windows, Linux and macOS. It uploads per-platform artifacts to the
 GitHub Actions run; it does not publish a GitHub Release.
