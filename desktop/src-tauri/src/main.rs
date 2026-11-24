@@ -58,17 +58,10 @@ struct BrowserLayout {
     content_height: f64,
 }
 
-fn layout_browser_views(
-    app: &tauri::AppHandle,
-    window: &Window,
-) -> Result<(), String> {
+fn layout_browser_views(app: &tauri::AppHandle, window: &Window) -> Result<(), String> {
     let scale_factor = window.scale_factor().map_err(|error| error.to_string())?;
     let physical_size = window.inner_size().map_err(|error| error.to_string())?;
-    let layout = calculate_browser_layout(
-        physical_size.width,
-        physical_size.height,
-        scale_factor,
-    )?;
+    let layout = calculate_browser_layout(physical_size.width, physical_size.height, scale_factor)?;
 
     let main_ui = app
         .get_webview(MAIN_UI_LABEL)
@@ -77,10 +70,7 @@ fn layout_browser_views(
         .set_position(LogicalPosition::new(0.0, 0.0))
         .map_err(|error| error.to_string())?;
     main_ui
-        .set_size(LogicalSize::new(
-            layout.window_width,
-            layout.window_height,
-        ))
+        .set_size(LogicalSize::new(layout.window_width, layout.window_height))
         .map_err(|error| error.to_string())?;
 
     let content = content_webview(app)?;
@@ -88,10 +78,7 @@ fn layout_browser_views(
         .set_position(LogicalPosition::new(0.0, layout.content_top))
         .map_err(|error| error.to_string())?;
     content
-        .set_size(LogicalSize::new(
-            layout.window_width,
-            layout.content_height,
-        ))
+        .set_size(LogicalSize::new(layout.window_width, layout.content_height))
         .map_err(|error| error.to_string())
 }
 
@@ -109,7 +96,9 @@ fn browser_navigate(app: tauri::AppHandle, url: String) -> Result<(), String> {
 
 fn navigation_state(webview: &tauri::webview::Webview) -> Result<serde_json::Value, String> {
     let can_go_back = webview.can_go_back().map_err(|error| error.to_string())?;
-    let can_go_forward = webview.can_go_forward().map_err(|error| error.to_string())?;
+    let can_go_forward = webview
+        .can_go_forward()
+        .map_err(|error| error.to_string())?;
 
     Ok(json!({
         "canGoBack": can_go_back,
@@ -134,7 +123,10 @@ fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn browser_forward(app: tauri::AppHandle) -> Result<(), String> {
     let webview = content_webview(&app)?;
-    if webview.can_go_forward().map_err(|error| error.to_string())? {
+    if webview
+        .can_go_forward()
+        .map_err(|error| error.to_string())?
+    {
         webview.go_forward().map_err(|error| error.to_string())?;
     }
     Ok(())
@@ -199,7 +191,10 @@ fn unique_download_path(directory: &Path, url: &Url) -> PathBuf {
     }
 
     let path = Path::new(&file_name);
-    let stem = path.file_stem().and_then(|value| value.to_str()).unwrap_or("download");
+    let stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("download");
     let extension = path.extension().and_then(|value| value.to_str());
 
     for suffix in 1..10_000 {
@@ -353,11 +348,7 @@ fn main() {
                     DownloadEvent::Requested { url, destination } => {
                         *destination = unique_download_path(&download_dir, &url);
                     }
-                    DownloadEvent::Finished {
-                        url,
-                        path,
-                        success,
-                    } => {
+                    DownloadEvent::Finished { url, path, success } => {
                         let _ = download_handle.emit(
                             "browser-download-finished",
                             json!({
@@ -382,8 +373,7 @@ fn main() {
             )?;
             content_view.hide()?;
 
-            layout_browser_views(app.handle(), &window)
-                .map_err(std::io::Error::other)?;
+            layout_browser_views(app.handle(), &window).map_err(std::io::Error::other)?;
 
             let layout_app = app.handle().clone();
             let layout_window = window.clone();
@@ -460,12 +450,22 @@ mod tests {
 
     #[test]
     fn only_http_https_and_blank_are_navigable() {
-        assert!(is_allowed_browser_url(&Url::parse("https://example.com").unwrap()));
-        assert!(is_allowed_browser_url(&Url::parse("http://localhost:3000").unwrap()));
+        assert!(is_allowed_browser_url(
+            &Url::parse("https://example.com").unwrap()
+        ));
+        assert!(is_allowed_browser_url(
+            &Url::parse("http://localhost:3000").unwrap()
+        ));
         assert!(is_allowed_browser_url(&Url::parse("about:blank").unwrap()));
-        assert!(!is_allowed_browser_url(&Url::parse("file:///etc/passwd").unwrap()));
-        assert!(!is_allowed_browser_url(&Url::parse("javascript:alert(1)").unwrap()));
-        assert!(!is_allowed_browser_url(&Url::parse("ftp://example.com").unwrap()));
+        assert!(!is_allowed_browser_url(
+            &Url::parse("file:///etc/passwd").unwrap()
+        ));
+        assert!(!is_allowed_browser_url(
+            &Url::parse("javascript:alert(1)").unwrap()
+        ));
+        assert!(!is_allowed_browser_url(
+            &Url::parse("ftp://example.com").unwrap()
+        ));
     }
 
     #[test]
