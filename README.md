@@ -1,10 +1,10 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
-## Development 0.8.1 Beta — Edge-to-edge UI, Rudy Design System v2 & Flagship Modals
+## Development 0.8.4 Beta: Edge-to-edge UI, Rudy Design System v2 & Flagship Modals
 
-[Rudy Browser 0.8.1 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
+[Rudy Browser 0.8.4 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
 
-VersionName 0.8.1 / versionCode 13; no native Chromium AAR is bundled.
+VersionName 0.8.4 / versionCode 16; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Download / GitHub Pre-release (18 November 2026)
 
@@ -211,6 +211,7 @@ Old system WebView/TLS/DRM/codec limitations cannot be fixed just by changing th
 
 ## Technical docs
 
+- [Changelog and release history](CHANGELOG.md)
 - [Chromium engine integration](docs/CHROMIUM_ENGINE.md)
 - [Native Chromium + extension source/build pipeline](native-chromium/README.md)
 - [Extension scope and limitations](docs/EXTENSIONS.md)
