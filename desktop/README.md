@@ -141,7 +141,9 @@ From the repository root:
     bun run tauri -- dev
 
 The icon set is generated from `art/rudy_browser_mark.svg`; it is not committed.
-`bun install` writes `bun.lock`, which pins the resolved dependency graph.
+`bun install` writes `bun.lock`, which pins the resolved dependency graph. CI
+installs with `bun install --frozen-lockfile`, so a dependency change without a
+lockfile update fails the build.
 
 ## Build installers
 
