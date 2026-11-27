@@ -1,0 +1,49 @@
+name: Changelog guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Source change requires changelog entry and version bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        id: range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "spec=$PR_BASE_SHA...$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PUSH_BEFORE_SHA" ] || [ "$PUSH_BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "spec=HEAD~1...HEAD" >> "$GITHUB_OUTPUT"
+          else
+            echo "spec=$PUSH_BEFORE_SHA...$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read head commit message
+        id: commit
+        run: |
+          message=$(git log -1 --format=%B "$GITHUB_SHA")
+          case "$message" in
+            *"[skip changelog]"*) echo "skip=1" >> "$GITHUB_OUTPUT" ;;
+            *) echo "skip=0" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Verify changelog entry and version sync
+        env:
+          SKIP_CHANGELOG: ${{ steps.commit.outputs.skip }}
+        run: git diff --name-only "${{ steps.range.outputs.spec }}" | node scripts/check-changelog.mjs

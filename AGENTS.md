@@ -24,6 +24,7 @@ Satu perubahan tidak dianggap selesai sebelum keempat hal di bawah ini dikerjaka
 - `CHANGELOG.md` di root adalah ledger perubahan tunggal, format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Setiap commit wajib menambah entri di bawah versi terbaru: tanggal (`YYYY-MM-DD`), kategori `Added` / `Changed` / `Fixed` / `Removed`, file yang berubah, dan alasan perubahannya.
 - Entri ditulis dari sudut pandang pengguna atau maintainer, bukan salinan pesan commit.
+- Pengecualian tunggal: penanda `[skip changelog]` pada pesan commit, hanya bila entri untuk perubahan tersebut sudah dibuat pada commit terpisah. Alasan wajib ditulis di badan commit.
 
 ### 4.2 Versi
 - Versi proyek mengikuti `versionName` Android di `app/build.gradle`. Setiap perubahan menaikkan patch, `versionCode` naik satu, dan keduanya diubah bersama.

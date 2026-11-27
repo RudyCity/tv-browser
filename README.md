@@ -1,10 +1,10 @@
 # Rudy Browser — Android phone, tablet and TV browser
 
-## Development 0.8.4 Beta: Edge-to-edge UI, Rudy Design System v2 & Flagship Modals
+## Development 0.8.5 Beta: Edge-to-edge UI, Rudy Design System v2 & Flagship Modals
 
-[Rudy Browser 0.8.4 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
+[Rudy Browser 0.8.5 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
 
-VersionName 0.8.4 / versionCode 16; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
+VersionName 0.8.5 / versionCode 17; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Download / GitHub Pre-release (18 November 2026)
 
@@ -194,6 +194,13 @@ bash scripts/test-policy.sh
 gradle --no-daemon testLegacyDebugUnitTest assembleLegacyDebug
 # app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
 ```
+
+Before committing, `git diff --name-only HEAD | node scripts/check-changelog.mjs`
+verifies the rules in `AGENTS.md` section 4: changed source files need a
+CHANGELOG entry, and the top changelog version must equal `versionName`.
+A commit whose entry already landed in a separate commit may add
+`[skip changelog]` to its message; the version checks still run.
+The same check runs in CI as the `Changelog guard` workflow.
 
 CI builds the API 19+ WebView fallback and uploads the
 `rudy-browser-legacy-debug-apk` artifact. Optional Chromium builds require

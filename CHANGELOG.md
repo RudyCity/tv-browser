@@ -17,6 +17,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan pe
 ### Changed
 - `README.md`: nomor versi Development disegarkan ke 0.8.5 dan perintah guard disebut pada bagian Build and tests.
 - `app/build.gradle`: `versionName` 0.8.4 menjadi 0.8.5 dan `versionCode` 16 menjadi 17.
+- `AGENTS.md`: penanda `[skip changelog]` didokumentasikan pada bagian 4.1 untuk commit yang entri changelog-nya sudah dibuat terpisah.
+- `scripts/check-changelog.mjs` dan `.github/workflows/changelog-guard.yml`: pemeriksaan CHANGELOG bisa dilewati lewat penanda `[skip changelog]` pada pesan commit kepala, sementara pemeriksaan versi tetap berjalan.
 - `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.0 menjadi 0.1.1.
 - `desktop/`: toolchain dari npm dan Node ke Bun 1.4.2, mencakup `bun install`, `bun run test`, dan `bun run build`.
 - `.github/workflows/desktop.yml`: `actions/setup-node` diganti `oven-sh/setup-bun`, semua perintah npm menjadi bun, instalasi dependency memakai `--frozen-lockfile`, dan catatan rilis disesuaikan dengan fitur yang sudah ada.
