@@ -1,4 +1,4 @@
-# Rudy Browser Desktop — Rust + Tauri 2
+# Rudy Browser Desktop (Rust + Tauri 2)
 
 The desktop application is built with **Rust and Tauri 2**. It is a separate
 desktop target and does not replace the existing Android application or change
@@ -8,58 +8,93 @@ its package IDs.
 
 The desktop app uses Tauri's native multi-webview API in one native window:
 
-- The local \`main-ui\` webview renders Rudy Browser's toolbar and home screen.
-- The \`browser-content\` webview renders websites using the operating system's
-  native webview engine: WebView2 on Windows, WebKitGTK on Linux, and WKWebView
-  on macOS.
-- Rust sizes both child webviews from the native window's physical dimensions
-  and scale factor. Native resize and scale-factor events reapply their logical
-  bounds, including after maximize/restore and display-DPI changes.
-- The local toolbar and remote page are separate webviews. Only \`main-ui\`
-  receives the capability to call browser Rust commands; remote page content
+- The local `main-ui` webview renders Rudy Browser's tab strip, toolbar, home
+  workspace, data managers and settings.
+- Each tab owns a native content webview (`browser-content-<id>`) that renders
+  websites with the operating system's webview engine: WebView2 on Windows,
+  WebKitGTK on Linux, and WKWebView on macOS.
+- Only the active tab's content webview is visible. Rust keeps every tab
+  webview at the same content bounds and hides the inactive ones.
+- The toolbar webview measures its own chrome height and reports it to Rust,
+  which converts the native window's physical dimensions and scale factor into
+  logical content bounds. Resize and scale-factor events reapply those bounds.
+- The local toolbar and every remote page are separate webviews. Only `main-ui`
+  receives the capability to call browser Rust commands; a remote page webview
   receives no Tauri IPC capability. This is a capability boundary, not a claim
   that the browser profile is private or isolated from other sites.
-- Browser Back and Forward call the page's History API. Rust maintains a
-  URL-based navigation stack and refreshes it on page-load events and periodic
-  URL checks, which also observes many same-document history changes. This
-  lightweight stack cannot distinguish every duplicate-URL or
-  \`replaceState\` history entry exactly.
+- Browser Back and Forward call the page's History API. Rust keeps a separate
+  URL-based navigation stack per tab and refreshes it on page-load events and
+  periodic URL checks, which also observes many same-document history changes.
+  A new tab starts with its own empty stack. This lightweight stack cannot
+  distinguish every duplicate-URL or `replaceState` history entry exactly.
 
-Tauri's multi-webview API is currently behind its \`unstable\` Cargo feature.
+Tauri's multi-webview API is currently behind its `unstable` Cargo feature.
 The Rust and CLI versions are pinned in this repository because this layout
 depends on that API.
 
 ## Current desktop behavior
 
-- Address/search bar, URL-stack-based Back/Forward, reload and home.
-- HTTPS by default for domain input; only HTTP and HTTPS external navigation
-  are allowed (plus the internal \`about:blank\` initialization page).
+- Tabs: a tab strip with one content webview per tab, `Ctrl+T` for a new tab,
+  `Ctrl+Shift+N` for a private tab, `Ctrl+W` to close, and `Ctrl+Tab` or
+  `Ctrl+Shift+Tab` to cycle. Closing the last tab opens a fresh blank tab.
+- Session restore: on launch the app reopens the tabs from the previous session
+  and selects the tab that was active. Private tabs are never stored.
+- Address/search bar with HTTPS by default for domain input. Only HTTP and
+  HTTPS external navigation is allowed, plus the internal `about:blank`
+  initialization page.
+- Back, forward, reload, home and a connection indicator that reports whether
+  the current page is HTTPS or plain HTTP.
+- Page zoom with a visible percentage, `Ctrl+=` to zoom in, `Ctrl+-` to zoom
+  out and `Ctrl+0` to reset. Zoom is applied by the native webview, not by
+  injecting styles into the page.
+- Find in page with `Ctrl+F`, match counting, next/previous match and `Escape`
+  to close.
+- Dark and light themes. The palette follows `DESIGN.md`; the theme is stored in
+  the local UI profile and defaults to dark.
+- A 2px progress bar driven by native page-load events, and a local error view
+  when an address is rejected, cannot be opened, or finishes as the webview's
+  own failure document. The error view keeps the failed address and offers a
+  retry action.
 - Bookmarks are stored in the local browser UI profile, can be added or removed
   from the toolbar, and are available from the home dashboard and searchable
-  bookmarks manager. Ctrl+D toggles the current page; Ctrl+B opens the manager.
+  bookmarks manager. `Ctrl+D` toggles the current page; `Ctrl+B` opens the
+  manager.
 - A searchable history manager records completed top-level page visits, keeps
-  visit counts and titles, and can be cleared independently. Ctrl+H opens it.
+  visit counts and titles, and can be cleared independently. `Ctrl+H` opens it.
 - A download activity manager keeps a bounded list of completed download
-  results, including success/failure and the saved path when supplied by the
-  native WebView. It is an activity list, not a transfer controller. Ctrl+J
-  opens it.
-- Home shows recent pages and saved bookmarks. Escape closes a data manager
-  and returns to Home.
+  results, including success/failure and the saved path, and can open the saved
+  file with the operating system. It is an activity list, not a transfer
+  controller. `Ctrl+J` opens it.
+- Home shows recent pages and saved bookmarks. `Escape` closes a data manager,
+  the settings view or the find bar.
 - Downloads are accepted automatically and saved to the operating system's
   Downloads directory, with a temporary-directory fallback if that path cannot
   be resolved. Filenames are sanitized and collisions receive a numeric suffix.
-- An HTTP(S) \`window.open\` request is redirected into the existing browser
-  content view. This is a single-view fallback, not a new tab or popup window.
-  Other popup URL schemes are denied.
-- Web permission requests are denied. There is no per-origin permission prompt
-  or user-configurable grant UI.
-- Bookmark, history and download-activity records are stored by the local UI
-  webview using versioned local storage keys. They are not synchronized with
-  Android or other desktop operating-system profiles.
+- An HTTP(S) `window.open` request is redirected into the active tab's content
+  view. This is a single-view fallback, not a new tab or popup window. Other
+  popup URL schemes are denied.
+- Settings cover the theme, the search engine, the home address, the default
+  zoom, site permissions and local data clearing.
+- Site permissions are an explicit allow-list per origin. A permission request
+  is granted only when the requesting origin and the permission kind are both
+  listed in Settings; everything else is denied.
+- Clearing cookies and site data, history, or download activity is available
+  from Settings and from the data managers.
 
-Multi-tab management, session restore, split view, a visible transfer-progress
-controller, synchronized browser data and a private-window lifecycle are not
-implemented in this desktop target.
+Private tabs use the platform's incognito mode (WebView2 InPrivate on Windows,
+a non-persistent data store on macOS, WebKitGTK's ephemeral session on Linux).
+Private tabs do not write history, download activity or session entries.
+Downloads started from a private tab still write a file to disk, and every
+private tab shares the same incognito session.
+
+Not implemented in this desktop target: tab reordering or tear-off, multiple
+windows, split view, extension or userscript support, ad and tracker filtering,
+a visible transfer-progress controller with pause or cancel, synchronized
+browser data, an in-app updater, and code signing.
+
+A failed load is detected by inspecting the finished document for the webview's
+error page. A page that never finishes loading keeps the progress bar until the
+next navigation, because the native load events report no failure status.
 
 ## Platform support and feature limits
 
@@ -67,13 +102,18 @@ implemented in this desktop target.
 |---|---|---|---|---|
 | Native page engine | WebView2 | WebKitGTK 4.1 | WKWebView | Uses the OS webview; engine version/behavior follows the installed OS runtime |
 | Installer artifact | NSIS and MSI | AppImage and DEB | DMG | Built by the platform CI matrix |
-| Separate private profile / incognito | Not implemented | Not implemented | Not implemented | One browser-content webview; no private-profile lifecycle or profile selector |
-| Per-origin site permissions | Not implemented | Not implemented | Not implemented | Permission requests are denied; no grant/remember UI |
-| Downloads | Supported, basic | Supported, basic | Supported, basic | Auto-save plus completed-download activity list; no prompt, progress, pause or cancel UI |
+| Tabs | Supported | Supported | Supported | One native webview per tab; the active tab is the only visible content view |
+| Private tabs | Supported (InPrivate, WebView2 runtime 101+) | Supported | Supported | Incognito session per private tab; no history, downloads list or session entries |
+| Session restore | Supported | Supported | Supported | Tabs and the active tab index are stored in the local UI profile |
+| Page zoom | Supported | Supported | Supported | Native webview zoom with a visible percentage |
+| Find in page | Supported | Supported | Supported | Counts text occurrences and steps through matches with `window.find`; it does not highlight every match |
+| Per-origin site permissions | Allow-list | Allow-list | Allow-list | Requests are denied unless the origin and kind are listed in Settings; there is no inline prompt |
+| Downloads | Supported, basic | Supported, basic | Supported, basic | Auto-save plus completed-download activity with an open action; no progress, pause or cancel |
 | Bookmarks and history | Supported | Supported | Supported | Searchable local managers; stored in the local UI webview profile |
+| Clear browsing data | Supported | Supported | Supported | Cookies and site data for the shared profile, plus history and download activity |
 | Extensions / WebExtensions | Not implemented | Not implemented | Not implemented | No extension runtime, store or install flow |
 | Ad/tracker filtering | Not implemented | Not implemented | Not implemented | No filter-list engine or blocking rules shipped |
-| Multi-tab / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets reuse the current content view |
+| Multi-window / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets reuse the active tab's content view |
 | Code signing | Not configured in CI | Not configured in CI | Not configured in CI | Current macOS CI artifact is unsigned; no production signing identity is configured |
 | Notarization | Not applicable | Not applicable | Not configured | macOS public distribution still requires Apple Developer ID signing and notarization |
 | In-app updater | Not implemented | Not implemented | Not implemented | No updater plugin, update endpoint or signed update feed is configured |
@@ -85,7 +125,7 @@ shipped.
 
 ## Prerequisites
 
-- Node.js 20.19+ and npm.
+- Bun 1.4 or newer. It installs dependencies and runs every JavaScript script.
 - Rust stable toolchain.
 - Windows: Microsoft C++ Build Tools and WebView2 runtime.
 - Linux: GTK3, WebKitGTK 4.1 and the Tauri build dependencies.
@@ -96,21 +136,24 @@ shipped.
 From the repository root:
 
     cd desktop
-    npm install
-    npm run tauri -- icon ../art/rudy_browser_mark.svg
-    npm run tauri -- dev
+    bun install
+    bun run tauri -- icon ../art/rudy_browser_mark.svg
+    bun run tauri -- dev
+
+The icon set is generated from `art/rudy_browser_mark.svg`; it is not committed.
+`bun install` writes `bun.lock`, which pins the resolved dependency graph.
 
 ## Build installers
 
     cd desktop
-    npm install
-    npm run tauri -- icon ../art/rudy_browser_mark.svg
-    npm run tauri -- build --bundles nsis,msi
-    npm run tauri -- build --bundles appimage,deb
-    npm run tauri -- build --bundles dmg
+    bun install
+    bun run tauri -- icon ../art/rudy_browser_mark.svg
+    bun run tauri -- build --bundles nsis,msi
+    bun run tauri -- build --bundles appimage,deb
+    bun run tauri -- build --bundles dmg
 
 Build on the target operating system or use the GitHub Actions desktop matrix.
-Artifacts are emitted under \`src-tauri/target/release/bundle/\`:
+Artifacts are emitted under `src-tauri/target/release/bundle/`:
 
 | Platform | Installer |
 |---|---|
@@ -119,20 +162,35 @@ Artifacts are emitted under \`src-tauri/target/release/bundle/\`:
 | macOS | DMG containing the .app bundle |
 
 The desktop workflow generates the native icon set from
-\`art/rudy_browser_mark.svg\`, then runs JavaScript tests, Rust formatting
-checks, Rust tests, Clippy with warnings denied, a frontend production build
-and native installer builds for Windows, Linux and macOS. Every successful
-platform job uploads its installer artifact to the GitHub Actions run.
+`art/rudy_browser_mark.svg`, installs frontend dependencies with Bun, then runs
+the JavaScript tests, Rust formatting checks, Rust tests, Clippy with warnings
+denied, a frontend production build and native installer builds for Windows,
+Linux and macOS. Every successful platform job uploads its installer artifact
+to the GitHub Actions run.
 
-A commit to \`main\` whose message begins with \`release(desktop):\` also publishes
-a GitHub **pre-release** tagged \`desktop-v<version>\` after all three platform
+A commit to `main` whose message begins with `release(desktop):` also publishes
+a GitHub **pre-release** tagged `desktop-v<version>` after all three platform
 jobs succeed. The release includes the Windows EXE/MSI, Linux AppImage/DEB,
-macOS DMG and a \`SHA256SUMS.txt\` file. Ordinary pushes, pull requests and
+macOS DMG and a `SHA256SUMS.txt` file. Ordinary pushes, pull requests and
 manual workflow runs do not publish a release.
 
 The current GitHub Actions jobs may be blocked before runner startup by account
 billing or spending-limit restrictions. A workflow being queued or rejected
 before its first step is **not** evidence that source tests or builds passed.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+T` / `Ctrl+Shift+N` | New tab / new private tab |
+| `Ctrl+W` / `Ctrl+Tab` / `Ctrl+Shift+Tab` | Close tab / next tab / previous tab |
+| `Ctrl+L` | Focus the address bar |
+| `Ctrl+F` | Find in page (`Enter` next, `Shift+Enter` previous, `Escape` close) |
+| `Ctrl+D` / `Ctrl+B` / `Ctrl+H` / `Ctrl+J` | Bookmark page / bookmarks / history / downloads |
+| `Ctrl+,` | Settings |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Zoom in / zoom out / reset zoom |
+| `Ctrl+R`, `Alt+Left`, `Alt+Right` | Reload, back, forward |
+| `F11` | Toggle fullscreen |
 
 ## Release readiness
 

@@ -3,3 +3,6 @@
 /release
 /src-tauri/target
 /src-tauri/gen
+/src-tauri/icons
+/src-tauri/permissions
+/src-tauri/Cargo.lock

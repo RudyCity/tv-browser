@@ -1,12 +1,26 @@
+import { clampZoom, normalizeSearchEngine } from "./navigation.js";
+
 const STORAGE_KEYS = Object.freeze({
   bookmarks: "rudy.browser.desktop.bookmarks.v1",
   history: "rudy.browser.desktop.history.v1",
-  downloads: "rudy.browser.desktop.downloads.v1"
+  downloads: "rudy.browser.desktop.downloads.v1",
+  settings: "rudy.browser.desktop.settings.v1",
+  session: "rudy.browser.desktop.session.v1"
 });
 
 const MAX_BOOKMARKS = 300;
 const MAX_HISTORY = 500;
 const MAX_DOWNLOADS = 150;
+const MAX_SESSION_TABS = 20;
+const THEMES = ["dark", "light"];
+
+export const DEFAULT_SETTINGS = Object.freeze({
+  theme: "dark",
+  searchEngine: "google",
+  startupUrl: "",
+  defaultZoom: 1,
+  permissions: Object.freeze({})
+});
 
 function getStorage(storage) {
   try {
@@ -173,4 +187,110 @@ export function recordDownload(payload, storage, completedAt = Date.now()) {
 
 export function clearDownloads(storage) {
   return writeCollection(STORAGE_KEYS.downloads, [], storage);
+}
+
+function normalizePermissions(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const normalized = {};
+  for (const [origin, kinds] of Object.entries(value)) {
+    let parsedOrigin;
+    try {
+      const url = new URL(origin);
+      if (!["http:", "https:"].includes(url.protocol)) continue;
+      parsedOrigin = url.origin;
+    } catch {
+      continue;
+    }
+
+    if (!Array.isArray(kinds)) continue;
+    const allowed = kinds
+      .filter(kind => typeof kind === "string" && /^[a-z-]{2,24}$/.test(kind))
+      .slice(0, 8);
+    if (allowed.length) normalized[parsedOrigin] = [...new Set(allowed)];
+  }
+
+  return normalized;
+}
+
+function normalizeStartupUrl(value) {
+  return typeof value === "string" ? normalizeStoredUrl(value) ?? "" : "";
+}
+
+export function normalizeSettings(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const theme = THEMES.includes(source.theme) ? source.theme : DEFAULT_SETTINGS.theme;
+
+  return {
+    theme,
+    searchEngine: normalizeSearchEngine(source.searchEngine),
+    startupUrl: normalizeStartupUrl(source.startupUrl),
+    defaultZoom: clampZoom(source.defaultZoom ?? DEFAULT_SETTINGS.defaultZoom),
+    permissions: normalizePermissions(source.permissions)
+  };
+}
+
+export function getSettings(storage) {
+  const target = getStorage(storage);
+  if (!target) return normalizeSettings(null);
+
+  try {
+    return normalizeSettings(JSON.parse(target.getItem(STORAGE_KEYS.settings) ?? "null"));
+  } catch {
+    return normalizeSettings(null);
+  }
+}
+
+export function updateSettings(patch, storage) {
+  const current = getSettings(storage);
+  const next = normalizeSettings({ ...current, ...(patch && typeof patch === "object" ? patch : {}) });
+  return writeCollection(STORAGE_KEYS.settings, next, storage) ? next : current;
+}
+
+export function normalizeSession(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const tabs = Array.isArray(source.tabs)
+    ? source.tabs
+        .map(tab => (tab && typeof tab === "object" ? normalizeStoredUrl(tab.url) : null))
+        .filter(url => url !== null)
+        .slice(0, MAX_SESSION_TABS)
+        .map(url => ({ url, private: false }))
+    : [];
+
+  const rawIndex = Number(source.activeIndex);
+  const activeIndex = tabs.length && Number.isInteger(rawIndex)
+    ? Math.min(tabs.length - 1, Math.max(0, rawIndex))
+    : 0;
+
+  return { tabs, activeIndex };
+}
+
+export function getSession(storage) {
+  const target = getStorage(storage);
+  if (!target) return { tabs: [], activeIndex: 0 };
+
+  try {
+    return normalizeSession(JSON.parse(target.getItem(STORAGE_KEYS.session) ?? "null"));
+  } catch {
+    return { tabs: [], activeIndex: 0 };
+  }
+}
+
+export function saveSession(tabs, activeIndex, storage) {
+  const restorable = Array.isArray(tabs)
+    ? tabs
+        .filter(tab => tab && tab.private !== true)
+        .map(tab => ({ url: tab.url }))
+        .slice(0, MAX_SESSION_TABS)
+    : [];
+
+  return writeCollection(
+    STORAGE_KEYS.session,
+    { tabs: restorable, activeIndex: Number(activeIndex) || 0 },
+    storage
+  );
+}
+
+export function clearSession(storage) {
+  return writeCollection(STORAGE_KEYS.session, { tabs: [], activeIndex: 0 }, storage);
 }

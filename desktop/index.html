@@ -1,34 +1,71 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#0C131E" />
   <title>Rudy Browser</title>
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
   <main class="browser">
-    <header class="toolbar" aria-label="Browser controls">
-      <button id="back" class="nav-button" aria-label="Back" title="Back" disabled>←</button>
-      <button id="forward" class="nav-button" aria-label="Forward" title="Forward" disabled>→</button>
-      <button id="reload" class="nav-button" aria-label="Reload" title="Reload">↻</button>
-      <form id="navigate" class="address-form">
-        <input id="address" type="text" inputmode="url" autocomplete="url"
-          spellcheck="false" placeholder="Search or enter address" aria-label="Address" />
-        <button type="submit" class="go-button">Go</button>
+    <div class="chrome" id="chrome">
+      <div class="tabstrip">
+        <div class="tab-list" id="tab-list" role="tablist" aria-label="Open tabs"></div>
+        <button id="new-tab" class="tab-action" type="button"
+          title="New tab (Ctrl+T)" aria-label="New tab">+</button>
+        <button id="new-private-tab" class="tab-action tab-action-private" type="button"
+          title="New private tab (Ctrl+Shift+N)" aria-label="New private tab">&#9680;</button>
+      </div>
+
+      <header class="toolbar" aria-label="Browser controls">
+        <button id="back" class="nav-button" type="button" aria-label="Back" title="Back (Alt+Left)" disabled>&#8592;</button>
+        <button id="forward" class="nav-button" type="button" aria-label="Forward" title="Forward (Alt+Right)" disabled>&#8594;</button>
+        <button id="reload" class="nav-button" type="button" aria-label="Reload" title="Reload (Ctrl+R)">&#8635;</button>
+
+        <form id="navigate" class="address-form">
+          <button id="security" class="security-chip" type="button"
+            aria-label="Connection status" title="Connection status">&#9671;</button>
+          <input id="address" type="text" inputmode="url" autocomplete="url"
+            spellcheck="false" placeholder="Search or enter address" aria-label="Address" />
+          <button type="submit" class="go-button">Go</button>
+        </form>
+
+        <div class="zoom-group" role="group" aria-label="Page zoom">
+          <button id="zoom-out" class="zoom-button" type="button" aria-label="Zoom out" title="Zoom out (Ctrl+-)">&#8722;</button>
+          <button id="zoom-level" class="zoom-level" type="button" aria-label="Reset zoom" title="Reset zoom (Ctrl+0)">100%</button>
+          <button id="zoom-in" class="zoom-button" type="button" aria-label="Zoom in" title="Zoom in (Ctrl+=)">+</button>
+        </div>
+
+        <button id="home" class="nav-button" type="button" aria-label="Home" title="Home">&#8962;</button>
+        <span class="toolbar-divider" aria-hidden="true"></span>
+        <button id="find-toggle" class="utility-button" type="button"
+          aria-label="Find in page" title="Find in page (Ctrl+F)" aria-pressed="false">&#9906;</button>
+        <button id="bookmark-toggle" class="utility-button" type="button"
+          aria-label="Bookmark this page" title="Bookmark this page (Ctrl+D)" aria-pressed="false" disabled>&#9734;</button>
+        <button id="bookmarks" class="utility-button" type="button"
+          aria-label="Open bookmarks" title="Bookmarks (Ctrl+B)">&#9733;</button>
+        <button id="history" class="utility-button" type="button"
+          aria-label="Open history" title="History (Ctrl+H)">&#9719;</button>
+        <button id="downloads" class="utility-button" type="button"
+          aria-label="Open downloads" title="Downloads (Ctrl+J)">&#8595;</button>
+        <button id="settings-toggle" class="utility-button" type="button"
+          aria-label="Open settings" title="Settings (Ctrl+,)">&#9881;</button>
+      </header>
+
+      <form id="find-bar" class="find-bar" hidden>
+        <input id="find-term" type="search" autocomplete="off"
+          placeholder="Find in page" aria-label="Find in page" />
+        <span id="find-count" class="find-count" role="status" aria-live="polite"></span>
+        <button id="find-prev" class="find-button" type="button" aria-label="Previous match" title="Previous match (Shift+Enter)">&#8593;</button>
+        <button id="find-next" class="find-button" type="button" aria-label="Next match" title="Next match (Enter)">&#8595;</button>
+        <button id="find-close" class="find-button" type="button" aria-label="Close find bar" title="Close (Escape)">&#215;</button>
       </form>
-      <button id="home" class="nav-button" aria-label="Home" title="Home">⌂</button>
-      <span class="toolbar-divider" aria-hidden="true"></span>
-      <button id="bookmark-toggle" class="utility-button" aria-label="Bookmark this page"
-        title="Bookmark this page" aria-pressed="false" disabled>☆</button>
-      <button id="bookmarks" class="utility-button" aria-label="Open bookmarks"
-        title="Bookmarks (Ctrl+B)">★</button>
-      <button id="history" class="utility-button" aria-label="Open history"
-        title="History (Ctrl+H)">◷</button>
-      <button id="downloads" class="utility-button" aria-label="Open downloads"
-        title="Downloads (Ctrl+J)">↓</button>
-    </header>
+
+      <div id="progress" class="progress" data-state="" aria-hidden="true">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+    </div>
 
     <section class="welcome" id="welcome" aria-label="Rudy Browser home">
       <div class="home-content" id="home-content">
@@ -40,7 +77,7 @@
           <form id="home-search" class="home-search">
             <input id="home-address" type="text" placeholder="Search the web or enter a URL"
               aria-label="Search the web or enter a URL" />
-            <button type="submit">Explore</button>
+            <button type="submit">Search</button>
           </form>
         </div>
 
@@ -67,7 +104,7 @@
             <div id="home-recent" class="dashboard-list"></div>
           </section>
         </div>
-        <p class="home-hint">Tip: use Ctrl+L to focus the address bar, Ctrl+D to save a page.</p>
+        <p class="home-hint">Ctrl+T opens a tab, Ctrl+L focuses the address bar, Ctrl+F searches the page.</p>
       </div>
 
       <section id="library-view" class="library-view" aria-live="polite" hidden>
@@ -76,15 +113,116 @@
             <p class="eyebrow">YOUR BROWSER DATA</p>
             <h2 id="library-title">Bookmarks</h2>
           </div>
-          <button id="library-close" type="button">Home</button>
+          <button id="library-close" class="text-button" type="button">Home</button>
         </header>
         <div class="library-toolbar">
           <input id="library-filter" type="search" placeholder="Filter by title or address"
             aria-label="Filter browser data" />
-          <button id="library-clear" type="button" class="danger-button" hidden>Clear history</button>
+          <button id="library-clear" class="danger-button" type="button" hidden>Clear history</button>
         </div>
         <div id="library-items" class="library-items"></div>
         <p id="library-empty" class="empty-state" hidden>Nothing here yet.</p>
+      </section>
+
+      <section id="settings-view" class="library-view" aria-live="polite" hidden>
+        <header class="library-header">
+          <div>
+            <p class="eyebrow">BROWSER SETTINGS</p>
+            <h2>Settings</h2>
+          </div>
+          <button id="settings-close" class="text-button" type="button">Home</button>
+        </header>
+
+        <div class="settings-grid">
+          <section class="settings-card" aria-labelledby="settings-appearance">
+            <h3 id="settings-appearance">Appearance</h3>
+            <fieldset class="option-row">
+              <legend>Theme</legend>
+              <label class="option"><input type="radio" name="theme" value="dark" /> Dark</label>
+              <label class="option"><input type="radio" name="theme" value="light" /> Light</label>
+            </fieldset>
+          </section>
+
+          <section class="settings-card" aria-labelledby="settings-search">
+            <h3 id="settings-search">Search</h3>
+            <label class="field-row" for="settings-engine">
+              <span>Search engine</span>
+              <select id="settings-engine">
+                <option value="google">Google</option>
+                <option value="duckduckgo">DuckDuckGo</option>
+                <option value="bing">Bing</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="settings-card" aria-labelledby="settings-startup">
+            <h3 id="settings-startup">Startup</h3>
+            <label class="field-row" for="settings-startup-url">
+              <span>Home address</span>
+              <input id="settings-startup-url" type="text" inputmode="url" spellcheck="false"
+                placeholder="Leave empty to open the home screen" />
+            </label>
+            <label class="field-row" for="settings-default-zoom">
+              <span>Default zoom</span>
+              <select id="settings-default-zoom"></select>
+            </label>
+            <p class="settings-hint">Startup restores the tabs from your last session. Private tabs are never restored.</p>
+          </section>
+
+          <section class="settings-card" aria-labelledby="settings-privacy">
+            <h3 id="settings-privacy">Privacy</h3>
+            <p class="settings-hint">Cookies and site data are shared by every normal tab in this profile. Clearing them signs you out of sites.</p>
+            <div class="button-row">
+              <button id="clear-site-data" class="danger-button" type="button">Clear cookies and site data</button>
+              <button id="clear-history" class="danger-button" type="button">Clear history</button>
+              <button id="clear-downloads" class="danger-button" type="button">Clear download activity</button>
+            </div>
+          </section>
+
+          <section class="settings-card" aria-labelledby="settings-permissions">
+            <h3 id="settings-permissions">Site permissions</h3>
+            <p class="settings-hint">Requests are blocked unless the site is listed here. The operating system webview decides which requests it reports.</p>
+            <form id="permission-form" class="permission-form">
+              <input id="permission-origin" type="text" inputmode="url" spellcheck="false"
+                placeholder="https://example.com" aria-label="Site origin" />
+              <select id="permission-kind" aria-label="Permission">
+                <option value="camera">Camera</option>
+                <option value="microphone">Microphone</option>
+                <option value="geolocation">Location</option>
+                <option value="notifications">Notifications</option>
+                <option value="clipboard-read">Clipboard read</option>
+                <option value="display-capture">Screen capture</option>
+              </select>
+              <button type="submit">Allow</button>
+            </form>
+            <div id="permission-list" class="permission-list"></div>
+          </section>
+
+          <section class="settings-card" aria-labelledby="settings-about">
+            <h3 id="settings-about">About this build</h3>
+            <ul class="about-list">
+              <li>Native page engine: your operating system webview (WebView2, WebKitGTK or WKWebView).</li>
+              <li>Not available: extensions, ad filtering, multi-window popups and code signing.</li>
+              <li>Private tabs are isolated from normal tabs but downloads still write to disk.</li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <section id="error-view" class="library-view" hidden>
+        <header class="library-header">
+          <div>
+            <p class="eyebrow">PAGE NOT LOADED</p>
+            <h2 id="error-title">This address could not be opened</h2>
+          </div>
+          <button id="error-close" class="text-button" type="button">Home</button>
+        </header>
+        <p id="error-message" class="error-message"></p>
+        <p id="error-address" class="error-address"></p>
+        <div class="button-row">
+          <button id="error-retry" class="text-button" type="button">Try again</button>
+          <button id="error-home" class="text-button" type="button">Open the home screen</button>
+        </div>
       </section>
     </section>
 

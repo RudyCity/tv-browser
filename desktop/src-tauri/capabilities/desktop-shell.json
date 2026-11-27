@@ -6,13 +6,24 @@
   "platforms": ["windows", "linux", "macOS"],
   "permissions": [
     "core:event:default",
+    "allow-browser-layout",
+    "allow-browser-tab-list",
+    "allow-browser-tab-new",
+    "allow-browser-tab-activate",
+    "allow-browser-tab-close",
     "allow-browser-navigate",
     "allow-browser-back",
     "allow-browser-forward",
     "allow-browser-reload",
     "allow-browser-home",
-    "allow-browser-layout",
     "allow-browser-current-url",
-    "allow-browser-navigation-state"
+    "allow-browser-navigation-state",
+    "allow-browser-set-zoom",
+    "allow-browser-get-zoom",
+    "allow-browser-find",
+    "allow-browser-permissions-set",
+    "allow-browser-clear-site-data",
+    "allow-browser-open-path",
+    "allow-browser-toggle-fullscreen"
   ]
 }

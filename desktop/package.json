@@ -2,13 +2,14 @@
   "name": "rudy-browser-desktop",
   "productName": "Rudy Browser",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
+  "packageManager": "bun@1.4.2",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "tauri": "tauri",
-    "test": "node --test"
+    "test": "bun test"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.5"

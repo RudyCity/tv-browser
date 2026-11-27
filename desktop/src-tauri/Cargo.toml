@@ -1,6 +1,6 @@
 [package]
 name = "rudy-browser-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Rudy Browser desktop application"
 authors = ["RudyCity"]
 edition = "2021"

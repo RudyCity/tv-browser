@@ -1,18 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_SETTINGS,
   addBookmark,
   clearDownloads,
   clearHistory,
+  clearSession,
   getBookmarks,
   getDownloads,
   getHistory,
+  getSession,
+  getSettings,
   isBookmarked,
+  normalizeSession,
+  normalizeSettings,
   normalizeStoredUrl,
   recordDownload,
   recordVisit,
   removeBookmark,
-  updateHistoryTitle
+  saveSession,
+  updateHistoryTitle,
+  updateSettings
 } from "../src/browser-data.js";
 
 function createStorage(initial = {}) {
@@ -113,4 +121,91 @@ test("malformed stored collections recover as empty collections", () => {
   assert.deepEqual(getBookmarks(storage), []);
   assert.deepEqual(getHistory(storage), []);
   assert.deepEqual(getDownloads(storage), []);
+});
+
+test("settings default to the dark theme with Google search", () => {
+  const storage = createStorage();
+  const settings = getSettings(storage);
+
+  assert.equal(settings.theme, "dark");
+  assert.equal(settings.searchEngine, "google");
+  assert.equal(settings.defaultZoom, 1);
+  assert.equal(settings.startupUrl, "");
+  assert.deepEqual(settings.permissions, {});
+  assert.equal(DEFAULT_SETTINGS.theme, "dark");
+});
+
+test("settings are validated before they are stored", () => {
+  const storage = createStorage();
+
+  const applied = updateSettings({
+    theme: "light",
+    searchEngine: "duckduckgo",
+    startupUrl: "https://example.com/start",
+    defaultZoom: 1.25
+  }, storage);
+
+  assert.equal(applied.theme, "light");
+  assert.equal(applied.searchEngine, "duckduckgo");
+  assert.equal(applied.startupUrl, "https://example.com/start");
+  assert.equal(applied.defaultZoom, 1.25);
+  assert.equal(getSettings(storage).theme, "light");
+});
+
+test("settings reject unsupported themes, schemes, and zoom values", () => {
+  const settings = normalizeSettings({
+    theme: "neon",
+    searchEngine: "yandex",
+    startupUrl: "file:///etc/passwd",
+    defaultZoom: 99,
+    permissions: {
+      "https://example.com": ["microphone", "not a kind", 42],
+      "file:///tmp": ["camera"],
+      "javascript:alert(1)": ["camera"]
+    }
+  });
+
+  assert.equal(settings.theme, "dark");
+  assert.equal(settings.searchEngine, "google");
+  assert.equal(settings.startupUrl, "");
+  assert.equal(settings.defaultZoom, 3);
+  assert.deepEqual(settings.permissions, { "https://example.com": ["microphone"] });
+});
+
+test("permission origins are reduced to a bare origin", () => {
+  const settings = normalizeSettings({
+    permissions: { "https://example.com:8443/path?q=1": ["camera"] }
+  });
+
+  assert.deepEqual(settings.permissions, { "https://example.com:8443": ["camera"] });
+});
+
+test("session restore keeps only web URLs and never private tabs", () => {
+  const storage = createStorage();
+
+  assert.equal(saveSession([
+    { url: "https://example.com/one", private: false },
+    { url: "https://example.com/two", private: true },
+    { url: "javascript:alert(1)" }
+  ], 1, storage), true);
+
+  const session = getSession(storage);
+  assert.deepEqual(session.tabs, [{ url: "https://example.com/one", private: false }]);
+  assert.equal(session.activeIndex, 0);
+});
+
+test("session normalization clamps the active index", () => {
+  assert.deepEqual(normalizeSession({ tabs: [], activeIndex: 5 }), { tabs: [], activeIndex: 0 });
+  assert.deepEqual(
+    normalizeSession({ tabs: [{ url: "https://a.example" }, { url: "https://b.example" }], activeIndex: 9 }),
+    { tabs: [{ url: "https://a.example/", private: false }, { url: "https://b.example/", private: false }], activeIndex: 1 }
+  );
+});
+
+test("clearing the session leaves nothing to restore", () => {
+  const storage = createStorage();
+
+  saveSession([{ url: "https://example.com" }], 0, storage);
+  assert.equal(clearSession(storage), true);
+  assert.deepEqual(getSession(storage), { tabs: [], activeIndex: 0 });
 });

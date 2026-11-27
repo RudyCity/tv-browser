@@ -3,6 +3,26 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [desktop-0.1.1] - 2026-11-27
+
+### Added
+- `desktop/`: tab strip dengan riwayat navigasi per tab, tab privat, pemulihan sesi, zoom native, find in page, tema gelap dan terang, panel Settings, serta izin per-origin.
+- `desktop/src-tauri/src/main.rs`: command untuk tab, zoom, find, izin, hapus data situs, buka path unduhan, dan fullscreen.
+- `desktop/test/`: pengujian untuk mesin pencari, tangga zoom, indikator keamanan, pengaturan, dan pemulihan sesi.
+- `desktop/bun.lock`: lockfile Bun sebagai pengganti `package-lock.json` yang tidak pernah masuk repo.
+- Tampilan error lokal saat halaman selesai dimuat sebagai halaman gagal webview, lengkap dengan aksi coba lagi.
+
+### Changed
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.0 menjadi 0.1.1.
+- `desktop/`: toolchain dari npm dan Node ke Bun 1.4.2, mencakup `bun install`, `bun run test`, dan `bun run build`.
+- `.github/workflows/desktop.yml`: `actions/setup-node` diganti `oven-sh/setup-bun`, semua perintah npm menjadi bun, dan catatan rilis disesuaikan dengan fitur yang sudah ada.
+- `desktop/README.md`: dokumentasi fitur baru, batasan deteksi gagal muat, dan perintah Bun.
+- `desktop/.gitignore`: mengecualikan ikon hasil generate, permission hasil build, dan lockfile Cargo.
+
+### Fixed
+- `desktop/src-tauri/src/main.rs`: riwayat navigasi tidak lagi global sehingga tombol Back dan Forward mengikuti tab yang aktif, bukan tab terakhir yang memuat halaman.
+- `desktop/src/main.js`: halaman yang gagal dimuat tidak lagi dibiarkan pada halaman error bawaan webview tanpa penjelasan.
+
 ## [0.8.4] - 2026-11-27
 
 ### Added
