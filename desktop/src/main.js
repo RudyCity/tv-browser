@@ -69,6 +69,8 @@ const PERMISSION_LABELS = Object.freeze({
   "display-capture": "Screen capture"
 });
 
+const MAX_CLOSED_TABS = 10;
+
 const state = {
   settings: getSettings(),
   tabs: [],
@@ -81,7 +83,9 @@ const state = {
   findOpen: false,
   chromeHeight: 0,
   sessionTimer: 0,
-  layoutFrame: 0
+  layoutFrame: 0,
+  closedTabs: [],
+  dragTabId: null
 };
 
 function setStatus(message) {
@@ -224,6 +228,29 @@ function renderTabs() {
       void closeTab(tab.id);
     });
 
+    wrapper.draggable = true;
+    wrapper.addEventListener("dragstart", event => {
+      state.dragTabId = tab.id;
+      wrapper.dataset.dragging = "true";
+      event.dataTransfer?.setData("text/plain", String(tab.id));
+    });
+    wrapper.addEventListener("dragend", () => {
+      delete wrapper.dataset.dragging;
+      state.dragTabId = null;
+    });
+    wrapper.addEventListener("dragover", event => {
+      if (state.dragTabId === null) return;
+      event.preventDefault();
+    });
+    wrapper.addEventListener("drop", event => {
+      event.preventDefault();
+      const draggedId = state.dragTabId;
+      if (draggedId === null || draggedId === tab.id) return;
+      const targetIndex = state.tabs.findIndex(candidate => candidate.id === tab.id);
+      if (targetIndex < 0) return;
+      void moveTab(draggedId, targetIndex);
+    });
+
     wrapper.append(select, close);
     tabList.append(wrapper);
   }
@@ -245,13 +272,42 @@ function fallbackTitle(url) {
   }
 }
 
-async function createTab(url, isPrivate) {
-  const tab = await runCommand("browser_tab_new", { url: url ?? null, incognito: isPrivate === true });
+async function createTab(url, isPrivate, restore = null) {
+  const tab = await runCommand("browser_tab_new", {
+    url: url ?? null,
+    incognito: isPrivate === true,
+    title: restore?.title ?? null,
+    zoom: restore?.zoom ?? null
+  });
   if (!tab) return null;
 
   await activateTab(tab.id);
-  if (state.settings.defaultZoom !== 1) await applyZoom(state.settings.defaultZoom);
+  if (!restore && state.settings.defaultZoom !== 1) await applyZoom(state.settings.defaultZoom);
   return tab;
+}
+
+function rememberClosedTab(tab) {
+  if (!tab || !tab.url) return;
+  state.closedTabs.unshift({ url: tab.url, title: tab.title ?? "", private: tab.private === true, zoom: tab.zoom ?? 1 });
+  state.closedTabs = state.closedTabs.slice(0, MAX_CLOSED_TABS);
+}
+
+async function reopenClosedTab() {
+  const tab = state.closedTabs.shift();
+  if (!tab) {
+    setStatus("No closed tab to reopen");
+    return;
+  }
+
+  await createTab(tab.url, tab.private, { title: tab.title, zoom: tab.zoom });
+  setStatus(tab.private ? "Reopened a private tab as a normal tab" : "Reopened " + (tab.title || tab.url));
+}
+
+async function moveTab(id, index) {
+  const payload = await runCommand("browser_tab_move", { id, index });
+  if (!payload) return;
+  applyTabs(payload);
+  setStatus("Tab order updated");
 }
 
 async function activateTab(id) {
@@ -278,9 +334,11 @@ async function activateTab(id) {
 }
 
 async function closeTab(id) {
+  const closing = state.tabs.find(tab => tab.id === id);
   const payload = await runCommand("browser_tab_close", { id });
   if (!payload) return;
 
+  rememberClosedTab(closing);
   applyTabs(payload);
   const tab = activeTab();
   state.pageUrl = tab?.url ?? "";
@@ -729,6 +787,7 @@ function bindEvents() {
 
   $("#new-tab").addEventListener("click", () => void createTab(null, false));
   $("#new-private-tab").addEventListener("click", () => void createTab(null, true));
+  tabList.addEventListener("keydown", handleTabStripKeydown);
 
   bookmarkButton.addEventListener("click", toggleBookmark);
   $("#bookmarks").addEventListener("click", () => void openLibrary("bookmarks"));
@@ -866,6 +925,27 @@ function bindEvents() {
   });
 }
 
+function handleTabStripKeydown(event) {
+  const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+  if (!keys.includes(event.key)) return;
+
+  const selectors = [...tabList.querySelectorAll(".tab-select")];
+  if (!selectors.length) return;
+
+  const current = selectors.indexOf(document.activeElement);
+  let next;
+  if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = selectors.length - 1;
+  else {
+    const delta = event.key === "ArrowLeft" ? -1 : 1;
+    next = current < 0 ? 0 : (current + delta + selectors.length) % selectors.length;
+  }
+
+  event.preventDefault();
+  selectors[next].focus();
+  selectors[next].click();
+}
+
 function handleShortcut(event) {
   const command = event.ctrlKey || event.metaKey;
   const key = event.key.toLowerCase();
@@ -881,6 +961,12 @@ function handleShortcut(event) {
   if (command && event.shiftKey && key === "n") {
     event.preventDefault();
     void createTab(null, true);
+    return;
+  }
+
+  if (command && event.shiftKey && key === "t") {
+    event.preventDefault();
+    void reopenClosedTab();
     return;
   }
 
@@ -1123,7 +1209,12 @@ async function restoreSession() {
 
   if (session.tabs.length) {
     for (const tab of session.tabs) {
-      await runCommand("browser_tab_new", { url: tab.url, incognito: false });
+      await runCommand("browser_tab_new", {
+        url: tab.url,
+        incognito: false,
+        title: tab.title,
+        zoom: tab.zoom
+      });
     }
 
     const list = await runCommand("browser_tab_list");

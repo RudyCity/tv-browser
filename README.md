@@ -4,7 +4,7 @@
 
 [Rudy Browser 0.8.5 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
 
-VersionName 0.8.5 / versionCode 17; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
+VersionName 0.8.6 / versionCode 18; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Download / GitHub Pre-release (18 November 2026)
 
@@ -195,7 +195,7 @@ gradle --no-daemon testLegacyDebugUnitTest assembleLegacyDebug
 # app/build/outputs/apk/legacy/debug/app-legacy-debug.apk
 ```
 
-Before committing, `git diff --name-only HEAD | node scripts/check-changelog.mjs`
+Before committing, `git diff --name-only HEAD | bun scripts/check-changelog.mjs`
 verifies the rules in `AGENTS.md` section 4: changed source files need a
 CHANGELOG entry, and the top changelog version must equal `versionName`.
 A commit whose entry already landed in a separate commit may add

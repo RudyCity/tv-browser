@@ -3,6 +3,27 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [0.8.6] - 2026-11-28
+
+### Added
+- `desktop/`: buka ulang tab tertutup dengan `Ctrl+Shift+T`, pengurutan tab lewat drag, dan perpindahan tab dengan `ArrowLeft`, `ArrowRight`, `Home`, serta `End` saat strip tab mendapat fokus.
+- `desktop/src-tauri/src/main.rs`: command `browser_tab_move` dan helper `TabCollection::close` yang dipakai bersama oleh command tutup tab.
+- `desktop/src-tauri/src/main.rs`: enam uji baru untuk pemilihan tab tetangga saat menutup tab dan pemindahan urutan tab.
+
+### Changed
+- `desktop/`: pemulihan sesi kini menyimpan judul halaman dan zoom tiap tab, bukan hanya URL.
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.1 menjadi 0.1.2.
+- `app/build.gradle`: `versionName` 0.8.5 menjadi 0.8.6 dan `versionCode` 17 menjadi 18.
+- `README.md`: nomor versi Development disegarkan ke 0.8.6 dan perintah guard memakai Bun.
+- `scripts/check-changelog.mjs`, `.github/workflows/changelog-guard.yml`: guard changelog dijalankan dengan Bun 1.4.2, bukan Node.
+- `desktop/README.md`: dokumentasi buka ulang tab, pengurutan tab, navigasi panah, pemulihan judul dan zoom, serta batas bahasa antarmuka.
+
+### Fixed
+- `desktop/src-tauri/src/main.rs`: permintaan `window.open` sekarang dibuka pada tab yang memintanya, bukan pada tab yang kebetulan aktif saat event diproses.
+
+### Removed
+- `desktop/src-tauri/src/main.rs`: command `browser_current_url` dihapus karena tidak dipakai antarmuka, termasuk entri capability dan manifest permission-nya.
+
 ## [0.8.5] - 2026-11-27
 
 ### Added

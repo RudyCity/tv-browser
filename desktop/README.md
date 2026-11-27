@@ -35,10 +35,14 @@ depends on that API.
 ## Current desktop behavior
 
 - Tabs: a tab strip with one content webview per tab, `Ctrl+T` for a new tab,
-  `Ctrl+Shift+N` for a private tab, `Ctrl+W` to close, and `Ctrl+Tab` or
-  `Ctrl+Shift+Tab` to cycle. Closing the last tab opens a fresh blank tab.
+  `Ctrl+Shift+N` for a private tab, `Ctrl+W` to close, `Ctrl+Shift+T` to reopen
+  the most recently closed tab, and `Ctrl+Tab` or `Ctrl+Shift+Tab` to cycle.
+  Tabs can be reordered by dragging, and `ArrowLeft`, `ArrowRight`, `Home` and
+  `End` move between tabs while the strip has keyboard focus. Closing the last
+  tab opens a fresh blank tab.
 - Session restore: on launch the app reopens the tabs from the previous session
-  and selects the tab that was active. Private tabs are never stored.
+  with their page titles and zoom, and selects the tab that was active. Private
+  tabs are never stored.
 - Address/search bar with HTTPS by default for domain input. Only HTTP and
   HTTPS external navigation is allowed, plus the internal `about:blank`
   initialization page.
@@ -95,6 +99,8 @@ browser data, an in-app updater, and code signing.
 A failed load is detected by inspecting the finished document for the webview's
 error page. A page that never finishes loading keeps the progress bar until the
 next navigation, because the native load events report no failure status.
+
+The interface is English only. Localisation is not implemented.
 
 ## Platform support and feature limits
 
@@ -185,7 +191,9 @@ before its first step is **not** evidence that source tests or builds passed.
 | Shortcut | Action |
 |---|---|
 | `Ctrl+T` / `Ctrl+Shift+N` | New tab / new private tab |
-| `Ctrl+W` / `Ctrl+Tab` / `Ctrl+Shift+Tab` | Close tab / next tab / previous tab |
+| `Ctrl+W` / `Ctrl+Shift+T` | Close tab / reopen the last closed tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next tab / previous tab |
+| `ArrowLeft`, `ArrowRight`, `Home`, `End` | Move between tabs when the strip has focus |
 | `Ctrl+L` | Focus the address bar |
 | `Ctrl+F` | Find in page (`Enter` next, `Shift+Enter` previous, `Escape` close) |
 | `Ctrl+D` / `Ctrl+B` / `Ctrl+H` / `Ctrl+J` | Bookmark page / bookmarks / history / downloads |

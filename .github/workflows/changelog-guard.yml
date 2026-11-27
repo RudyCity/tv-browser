@@ -19,6 +19,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
       - name: Resolve diff range
         id: range
         env:
@@ -46,4 +51,4 @@ jobs:
       - name: Verify changelog entry and version sync
         env:
           SKIP_CHANGELOG: ${{ steps.commit.outputs.skip }}
-        run: git diff --name-only "${{ steps.range.outputs.spec }}" | node scripts/check-changelog.mjs
+        run: git diff --name-only "${{ steps.range.outputs.spec }}" | bun scripts/check-changelog.mjs

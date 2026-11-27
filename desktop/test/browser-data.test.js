@@ -184,21 +184,40 @@ test("session restore keeps only web URLs and never private tabs", () => {
   const storage = createStorage();
 
   assert.equal(saveSession([
-    { url: "https://example.com/one", private: false },
+    { url: "https://example.com/one", title: "One", zoom: 1.25, private: false },
     { url: "https://example.com/two", private: true },
     { url: "javascript:alert(1)" }
   ], 1, storage), true);
 
   const session = getSession(storage);
-  assert.deepEqual(session.tabs, [{ url: "https://example.com/one", private: false }]);
+  assert.deepEqual(session.tabs, [{ url: "https://example.com/one", title: "One", zoom: 1.25 }]);
   assert.equal(session.activeIndex, 0);
+});
+
+test("session restore keeps zoom inside the supported range", () => {
+  const storage = createStorage();
+
+  saveSession([
+    { url: "https://example.com/one", zoom: 99 },
+    { url: "https://example.com/two", zoom: "not a number" }
+  ], 0, storage);
+
+  const session = getSession(storage);
+  assert.equal(session.tabs[0].zoom, 3);
+  assert.equal(session.tabs[1].zoom, 1);
 });
 
 test("session normalization clamps the active index", () => {
   assert.deepEqual(normalizeSession({ tabs: [], activeIndex: 5 }), { tabs: [], activeIndex: 0 });
   assert.deepEqual(
-    normalizeSession({ tabs: [{ url: "https://a.example" }, { url: "https://b.example" }], activeIndex: 9 }),
-    { tabs: [{ url: "https://a.example/", private: false }, { url: "https://b.example/", private: false }], activeIndex: 1 }
+    normalizeSession({ tabs: [{ url: "https://a.example" }, { url: "https://b.example", title: "B" }], activeIndex: 9 }),
+    {
+      tabs: [
+        { url: "https://a.example/", title: "", zoom: 1 },
+        { url: "https://b.example/", title: "B", zoom: 1 }
+      ],
+      activeIndex: 1
+    }
   );
 });
 

@@ -140,6 +140,34 @@ impl TabCollection {
     fn find_mut(&mut self, id: u64) -> Option<&mut TabInfo> {
         self.tabs.iter_mut().find(|tab| tab.id == id)
     }
+
+    /// Removes a tab and moves the active selection to its neighbour. Returns
+    /// the number of tabs that remain.
+    fn close(&mut self, id: u64) -> Result<usize, String> {
+        let index = self
+            .tabs
+            .iter()
+            .position(|tab| tab.id == id)
+            .ok_or_else(|| "Tab no longer exists".to_string())?;
+        self.tabs.remove(index);
+        if self.active == Some(id) {
+            let next_index = index.min(self.tabs.len().saturating_sub(1));
+            self.active = self.tabs.get(next_index).map(|tab| tab.id);
+        }
+        Ok(self.tabs.len())
+    }
+
+    fn move_to(&mut self, id: u64, target_index: usize) -> Result<(), String> {
+        let index = self
+            .tabs
+            .iter()
+            .position(|tab| tab.id == id)
+            .ok_or_else(|| "Tab no longer exists".to_string())?;
+        let tab = self.tabs.remove(index);
+        let clamped = target_index.min(self.tabs.len());
+        self.tabs.insert(clamped, tab);
+        Ok(())
+    }
 }
 
 struct BrowserState {
@@ -483,16 +511,49 @@ fn build_content_webview(
             let scheduling_handle = popup_handle.clone();
             let callback_popup_url = popup_url.clone();
             let scheduled = scheduling_handle.run_on_main_thread(move || {
-                let active = main_thread_handle
-                    .state::<BrowserState>()
-                    .active_content(&main_thread_handle);
-                let navigation = match active {
-                    Some(webview) => webview
-                        .show()
-                        .and_then(|()| webview.navigate(url))
-                        .map_err(|error| error.to_string()),
-                    None => Err("No active tab for this popup".to_string()),
+                let state = main_thread_handle.state::<BrowserState>();
+
+                // The popup belongs to the tab that requested it, even when the
+                // user has switched to another tab by the time it is handled.
+                let others: Vec<u64> = state
+                    .tabs
+                    .lock()
+                    .map(|collection| {
+                        collection
+                            .tabs
+                            .iter()
+                            .filter(|tab| tab.id != id)
+                            .map(|tab| tab.id)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if let Ok(mut collection) = state.tabs.lock() {
+                    if collection.find(id).is_some() {
+                        collection.active = Some(id);
+                    }
+                }
+
+                let navigation = match main_thread_handle.get_webview(&content_label(id)) {
+                    Some(webview) => {
+                        for other in others {
+                            if let Some(view) =
+                                main_thread_handle.get_webview(&content_label(other))
+                            {
+                                let _ = view.hide();
+                            }
+                        }
+                        webview
+                            .show()
+                            .and_then(|()| webview.navigate(url))
+                            .map_err(|error| error.to_string())
+                    }
+                    None => Err("The tab that requested this popup is no longer open".to_string()),
                 };
+
+                if navigation.is_ok() {
+                    emit_tabs(&main_thread_handle);
+                }
+
                 let _ = main_thread_handle.emit(
                     "browser-popup",
                     json!({
@@ -729,6 +790,8 @@ fn browser_tab_new(
     window: Window,
     url: Option<String>,
     incognito: bool,
+    title: Option<String>,
+    zoom: Option<f64>,
 ) -> Result<Value, String> {
     let state = app.state::<BrowserState>();
     let chrome_height = state.chrome_height();
@@ -765,12 +828,12 @@ fn browser_tab_new(
         collection.tabs.push(TabInfo {
             id,
             private: incognito,
-            title: String::new(),
+            title: title.unwrap_or_default(),
             url: target
                 .as_ref()
                 .map(|value| value.as_str().to_string())
                 .unwrap_or_default(),
-            zoom: 1.0,
+            zoom: normalize_zoom(zoom.unwrap_or(1.0)),
         });
         collection.active = Some(id);
     }
@@ -847,17 +910,7 @@ fn browser_tab_close(app: tauri::AppHandle, window: Window, id: u64) -> Result<V
             .tabs
             .lock()
             .map_err(|error| format!("Tab lock failed: {error}"))?;
-        let index = collection
-            .tabs
-            .iter()
-            .position(|tab| tab.id == id)
-            .ok_or_else(|| "Tab no longer exists".to_string())?;
-        collection.tabs.remove(index);
-        if collection.active == Some(id) {
-            let next_index = index.min(collection.tabs.len().saturating_sub(1));
-            collection.active = collection.tabs.get(next_index).map(|tab| tab.id);
-        }
-        collection.tabs.len()
+        collection.close(id)?
     };
 
     if let Some(view) = app.get_webview(&content_label(id)) {
@@ -899,6 +952,23 @@ fn browser_tab_close(app: tauri::AppHandle, window: Window, id: u64) -> Result<V
 }
 
 #[tauri::command]
+fn browser_tab_move(app: tauri::AppHandle, id: u64, index: usize) -> Result<Value, String> {
+    let state = app.state::<BrowserState>();
+
+    {
+        let mut collection = state
+            .tabs
+            .lock()
+            .map_err(|error| format!("Tab lock failed: {error}"))?;
+        collection.move_to(id, index)?;
+    }
+
+    let payload = state.tabs_payload();
+    emit_tabs(&app);
+    Ok(payload)
+}
+
+#[tauri::command]
 fn browser_navigate(app: tauri::AppHandle, window: Window, url: String) -> Result<(), String> {
     let parsed = Url::parse(&url).map_err(|error| format!("Invalid address: {error}"))?;
     if !is_allowed_browser_url(&parsed) {
@@ -918,6 +988,8 @@ fn browser_navigate(app: tauri::AppHandle, window: Window, url: String) -> Resul
             window,
             Some(parsed.as_str().to_string()),
             false,
+            None,
+            None,
         )?;
         return Ok(());
     }
@@ -990,18 +1062,6 @@ fn browser_home(app: tauri::AppHandle) -> Result<(), String> {
         Some(webview) => webview.hide().map_err(|error| error.to_string()),
         None => Ok(()),
     }
-}
-
-#[tauri::command]
-fn browser_current_url(app: tauri::AppHandle) -> Result<String, String> {
-    let state = app.state::<BrowserState>();
-    let webview = state
-        .active_content(&app)
-        .ok_or_else(|| "No active tab".to_string())?;
-    webview
-        .url()
-        .map(|url| url.to_string())
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1183,12 +1243,12 @@ fn main() {
             browser_tab_new,
             browser_tab_activate,
             browser_tab_close,
+            browser_tab_move,
             browser_navigate,
             browser_back,
             browser_forward,
             browser_reload,
             browser_home,
-            browser_current_url,
             browser_navigation_state,
             browser_set_zoom,
             browser_get_zoom,
@@ -1508,5 +1568,84 @@ mod tests {
         );
         assert_eq!(parse_find_result("not json"), (0, false));
         assert_eq!(parse_find_result(""), (0, false));
+    }
+
+    fn sample_tab(id: u64) -> TabInfo {
+        TabInfo {
+            id,
+            private: false,
+            title: format!("Tab {id}"),
+            url: format!("https://example.com/{id}"),
+            zoom: 1.0,
+        }
+    }
+
+    fn tab_ids(collection: &TabCollection) -> Vec<u64> {
+        collection.tabs.iter().map(|tab| tab.id).collect()
+    }
+
+    fn collection_with(tabs: Vec<TabInfo>, active: Option<u64>) -> TabCollection {
+        TabCollection {
+            next_id: tabs.iter().map(|tab| tab.id).max().unwrap_or(0) + 1,
+            tabs,
+            active,
+        }
+    }
+
+    #[test]
+    fn closing_the_active_tab_selects_its_neighbour() {
+        let mut collection =
+            collection_with(vec![sample_tab(0), sample_tab(1), sample_tab(2)], Some(1));
+
+        assert_eq!(collection.close(1).unwrap(), 2);
+        assert_eq!(collection.active, Some(2));
+        assert_eq!(tab_ids(&collection), vec![0, 2]);
+    }
+
+    #[test]
+    fn closing_the_last_tab_selects_the_previous_one() {
+        let mut collection = collection_with(vec![sample_tab(0), sample_tab(1)], Some(1));
+
+        collection.close(1).unwrap();
+        assert_eq!(collection.active, Some(0));
+    }
+
+    #[test]
+    fn closing_a_background_tab_keeps_the_active_tab() {
+        let mut collection =
+            collection_with(vec![sample_tab(0), sample_tab(1), sample_tab(2)], Some(0));
+
+        collection.close(2).unwrap();
+        assert_eq!(collection.active, Some(0));
+        assert_eq!(tab_ids(&collection), vec![0, 1]);
+    }
+
+    #[test]
+    fn closing_an_unknown_tab_is_rejected() {
+        let mut collection = collection_with(vec![sample_tab(0)], Some(0));
+
+        assert!(collection.close(9).is_err());
+        assert_eq!(tab_ids(&collection), vec![0]);
+    }
+
+    #[test]
+    fn moving_a_tab_reorders_without_touching_the_active_tab() {
+        let mut collection =
+            collection_with(vec![sample_tab(0), sample_tab(1), sample_tab(2)], Some(1));
+
+        collection.move_to(2, 0).unwrap();
+        assert_eq!(tab_ids(&collection), vec![2, 0, 1]);
+        assert_eq!(collection.active, Some(1));
+
+        collection.move_to(2, 99).unwrap();
+        assert_eq!(tab_ids(&collection), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn moving_an_unknown_tab_is_rejected() {
+        let mut collection = collection_with(vec![sample_tab(0)], None);
+
+        assert!(collection.move_to(5, 0).is_err());
+        assert_eq!(tab_ids(&collection), vec![0]);
     }
 }

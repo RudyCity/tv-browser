@@ -1,4 +1,5 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
+// Run with Bun: bun scripts/check-changelog.mjs
 // Guard for the per-change rules in AGENTS.md section 4: a source change must
 // update CHANGELOG.md, and the changelog version must match the Android
 // versionName. Reading is done from the repository root.

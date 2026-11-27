@@ -247,14 +247,26 @@ export function updateSettings(patch, storage) {
   return writeCollection(STORAGE_KEYS.settings, next, storage) ? next : current;
 }
 
+function normalizeSessionTab(tab) {
+  if (!tab || typeof tab !== "object" || Array.isArray(tab)) return null;
+
+  const url = normalizeStoredUrl(tab.url);
+  if (!url) return null;
+
+  return {
+    url,
+    title: typeof tab.title === "string" ? tab.title.trim().slice(0, 300) : "",
+    zoom: clampZoom(tab.zoom ?? 1)
+  };
+}
+
 export function normalizeSession(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const tabs = Array.isArray(source.tabs)
     ? source.tabs
-        .map(tab => (tab && typeof tab === "object" ? normalizeStoredUrl(tab.url) : null))
-        .filter(url => url !== null)
+        .map(normalizeSessionTab)
+        .filter(tab => tab !== null)
         .slice(0, MAX_SESSION_TABS)
-        .map(url => ({ url, private: false }))
     : [];
 
   const rawIndex = Number(source.activeIndex);
@@ -280,7 +292,8 @@ export function saveSession(tabs, activeIndex, storage) {
   const restorable = Array.isArray(tabs)
     ? tabs
         .filter(tab => tab && tab.private !== true)
-        .map(tab => ({ url: tab.url }))
+        .map(normalizeSessionTab)
+        .filter(tab => tab !== null)
         .slice(0, MAX_SESSION_TABS)
     : [];
 
