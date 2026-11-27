@@ -3,7 +3,7 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
-## [desktop-0.1.1] - 2026-11-27
+## [0.8.5] - 2026-11-27
 
 ### Added
 - `desktop/`: tab strip dengan riwayat navigasi per tab, tab privat, pemulihan sesi, zoom native, find in page, tema gelap dan terang, panel Settings, serta izin per-origin.
@@ -11,8 +11,12 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan pe
 - `desktop/test/`: pengujian untuk mesin pencari, tangga zoom, indikator keamanan, pengaturan, dan pemulihan sesi.
 - `desktop/bun.lock`: lockfile Bun sebagai pengganti `package-lock.json` yang tidak pernah masuk repo.
 - Tampilan error lokal saat halaman selesai dimuat sebagai halaman gagal webview, lengkap dengan aksi coba lagi.
+- `scripts/check-changelog.mjs` dan `scripts/check-changelog.test.mjs`: guard yang menolak perubahan sumber tanpa entri CHANGELOG dan menolak versi changelog, Android, atau desktop yang tidak sinkron.
+- `.github/workflows/changelog-guard.yml`: menjalankan guard pada pull request dan push ke `main`.
 
 ### Changed
+- `README.md`: nomor versi Development disegarkan ke 0.8.5 dan perintah guard disebut pada bagian Build and tests.
+- `app/build.gradle`: `versionName` 0.8.4 menjadi 0.8.5 dan `versionCode` 16 menjadi 17.
 - `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.0 menjadi 0.1.1.
 - `desktop/`: toolchain dari npm dan Node ke Bun 1.4.2, mencakup `bun install`, `bun run test`, dan `bun run build`.
 - `.github/workflows/desktop.yml`: `actions/setup-node` diganti `oven-sh/setup-bun`, semua perintah npm menjadi bun, dan catatan rilis disesuaikan dengan fitur yang sudah ada.
