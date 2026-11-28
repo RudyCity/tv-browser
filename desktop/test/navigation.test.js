@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildSearchUrl,
   clampZoom,
+  classifyNavigationError,
   describeSecurity,
   formatZoom,
   normalizeChromeHeight,
@@ -121,4 +122,19 @@ test("chrome height rejects unusable measurements", () => {
   assert.equal(normalizeChromeHeight(-5), 116);
   assert.equal(normalizeChromeHeight(Number.NaN), 116);
   assert.equal(normalizeChromeHeight(9999), 400);
+});
+
+test("navigation error classification separates scheme rejections from runtime failures", () => {
+  assert.deepEqual(
+    classifyNavigationError("Only HTTP and HTTPS websites are allowed"),
+    { key: "error.addressRejected", raw: "" }
+  );
+  assert.deepEqual(
+    classifyNavigationError("Invalid address: empty host"),
+    { key: "error.addressRejected", raw: "" }
+  );
+  assert.deepEqual(
+    classifyNavigationError("Browser content view is not ready"),
+    { key: null, raw: "Browser content view is not ready" }
+  );
 });

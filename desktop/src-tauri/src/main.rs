@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::{
     collections::HashMap,
     fs,
@@ -79,6 +81,8 @@ fn permission_kind_label(kind: &PermissionKind) -> &'static str {
 
 #[derive(Debug, Clone, PartialEq)]
 struct BrowserLayout {
+    window_width: f64,
+    window_height: f64,
     content_top: f64,
     content_width: f64,
     content_height: f64,
@@ -102,6 +106,8 @@ fn calculate_content_layout(
     let content_height = (height - content_top - status_height).max(1.0);
 
     Ok(BrowserLayout {
+        window_width: width,
+        window_height: height,
         content_top,
         content_width: width,
         content_height,
@@ -421,6 +427,15 @@ fn layout_content_views(app: &tauri::AppHandle, window: &Window) -> Result<(), S
         scale_factor,
         app.state::<BrowserState>().chrome_height(),
     )?;
+
+    if let Some(main_ui) = app.get_webview(MAIN_UI_LABEL) {
+        main_ui
+            .set_position(LogicalPosition::new(0.0, 0.0))
+            .map_err(|error| error.to_string())?;
+        main_ui
+            .set_size(LogicalSize::new(layout.window_width, layout.window_height))
+            .map_err(|error| error.to_string())?;
+    }
 
     let ids: Vec<u64> = match app.state::<BrowserState>().tabs.lock() {
         Ok(collection) => collection.tabs.iter().map(|tab| tab.id).collect(),
@@ -791,7 +806,7 @@ fn parse_find_result(raw: &str) -> (u64, bool) {
     (count, found)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_layout(app: tauri::AppHandle, window: Window, chrome_height: f64) -> Result<(), String> {
     let normalized = normalize_chrome_height(chrome_height);
     if let Ok(mut stored) = app.state::<BrowserState>().chrome_height.lock() {
@@ -805,7 +820,9 @@ fn browser_tab_list(app: tauri::AppHandle) -> Value {
     app.state::<BrowserState>().tabs_payload()
 }
 
-#[tauri::command]
+// Run off the WebResourceRequested UI thread on Windows so Window::add_child
+// does not re-entrantly pump COM/WebView2 initialization inside an IPC callback.
+#[tauri::command(async)]
 fn browser_tab_new(
     app: tauri::AppHandle,
     window: Window,
@@ -869,7 +886,7 @@ fn browser_tab_new(
     Ok(payload)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_tab_activate(app: tauri::AppHandle, id: u64) -> Result<Value, String> {
     let state = app.state::<BrowserState>();
 
@@ -922,7 +939,7 @@ fn state_zoom(app: &tauri::AppHandle, id: u64) -> f64 {
         .unwrap_or(1.0)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_tab_close(app: tauri::AppHandle, window: Window, id: u64) -> Result<Value, String> {
     let state = app.state::<BrowserState>();
 
@@ -989,7 +1006,7 @@ fn browser_tab_move(app: tauri::AppHandle, id: u64, index: usize) -> Result<Valu
     Ok(payload)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_navigate(app: tauri::AppHandle, window: Window, url: String) -> Result<(), String> {
     let parsed = Url::parse(&url).map_err(|error| format!("Invalid address: {error}"))?;
     if !is_allowed_browser_url(&parsed) {
@@ -1023,7 +1040,7 @@ fn browser_navigate(app: tauri::AppHandle, window: Window, url: String) -> Resul
     webview.navigate(parsed).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<BrowserState>();
     let tab_id = state
@@ -1045,7 +1062,7 @@ fn browser_back(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_forward(app: tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<BrowserState>();
     let tab_id = state
@@ -1067,7 +1084,7 @@ fn browser_forward(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_reload(app: tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<BrowserState>();
     let webview = state
@@ -1076,7 +1093,7 @@ fn browser_reload(app: tauri::AppHandle) -> Result<(), String> {
     webview.reload().map_err(|error| error.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_home(app: tauri::AppHandle) -> Result<(), String> {
     let state = app.state::<BrowserState>();
     match state.active_content(&app) {
@@ -1085,7 +1102,7 @@ fn browser_home(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_navigation_state(app: tauri::AppHandle) -> Result<Value, String> {
     let state = app.state::<BrowserState>();
     let tab_id = state
@@ -1101,7 +1118,7 @@ fn browser_navigation_state(app: tauri::AppHandle) -> Result<Value, String> {
     navigation_stack_state(&webview, history.inner(), tab_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_set_zoom(app: tauri::AppHandle, zoom: f64) -> Result<f64, String> {
     let normalized = normalize_zoom(zoom);
     let state = app.state::<BrowserState>();
@@ -1135,7 +1152,7 @@ fn browser_get_zoom(app: tauri::AppHandle) -> Result<f64, String> {
     Ok(active.map(|id| state_zoom(&app, id)).unwrap_or(1.0))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_find(app: tauri::AppHandle, term: String, forward: bool) -> Result<(), String> {
     let trimmed = term.trim();
     if trimmed.is_empty() {
@@ -1184,7 +1201,7 @@ fn browser_permissions_set(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_clear_site_data(app: tauri::AppHandle) -> Result<(), String> {
     let ids: Vec<u64> = app
         .state::<BrowserState>()
@@ -1247,7 +1264,7 @@ fn browser_open_path(path: String) -> Result<(), String> {
         .map_err(|error| format!("Could not open the path: {error}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn browser_toggle_fullscreen(window: Window) -> Result<bool, String> {
     let next = !window.is_fullscreen().map_err(|error| error.to_string())?;
     window
@@ -1292,6 +1309,7 @@ fn main() {
                 .title(WINDOW_TITLE)
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(720.0, 520.0)
+                .background_color(tauri::window::Color(0x0C, 0x13, 0x1E, 0xFF))
                 .center()
                 .build()?;
 
@@ -1307,18 +1325,17 @@ fn main() {
                 WebviewUrl::App("index.html".into())
             };
             window.add_child(
-                WebviewBuilder::new(MAIN_UI_LABEL, ui_url),
+                WebviewBuilder::new(MAIN_UI_LABEL, ui_url)
+                    .auto_resize()
+                    .background_color(tauri::window::Color(0x0C, 0x13, 0x1E, 0xFF)),
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(logical_size.width, logical_size.height),
             )?;
 
             let layout_app = app.handle().clone();
             let layout_window = window.clone();
-            window.on_window_event(move |event| {
-                if matches!(
-                    event,
-                    WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }
-                ) {
+            window.on_window_event(move |event| match event {
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
                     let app_handle = layout_app.clone();
                     let event_window = layout_window.clone();
                     let scheduling_handle = layout_app.clone();
@@ -1331,6 +1348,14 @@ fn main() {
                         let _ = layout_app.emit("browser-layout-error", error.to_string());
                     }
                 }
+                WindowEvent::CloseRequested { api, .. } => {
+                    // Tauri's multi-webview event loop can stay blocked after
+                    // RequestExit on Windows when child WebView2 controllers are active.
+                    api.prevent_close();
+                    let _ = layout_window.hide();
+                    std::process::exit(0);
+                }
+                _ => {}
             });
 
             Ok(())
@@ -1347,6 +1372,8 @@ mod tests {
     fn content_layout_uses_logical_bounds_at_one_x_scale() {
         let layout = calculate_content_layout(1280, 800, 1.0, 120.0).unwrap();
 
+        assert_eq!(layout.window_width, 1280.0);
+        assert_eq!(layout.window_height, 800.0);
         assert_eq!(layout.content_width, 1280.0);
         assert_eq!(layout.content_top, 120.0);
         assert_eq!(layout.content_height, 800.0 - 120.0 - STATUS_HEIGHT);
@@ -1356,6 +1383,8 @@ mod tests {
     fn content_layout_converts_physical_bounds_for_high_dpi() {
         let layout = calculate_content_layout(2560, 1600, 2.0, 120.0).unwrap();
 
+        assert_eq!(layout.window_width, 1280.0);
+        assert_eq!(layout.window_height, 800.0);
         assert_eq!(layout.content_width, 1280.0);
         assert_eq!(layout.content_top, 120.0);
         assert_eq!(layout.content_height, 800.0 - 120.0 - STATUS_HEIGHT);

@@ -1,12 +1,12 @@
 [package]
 name = "rudy-browser-desktop"
-version = "0.1.5"
+version = "0.1.6"
 description = "Rudy Browser desktop application"
 authors = ["RudyCity"]
 edition = "2021"
 
 [build-dependencies]
-tauri-build = "=2.7.6"
+tauri-build = { version = "=2.7.6", features = [] }
 
 [dependencies]
 tauri = { version = "=2.12.7", features = ["unstable"] }

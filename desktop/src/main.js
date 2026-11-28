@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   ZOOM_STEPS,
   clampZoom,
+  classifyNavigationError,
   describeSecurity,
   formatZoom,
   normalizeChromeHeight,
@@ -142,23 +143,24 @@ function setStatus(message) {
   statusText.textContent = String(message);
 }
 
-async function runCommand(name, args) {
+async function runAttempt(name, args) {
   try {
-    return await invoke(name, args);
+    return { ok: true, value: await invoke(name, args) };
   } catch (error) {
-    setStatus(String(error));
-    return undefined;
+    const message = String(error);
+    setStatus(message);
+    return { ok: false, error: message };
   }
 }
 
+async function runCommand(name, args) {
+  const result = await runAttempt(name, args);
+  return result.ok ? result.value : undefined;
+}
+
 async function runVoid(name, args) {
-  try {
-    await invoke(name, args);
-    return true;
-  } catch (error) {
-    setStatus(String(error));
-    return false;
-  }
+  const result = await runAttempt(name, args);
+  return result.ok;
 }
 
 function activeTab() {
@@ -460,17 +462,18 @@ function syncActiveTab() {
 }
 
 async function createTab(url, isPrivate, restore = null) {
-  const tab = await runCommand("browser_tab_new", {
+  const payload = await runCommand("browser_tab_new", {
     url: url ?? null,
     incognito: isPrivate === true,
     title: restore?.title ?? null,
     zoom: restore?.zoom ?? null
   });
-  if (!tab) return null;
+  if (!payload) return null;
 
-  await activateTab(tab.id);
+  applyTabs(payload);
+  syncActiveTab();
   if (!restore && state.settings.defaultZoom !== 1) await applyZoom(state.settings.defaultZoom);
-  return tab;
+  return activeTab();
 }
 
 function rememberClosedTab(tab) {
@@ -656,9 +659,10 @@ async function navigate(raw) {
   applyNavigationState(null);
   address.value = target;
   homeAddress.value = target;
-  const accepted = await runVoid("browser_navigate", { url: target });
-  if (!accepted) {
-    showError("error.addressRejected", target);
+  const result = await runAttempt("browser_navigate", { url: target });
+  if (!result.ok) {
+    const classified = classifyNavigationError(result.error);
+    showError(classified.key, target, classified.raw);
     return;
   }
 

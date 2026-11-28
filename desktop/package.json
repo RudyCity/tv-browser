@@ -2,7 +2,7 @@
   "name": "rudy-browser-desktop",
   "productName": "Rudy Browser",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "packageManager": "bun@1.4.2",
   "scripts": {

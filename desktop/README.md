@@ -196,9 +196,13 @@ The Windows NSIS installer is built in `currentUser` mode, so it installs per
 user and does not request elevation. NSIS extracts its plugins into `%TEMP%`
 while it runs, so a machine whose temporary folder is missing, read only, or
 blocked by endpoint protection fails with "Error writing temporary file".
-When that happens, run `target/release/rudy-browser-desktop.exe` directly: the
-release binary is portable, needs no installer, and only requires the WebView2
-runtime.
+If the workspace or build output directory carries a Windows `Low Mandatory Level`
+label, binaries built inside it also inherit Low Integrity, causing the NSIS
+installer to fail writing to Medium-integrity `%TEMP%` and causing
+`rudy-browser-desktop.exe` to exit immediately with `0xC0000142`. Restoring
+`Medium` integrity on the build directory resolves both; otherwise, copying
+`target/release/rudy-browser-desktop.exe` to a Medium-integrity folder runs it
+portably with only the WebView2 runtime required.
 
 The desktop workflow generates the native icon set from
 `art/rudy_browser_mark.svg`, installs frontend dependencies with Bun, then runs

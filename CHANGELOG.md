@@ -3,6 +3,23 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [0.8.10] - 2026-11-28
+
+### Fixed
+- `desktop/src-tauri/src/main.rs`: menambahkan `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` sehingga binary release Windows memakai subsystem GUI, bukan console, dan tidak memunculkan jendela terminal saat dijalankan.
+- `desktop/src-tauri/src/main.rs`: menyetel `auto_resize()` dan memperbarui ukuran webview `main-ui` di `layout_content_views()` saat jendela di-maximize atau diubah ukurannya, serta menyamakan warna latar jendela dengan tema gelap aplikasi.
+- `desktop/src-tauri/src/main.rs`: menangani `WindowEvent::CloseRequested` dengan `api.prevent_close()`, `window.hide()`, dan `std::process::exit(0)` agar tombol close jendela menutup aplikasi dan prosesnya secara pasti pada Windows multi-webview.
+- `desktop/src/main.js`: `createTab` kini memakai payload `{ tabs, activeId }` dari `browser_tab_new` melalui `applyTabs()` dan `syncActiveTab()`, bukan memanggil `browser_tab_activate` dengan `undefined`.
+- `desktop/src-tauri/src/main.rs`: menandai command Tauri yang memanggil API window/webview (termasuk `browser_tab_new`, `browser_tab_close`, `browser_navigate`, `browser_layout`, dan navigasi) dengan `#[tauri::command(async)]` agar dieksekusi di luar callback `WebResourceRequested` main thread Windows, sehingga pembuatan tab WebView2 (`Window::add_child`) dan IPC `http://ipc.localhost` tidak deadlock/menggantung saat startup maupun navigasi.
+- `desktop/src/navigation.js`, `desktop/src/main.js`: menambahkan `classifyNavigationError` dan `runAttempt` agar kegagalan navigasi non-skema menampilkan alasan error backend/IPC sebenarnya alih-alih selalu menampilkan `error.addressRejected`.
+
+### Changed
+- `desktop/test/navigation.test.js`: menambahkan unit test untuk `classifyNavigationError`.
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.5 menjadi 0.1.6.
+- `app/build.gradle`: `versionName` 0.8.9 menjadi 0.8.10 dan `versionCode` 21 menjadi 22.
+- `README.md`: nomor versi Development disegarkan ke 0.8.10.
+- `desktop/README.md`: mendokumentasikan penyebab `Low Mandatory Level` pada direktori build yang memicu kegagalan ekstraksi NSIS ke `%TEMP%` serta exit code `0xC0000142` pada binary portable.
+
 ## [0.8.9] - 2026-11-28
 
 ### Changed

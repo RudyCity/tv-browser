@@ -119,3 +119,18 @@ export function normalizeChromeHeight(value) {
   if (!Number.isFinite(numeric) || numeric <= 0) return DEFAULT_CHROME_HEIGHT;
   return Math.min(400, Math.max(0, Math.round(numeric)));
 }
+
+/**
+ * Classifies a failed native navigation result so non-scheme errors keep their
+ * backend reason instead of claiming the URL scheme was rejected.
+ */
+export function classifyNavigationError(error) {
+  const raw = String(error ?? "").trim();
+  if (
+    raw.startsWith("Invalid address:")
+    || raw === "Only HTTP and HTTPS websites are allowed"
+  ) {
+    return { key: "error.addressRejected", raw: "" };
+  }
+  return { key: null, raw };
+}
