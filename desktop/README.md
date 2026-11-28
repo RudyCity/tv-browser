@@ -192,6 +192,14 @@ service. On a restricted session that service can be unavailable, and the MSI
 step then fails with `LGHT0217` or `LGHT0216` while the NSIS installer in the
 same run still succeeds. Build the MSI on a normal interactive Windows session.
 
+The Windows NSIS installer is built in `currentUser` mode, so it installs per
+user and does not request elevation. NSIS extracts its plugins into `%TEMP%`
+while it runs, so a machine whose temporary folder is missing, read only, or
+blocked by endpoint protection fails with "Error writing temporary file".
+When that happens, run `target/release/rudy-browser-desktop.exe` directly: the
+release binary is portable, needs no installer, and only requires the WebView2
+runtime.
+
 The desktop workflow generates the native icon set from
 `art/rudy_browser_mark.svg`, installs frontend dependencies with Bun, then runs
 the JavaScript tests, Rust formatting checks, Rust tests, Clippy with warnings

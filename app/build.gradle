@@ -38,8 +38,8 @@ android {
         applicationId 'io.rudycity.tvbrowser'
         minSdk 19
         targetSdk 28
-        versionCode 20
-        versionName '0.8.8'
+        versionCode 21
+        versionName '0.8.9'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
         manifestPlaceholders = [browserLabel: '@string/app_name', cleartextPolicy: 'true']
     }

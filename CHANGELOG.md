@@ -3,6 +3,19 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [0.8.9] - 2026-11-28
+
+### Changed
+- `desktop/src-tauri/tauri.conf.json`: installer Windows memakai `installMode: currentUser`, sehingga instalasi berjalan per pengguna tanpa permintaan elevasi UAC.
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.4 menjadi 0.1.5.
+- `app/build.gradle`: `versionName` 0.8.8 menjadi 0.8.9 dan `versionCode` 20 menjadi 21.
+- `README.md`: nomor versi Development disegarkan ke 0.8.9.
+- `desktop/README.md`: catatan instalasi per pengguna, penyebab pesan "Error writing temporary file" pada NSIS, dan jalur cadangan berupa exe portable.
+
+### Notes
+- Laporan pengguna tentang "Error writing temporary file" saat menjalankan installer diselidiki: installer tidak memiliki tanda file dari internet, Smart App Control mati, tidak ada aturan ASR, Controlled Folder Access mati, dan `%TEMP%` pengguna bisa ditulis. Versi terpasang tetap 0.1.0 setelah percobaan, jadi instalasi memang tidak selesai.
+- Percobaan menjalankan installer dari sesi agen tidak menghasilkan bukti karena pembuatan proses GUI di sesi ini menggantung, sehingga perbaikan mode `currentUser` belum terverifikasi lewat instalasi nyata. Exe portable disediakan sebagai jalur yang tidak bergantung pada NSIS.
+
 ## [0.8.8] - 2026-11-28
 
 ### Added
