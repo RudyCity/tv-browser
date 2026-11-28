@@ -22,6 +22,10 @@ fn main() {
             "browser_clear_site_data",
             "browser_open_path",
             "browser_toggle_fullscreen",
+            "browser_download_list",
+            "browser_download_pause",
+            "browser_download_resume",
+            "browser_download_cancel",
         ]),
     ))
     .expect("failed to build Tauri application permissions");

@@ -135,6 +135,49 @@ test("settings default to the dark theme with Google search", () => {
   assert.equal(DEFAULT_SETTINGS.theme, "dark");
 });
 
+test("settings default to English until another language is chosen", () => {
+  const storage = createStorage();
+
+  assert.equal(DEFAULT_SETTINGS.language, "en");
+  assert.equal(getSettings(storage).language, "en");
+  assert.equal(normalizeSettings(null).language, "en");
+  assert.equal(normalizeSettings({ theme: "light" }).language, "en");
+});
+
+test("settings saved before the language existed fall back to English", () => {
+  const storage = createStorage({
+    "rudy.browser.desktop.settings.v1": JSON.stringify({
+      theme: "light",
+      searchEngine: "bing",
+      startupUrl: "https://example.com/start",
+      defaultZoom: 1.25,
+      permissions: { "https://example.com": ["camera"] }
+    })
+  });
+
+  const settings = getSettings(storage);
+  assert.equal(settings.language, "en");
+  assert.equal(settings.theme, "light");
+  assert.equal(settings.searchEngine, "bing");
+});
+
+test("the language choice is validated and persisted", () => {
+  const storage = createStorage();
+
+  assert.equal(normalizeSettings({ language: "id" }).language, "id");
+  assert.equal(normalizeSettings({ language: "ID" }).language, "id");
+  assert.equal(normalizeSettings({ language: "  en  " }).language, "en");
+  assert.equal(normalizeSettings({ language: "fr" }).language, "en");
+  assert.equal(normalizeSettings({ language: 42 }).language, "en");
+  assert.equal(normalizeSettings({ language: null }).language, "en");
+
+  assert.equal(updateSettings({ language: "id" }, storage).language, "id");
+  assert.equal(getSettings(storage).language, "id");
+
+  assert.equal(updateSettings({ language: "de" }, storage).language, "en");
+  assert.equal(getSettings(storage).language, "en");
+});
+
 test("settings are validated before they are stored", () => {
   const storage = createStorage();
 

@@ -16,6 +16,10 @@ use tauri::{
 };
 use url::Url;
 
+mod downloads;
+
+use downloads::DownloadManager;
+
 const MAIN_UI_LABEL: &str = "main-ui";
 const CONTENT_LABEL_PREFIX: &str = "browser-content-";
 const STATUS_HEIGHT: f64 = 28.0;
@@ -446,14 +450,14 @@ fn permission_response(
     let origin = webview.url().ok().and_then(|url| origin_of(&url));
     let label = permission_kind_label(kind);
 
-    let allowed = match origin {
+    let allowed = match origin.as_deref() {
         Some(origin) => app
             .state::<BrowserState>()
             .permissions
             .lock()
             .map(|permissions| {
                 permissions
-                    .get(&origin)
+                    .get(origin)
                     .map(|kinds| kinds.iter().any(|value| value == label))
                     .unwrap_or(false)
             })
@@ -462,10 +466,25 @@ fn permission_response(
     };
 
     if allowed {
-        PermissionResponse::Allow
-    } else {
-        PermissionResponse::Deny
+        return PermissionResponse::Allow;
     }
+
+    // The callback has to answer immediately, so the denial is reported to the
+    // toolbar as an event instead of waiting for the user to decide.
+    let url = webview
+        .url()
+        .ok()
+        .map(|url| url.as_str().to_string())
+        .unwrap_or_default();
+    let _ = app.emit(
+        "browser-permission-request",
+        json!({
+            "origin": origin.unwrap_or_default(),
+            "kind": label,
+            "url": url
+        }),
+    );
+    PermissionResponse::Deny
 }
 
 fn build_content_webview(
@@ -622,22 +641,24 @@ fn build_content_webview(
             );
         })
         .on_download(move |_webview, event| {
-            match event {
-                DownloadEvent::Requested { url, destination } => {
-                    *destination = unique_download_path(&download_dir, &url);
-                }
-                DownloadEvent::Finished { url, path, success } => {
+            if let DownloadEvent::Requested { url, destination } = event {
+                *destination = unique_download_path(&download_dir, &url);
+                let manager = download_handle.state::<DownloadManager>();
+                let started = manager.start(&download_handle, id, &url, destination.clone());
+                if started.is_err() {
+                    // The native download is refused below, so the toolbar has
+                    // to learn about the failure through the existing event.
                     let _ = download_handle.emit(
                         "browser-download-finished",
                         json!({
                             "tabId": id,
                             "url": url.as_str(),
-                            "path": path.map(|value| value.to_string_lossy().to_string()),
-                            "success": success
+                            "path": destination.to_string_lossy(),
+                            "success": false
                         }),
                     );
                 }
-                _ => {}
+                return false;
             }
             true
         });
@@ -1256,11 +1277,16 @@ fn main() {
             browser_permissions_set,
             browser_clear_site_data,
             browser_open_path,
-            browser_toggle_fullscreen
+            browser_toggle_fullscreen,
+            downloads::browser_download_list,
+            downloads::browser_download_pause,
+            downloads::browser_download_resume,
+            downloads::browser_download_cancel
         ])
         .setup(|app| {
             app.manage(BrowserState::default());
             app.manage(NavigationHistory::default());
+            app.manage(DownloadManager::default());
 
             let window = tauri::Window::builder(app, "main")
                 .title(WINDOW_TITLE)

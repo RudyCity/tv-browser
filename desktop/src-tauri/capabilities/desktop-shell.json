@@ -24,6 +24,10 @@
     "allow-browser-permissions-set",
     "allow-browser-clear-site-data",
     "allow-browser-open-path",
-    "allow-browser-toggle-fullscreen"
+    "allow-browser-toggle-fullscreen",
+    "allow-browser-download-list",
+    "allow-browser-download-pause",
+    "allow-browser-download-resume",
+    "allow-browser-download-cancel"
   ]
 }

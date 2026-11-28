@@ -1,4 +1,5 @@
 import { clampZoom, normalizeSearchEngine } from "./navigation.js";
+import { normalizeLanguage } from "./strings.js";
 
 const STORAGE_KEYS = Object.freeze({
   bookmarks: "rudy.browser.desktop.bookmarks.v1",
@@ -16,6 +17,7 @@ const THEMES = ["dark", "light"];
 
 export const DEFAULT_SETTINGS = Object.freeze({
   theme: "dark",
+  language: "en",
   searchEngine: "google",
   startupUrl: "",
   defaultZoom: 1,
@@ -223,6 +225,7 @@ export function normalizeSettings(value) {
 
   return {
     theme,
+    language: normalizeLanguage(source.language),
     searchEngine: normalizeSearchEngine(source.searchEngine),
     startupUrl: normalizeStartupUrl(source.startupUrl),
     defaultZoom: clampZoom(source.defaultZoom ?? DEFAULT_SETTINGS.defaultZoom),

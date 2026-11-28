@@ -65,23 +65,29 @@ depends on that API.
   manager.
 - A searchable history manager records completed top-level page visits, keeps
   visit counts and titles, and can be cleared independently. `Ctrl+H` opens it.
-- A download activity manager keeps a bounded list of completed download
-  results, including success/failure and the saved path, and can open the saved
-  file with the operating system. It is an activity list, not a transfer
-  controller. `Ctrl+J` opens it.
+- A download manager lists every download in the session with live progress,
+  byte counts and status (running, paused, completed, failed, cancelled), and
+  offers pause, resume, cancel and open actions. Completed downloads are also
+  kept as a bounded activity list in the local UI profile. `Ctrl+J` opens it.
 - Home shows recent pages and saved bookmarks. `Escape` closes a data manager,
   the settings view or the find bar.
-- Downloads are accepted automatically and saved to the operating system's
-  Downloads directory, with a temporary-directory fallback if that path cannot
-  be resolved. Filenames are sanitized and collisions receive a numeric suffix.
-- An HTTP(S) `window.open` request is redirected into the active tab's content
-  view. This is a single-view fallback, not a new tab or popup window. Other
-  popup URL schemes are denied.
-- Settings cover the theme, the search engine, the home address, the default
+- Downloads are saved to the operating system's Downloads directory, with a
+  temporary-directory fallback if that path cannot be resolved. Filenames are
+  sanitized and collisions receive a numeric suffix. A paused download resumes
+  with an HTTP range request and falls back to a fresh transfer when the server
+  ignores the range.
+- An HTTP(S) `window.open` request is redirected into the tab that requested it,
+  which becomes the active tab. This is a single-view fallback, not a new tab or
+  popup window. Other popup URL schemes are denied.
+- Settings cover the language, theme, search engine, home address, the default
   zoom, site permissions and local data clearing.
+- The interface ships in English and Indonesian. The selected language applies
+  immediately to the toolbar, data managers, settings, status messages and
+  dialogs, and is stored with the other settings.
 - Site permissions are an explicit allow-list per origin. A permission request
   is granted only when the requesting origin and the permission kind are both
-  listed in Settings; everything else is denied.
+  listed in Settings. A denied request raises a notice with an allow action, and
+  the next request from that origin and kind is granted.
 - Clearing cookies and site data, history, or download activity is available
   from Settings and from the data managers.
 
@@ -91,16 +97,22 @@ Private tabs do not write history, download activity or session entries.
 Downloads started from a private tab still write a file to disk, and every
 private tab shares the same incognito session.
 
-Not implemented in this desktop target: tab reordering or tear-off, multiple
-windows, split view, extension or userscript support, ad and tracker filtering,
-a visible transfer-progress controller with pause or cancel, synchronized
-browser data, an in-app updater, and code signing.
+Not implemented in this desktop target: tab tear-off, multiple windows, split
+view, extension or userscript support, ad and tracker filtering, persisted
+download history across restarts, synchronized browser data, an in-app updater,
+and code signing.
 
 A failed load is detected by inspecting the finished document for the webview's
 error page. A page that never finishes loading keeps the progress bar until the
 next navigation, because the native load events report no failure status.
 
-The interface is English only. Localisation is not implemented.
+Ad and tracker filtering is not implemented. Tauri stores a web resource request
+hook, but neither `tauri-runtime-wry` nor `wry` invokes it for HTTP(S) requests
+in this stack, so a filter would need a local proxy or a different engine
+integration. The permission prompt is also limited: the native permission
+callback is synchronous and reports only the permission kind, so a request is
+denied first and the notice with the allow action follows, instead of blocking
+the request while the user decides.
 
 ## Platform support and feature limits
 
@@ -113,13 +125,14 @@ The interface is English only. Localisation is not implemented.
 | Session restore | Supported | Supported | Supported | Tabs and the active tab index are stored in the local UI profile |
 | Page zoom | Supported | Supported | Supported | Native webview zoom with a visible percentage |
 | Find in page | Supported | Supported | Supported | Counts text occurrences and steps through matches with `window.find`; it does not highlight every match |
-| Per-origin site permissions | Allow-list | Allow-list | Allow-list | Requests are denied unless the origin and kind are listed in Settings; there is no inline prompt |
-| Downloads | Supported, basic | Supported, basic | Supported, basic | Auto-save plus completed-download activity with an open action; no progress, pause or cancel |
+| Per-origin site permissions | Allow-list | Allow-list | Allow-list | Requests are denied unless the origin and kind are listed in Settings; a denied request raises a notice with an allow action, and there is no blocking prompt |
+| Downloads | Supported | Supported | Supported | Managed transfer with progress, pause, resume, cancel and open; paused transfers resume with an HTTP range request |
+| Language | English, Indonesian | English, Indonesian | English, Indonesian | Interface copy switches immediately and is stored with the other settings |
 | Bookmarks and history | Supported | Supported | Supported | Searchable local managers; stored in the local UI webview profile |
 | Clear browsing data | Supported | Supported | Supported | Cookies and site data for the shared profile, plus history and download activity |
 | Extensions / WebExtensions | Not implemented | Not implemented | Not implemented | No extension runtime, store or install flow |
 | Ad/tracker filtering | Not implemented | Not implemented | Not implemented | No filter-list engine or blocking rules shipped |
-| Multi-window / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets reuse the active tab's content view |
+| Multi-window / popup windows | Not implemented | Not implemented | Not implemented | HTTP(S) popup targets open in the tab that requested them |
 | Code signing | Not configured in CI | Not configured in CI | Not configured in CI | Current macOS CI artifact is unsigned; no production signing identity is configured |
 | Notarization | Not applicable | Not applicable | Not configured | macOS public distribution still requires Apple Developer ID signing and notarization |
 | In-app updater | Not implemented | Not implemented | Not implemented | No updater plugin, update endpoint or signed update feed is configured |

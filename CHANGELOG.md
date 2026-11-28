@@ -3,6 +3,27 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [0.8.7] - 2026-11-28
+
+### Added
+- `desktop/src/strings.js` dan `desktop/test/strings.test.js`: kamus antarmuka Inggris dan Indonesia berisi 199 kunci dengan `translate`, fallback bahasa, dan interpolasi placeholder.
+- `desktop/src/tab-model.js` dan `desktop/test/tab-model.test.js`: logika tab murni yang dipakai bersama oleh tampilan, mencakup tutup tab, siklus tab, urutan tab, buka ulang tab, dan payload sesi.
+- `desktop/src-tauri/src/downloads.rs`: manajer unduhan dengan progres, jeda, lanjut lewat HTTP range, dan batal, beserta 25 unit test tanpa jaringan.
+- Pilihan bahasa di Settings. Seluruh teks antarmuka, pesan status, dan dialog mengikuti bahasa terpilih dan tersimpan bersama pengaturan lain.
+- Progres unduhan di daftar Downloads: persen, status, tombol jeda, lanjut, dan batal, termasuk state kosong, gagal, dan progres tak tentu saat ukuran tidak diketahui.
+- Notifikasi permintaan izin situs dengan tombol Allow, sehingga permintaan berikutnya untuk origin dan jenis yang sama diberikan.
+
+### Changed
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.2 menjadi 0.1.3.
+- `app/build.gradle`: `versionName` 0.8.6 menjadi 0.8.7 dan `versionCode` 18 menjadi 19.
+- `README.md`: nomor versi Development disegarkan ke 0.8.7.
+- `desktop/src-tauri/Cargo.toml`: dependency `reqwest` 0.13 dengan fitur `stream` dan `native-tls` untuk transfer unduhan terkelola.
+- `desktop/src-tauri/build.rs`, `desktop/src-tauri/capabilities/desktop-shell.json`: mendaftarkan empat command unduhan baru.
+- `desktop/README.md` dan `.github/workflows/desktop.yml`: dokumentasi bahasa, unduhan berprogres, notifikasi izin, dan catatan rilis diperbarui sesuai kemampuan baru.
+
+### Removed
+- `desktop/README.md`: klaim lama bahwa antarmuka hanya berbahasa Inggris, serta catatan bahwa unduhan tidak punya progres, jeda, atau batal.
+
 ## [0.8.6] - 2026-11-28
 
 ### Added

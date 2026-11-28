@@ -154,12 +154,13 @@ jobs:
           - **Linux:** AppImage and DEB; WebKitGTK 4.1 runtime required.
           - **macOS:** DMG; uses the native WKWebView engine.
 
-          Bookmarks, searchable history, a completed-download activity list, tabs with
-          session restore, page zoom, find in page and dark/light themes are included in this preview.
+          Bookmarks, searchable history, tabs with session restore, page zoom, find in page,
+          dark/light themes, an English and Indonesian interface, downloads with progress,
+          pause, resume and cancel, and a per-origin permission allow-list are included in this preview.
           \`SHA256SUMS.txt\` contains SHA-256 checksums for all installer packages.
 
           ### Preview limitations
-          - Extensions, ad/tracker filtering, multiple native windows, a transfer progress controller, an inline per-origin permission prompt and an in-app updater are not implemented.
+          - Extensions, ad/tracker filtering, multiple native windows, a permission prompt that blocks the request while the user decides, and an in-app updater are not implemented.
           - Installers are currently unsigned. The macOS app is not notarized, so Gatekeeper may warn or block it.
           - The browser uses the operating system's WebView runtime; engine versions and behavior follow the installed OS runtime.
           EOF
