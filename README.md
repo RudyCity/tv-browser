@@ -4,7 +4,7 @@
 
 [Rudy Browser 0.8.5 Beta](https://github.com/RudyCity/tv-browser) incorporates the overhauled Rudy Design System v2, modern edge-to-edge system bar insets (`.navigationBarsPadding()`), dynamic segmented Tab Manager, Unsplash-powered custom Home atmosphere with Speed Dial, and modernized dialogs.
 
-VersionName 0.8.7 / versionCode 19; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
+VersionName 0.8.8 / versionCode 20; no native Chromium AAR is bundled. Every change is recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Download / GitHub Pre-release (18 November 2026)
 

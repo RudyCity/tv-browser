@@ -163,28 +163,92 @@ export function clearHistory(storage) {
   return writeCollection(STORAGE_KEYS.history, [], storage);
 }
 
+const DOWNLOAD_STATUSES = Object.freeze([
+  "running",
+  "paused",
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted"
+]);
+
+const TERMINAL_DOWNLOAD_STATUSES = Object.freeze(["completed", "failed", "cancelled", "interrupted"]);
+
+function byteCount(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.trunc(numeric) : null;
+}
+
+/* Records written by older builds only carried success and completedAt, so the
+   status is derived when it is missing. */
+export function normalizeDownloadRecord(entry, now = Date.now()) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+
+  const url = normalizeStoredUrl(entry.url);
+  if (!url) return null;
+
+  const rawUpdatedAt = Number(entry.updatedAt ?? entry.completedAt);
+  const updatedAt = Number.isFinite(rawUpdatedAt) && rawUpdatedAt > 0 ? rawUpdatedAt : now;
+  const status = DOWNLOAD_STATUSES.includes(entry.status)
+    ? entry.status
+    : entry.success === true
+      ? "completed"
+      : "failed";
+  const rawId = entry.id === undefined || entry.id === null ? "" : String(entry.id).trim();
+
+  return {
+    id: rawId || updatedAt + ":" + url,
+    url,
+    path: typeof entry.path === "string" ? entry.path.slice(0, 4096) : "",
+    received: byteCount(entry.received) ?? 0,
+    total: byteCount(entry.total),
+    status,
+    success: status === "completed",
+    error: typeof entry.error === "string" && entry.error.trim()
+      ? entry.error.trim().slice(0, 300)
+      : null,
+    updatedAt
+  };
+}
+
 export function getDownloads(storage) {
   return readCollection(STORAGE_KEYS.downloads, storage)
-    .filter(item => normalizeStoredUrl(item.url) !== null)
-    .sort((left, right) => Number(right.completedAt || 0) - Number(left.completedAt || 0));
+    .map(entry => normalizeDownloadRecord(entry))
+    .filter(entry => entry !== null)
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, MAX_DOWNLOADS);
+}
+
+export function upsertDownload(payload, storage, updatedAt = Date.now()) {
+  if (!payload || typeof payload !== "object") return false;
+
+  const record = normalizeDownloadRecord({ ...payload, updatedAt }, updatedAt);
+  if (!record) return false;
+
+  const others = getDownloads(storage).filter(entry => entry.id !== record.id);
+  return writeCollection(STORAGE_KEYS.downloads, [record, ...others].slice(0, MAX_DOWNLOADS), storage);
 }
 
 export function recordDownload(payload, storage, completedAt = Date.now()) {
   if (!payload || typeof payload !== "object") return false;
 
-  const url = normalizeStoredUrl(payload.url);
-  if (!url) return false;
+  const status = payload.success === true ? "completed" : "failed";
+  return upsertDownload({ ...payload, status }, storage, completedAt);
+}
 
-  const entry = {
-    id: String(completedAt) + ":" + url,
-    url,
-    path: typeof payload.path === "string" ? payload.path.slice(0, 4096) : "",
-    success: payload.success === true,
-    completedAt
-  };
+export function markInterruptedDownloads(storage, updatedAt = Date.now()) {
+  const entries = getDownloads(storage);
+  let changed = 0;
 
-  const updated = [entry, ...getDownloads(storage)].slice(0, MAX_DOWNLOADS);
-  return writeCollection(STORAGE_KEYS.downloads, updated, storage);
+  const next = entries.map(entry => {
+    if (TERMINAL_DOWNLOAD_STATUSES.includes(entry.status)) return entry;
+    changed += 1;
+    return { ...entry, status: "interrupted", success: false, updatedAt };
+  });
+
+  if (!changed) return 0;
+  writeCollection(STORAGE_KEYS.downloads, next, storage);
+  return changed;
 }
 
 export function clearDownloads(storage) {

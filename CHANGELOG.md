@@ -3,6 +3,25 @@
 Semua perubahan penting pada proyek ini dicatat di file ini.
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) dan penomoran mengikuti [Semantic Versioning](https://semver.org/).
 
+## [0.8.8] - 2026-11-28
+
+### Added
+- `desktop/src/browser-data.js`: riwayat unduhan kini menyimpan status, byte diterima, ukuran total, dan alasan gagal, dengan `upsertDownload` untuk pembaruan dan `markInterruptedDownloads` untuk pemulihan saat aplikasi dibuka kembali.
+- `desktop/`: status `interrupted` untuk unduhan yang belum selesai saat aplikasi ditutup, lengkap dengan label Inggris dan Indonesia serta warna status tersendiri.
+
+### Changed
+- `desktop/src/main.js`: progres unduhan disimpan paling sering setiap 1,5 detik, sedangkan status terminal disimpan langsung; unduhan dari tab privat tetap tidak dicatat.
+- `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`: versi 0.1.3 menjadi 0.1.4.
+- `app/build.gradle`: `versionName` 0.8.7 menjadi 0.8.8 dan `versionCode` 19 menjadi 20.
+- `README.md`: nomor versi Development disegarkan ke 0.8.8.
+- `desktop/README.md`: dokumentasi riwayat unduhan persisten, batas resume setelah restart, dan catatan bahwa paket MSI memerlukan Windows Installer service.
+
+### Fixed
+- Daftar unduhan tidak lagi kosong setelah aplikasi ditutup dan dibuka kembali; unduhan yang terhenti muncul sebagai `interrupted`, bukan hilang.
+
+### Notes
+- Build lokal 0.1.3 menghasilkan installer NSIS `Rudy Browser_0.1.3_x64-setup.exe` (2,27 MB). Paket MSI gagal pada sesi ini karena WiX ICE validation membutuhkan Windows Installer service (`LGHT0217`/`LGHT0216`), sementara NSIS berhasil.
+
 ## [0.8.7] - 2026-11-28
 
 ### Added

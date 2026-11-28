@@ -210,6 +210,7 @@ const EN = Object.freeze({
   "download.completed": "Completed",
   "download.cancelled": "Cancelled",
   "download.failed": "Failed",
+  "download.interrupted": "Interrupted",
 
   "permission.request": "{origin} is asking for {kind} permission.",
   "permission.allow": "Allow",
@@ -424,6 +425,7 @@ const ID = Object.freeze({
   "download.completed": "Selesai",
   "download.cancelled": "Dibatalkan",
   "download.failed": "Gagal",
+  "download.interrupted": "Terhenti",
 
   "permission.request": "{origin} meminta izin {kind}.",
   "permission.allow": "Izinkan",

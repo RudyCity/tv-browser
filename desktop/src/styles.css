@@ -759,6 +759,8 @@ h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: .01em; }
 .download-item[data-status="failed"] .download-progress-fill,
 .download-item[data-status="cancelled"] .download-progress-fill { background: var(--danger); }
 .download-item[data-status="paused"] .download-progress-fill { background: var(--outline); }
+.download-item[data-status="interrupted"] .download-progress-fill { background: var(--outline-subtle); }
+.download-item[data-status="interrupted"] .library-item-meta { color: var(--danger); }
 
 .download-error { color: var(--danger); font-size: 10px; }
 

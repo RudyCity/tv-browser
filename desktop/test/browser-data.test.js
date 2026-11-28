@@ -12,6 +12,8 @@ import {
   getSession,
   getSettings,
   isBookmarked,
+  markInterruptedDownloads,
+  normalizeDownloadRecord,
   normalizeSession,
   normalizeSettings,
   normalizeStoredUrl,
@@ -20,7 +22,8 @@ import {
   removeBookmark,
   saveSession,
   updateHistoryTitle,
-  updateSettings
+  updateSettings,
+  upsertDownload
 } from "../src/browser-data.js";
 
 function createStorage(initial = {}) {
@@ -270,4 +273,81 @@ test("clearing the session leaves nothing to restore", () => {
   saveSession([{ url: "https://example.com" }], 0, storage);
   assert.equal(clearSession(storage), true);
   assert.deepEqual(getSession(storage), { tabs: [], activeIndex: 0 });
+});
+
+test("legacy download records derive their status from success", () => {
+  const storage = createStorage({
+    "rudy.browser.desktop.downloads.v1": JSON.stringify([
+      { url: "https://example.com/ok.pdf", path: "/d/ok.pdf", success: true, completedAt: 200 },
+      { url: "https://example.com/bad.zip", path: "", success: false, completedAt: 100 }
+    ])
+  });
+
+  const downloads = getDownloads(storage);
+  assert.equal(downloads.length, 2);
+  assert.equal(downloads[0].status, "completed");
+  assert.equal(downloads[1].status, "failed");
+  assert.equal(downloads[0].received, 0);
+  assert.equal(downloads[0].total, null);
+  assert.equal(downloads[0].updatedAt, 200);
+});
+
+test("a progress record replaces the same download id", () => {
+  const storage = createStorage();
+
+  assert.equal(upsertDownload({
+    id: 7,
+    url: "https://example.com/big.iso",
+    path: "/d/big.iso",
+    received: 10,
+    total: 100,
+    status: "running"
+  }, storage, 1000), true);
+
+  assert.equal(upsertDownload({
+    id: 7,
+    url: "https://example.com/big.iso",
+    path: "/d/big.iso",
+    received: 60,
+    total: 100,
+    status: "paused"
+  }, storage, 2000), true);
+
+  const downloads = getDownloads(storage);
+  assert.equal(downloads.length, 1);
+  assert.equal(downloads[0].status, "paused");
+  assert.equal(downloads[0].received, 60);
+  assert.equal(downloads[0].updatedAt, 2000);
+});
+
+test("download records reject non-web URLs", () => {
+  const storage = createStorage();
+
+  assert.equal(upsertDownload({ url: "file:///etc/passwd", status: "completed" }, storage), false);
+  assert.deepEqual(getDownloads(storage), []);
+});
+
+test("unfinished downloads become interrupted on the next start", () => {
+  const storage = createStorage();
+
+  upsertDownload({ id: 1, url: "https://example.com/a.iso", status: "running" }, storage, 100);
+  upsertDownload({ id: 2, url: "https://example.com/b.iso", status: "paused" }, storage, 200);
+  upsertDownload({ id: 3, url: "https://example.com/c.iso", status: "completed" }, storage, 300);
+
+  assert.equal(markInterruptedDownloads(storage, 400), 2);
+
+  const downloads = getDownloads(storage);
+  const byId = new Map(downloads.map(entry => [String(entry.id), entry]));
+  assert.equal(byId.get("1").status, "interrupted");
+  assert.equal(byId.get("2").status, "interrupted");
+  assert.equal(byId.get("3").status, "completed");
+  assert.equal(byId.get("1").success, false);
+  assert.equal(markInterruptedDownloads(storage, 500), 0);
+});
+
+test("download normalization ignores malformed entries", () => {
+  assert.equal(normalizeDownloadRecord(null), null);
+  assert.equal(normalizeDownloadRecord("nope"), null);
+  assert.equal(normalizeDownloadRecord({ url: "javascript:alert(1)" }), null);
+  assert.equal(normalizeDownloadRecord([]), null);
 });

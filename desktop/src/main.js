@@ -30,13 +30,15 @@ import {
   getSession,
   getSettings,
   isBookmarked,
+  markInterruptedDownloads,
   normalizeStoredUrl,
   recordDownload,
   recordVisit,
   removeBookmark,
   saveSession,
   updateHistoryTitle,
-  updateSettings
+  updateSettings,
+  upsertDownload
 } from "./browser-data.js";
 
 const $ = selector => document.querySelector(selector);
@@ -93,8 +95,12 @@ const DOWNLOAD_STATUS_KEYS = Object.freeze({
   paused: "download.paused",
   completed: "download.completed",
   failed: "download.failed",
-  cancelled: "download.cancelled"
+  cancelled: "download.cancelled",
+  interrupted: "download.interrupted"
 });
+
+const TERMINAL_DOWNLOAD_STATUSES = Object.freeze(["completed", "failed", "cancelled", "interrupted"]);
+const DOWNLOAD_PERSIST_INTERVAL_MS = 1500;
 
 const DOWNLOAD_COMMANDS = Object.freeze({
   pause: "browser_download_pause",
@@ -122,6 +128,8 @@ const state = {
   closedTabs: [],
   dragTabId: null,
   downloads: [],
+  downloadPersistTimer: 0,
+  pendingDownloadPersist: null,
   permissionRequest: null,
   error: null
 };
@@ -947,7 +955,46 @@ function updateDownload(payload) {
   if (index === -1) state.downloads.push({ ...payload });
   else state.downloads[index] = { ...state.downloads[index], ...payload };
 
+  const tab = state.tabs.find(candidate => candidate.id === Number(payload.tabId));
+  if (!tab || !tab.private) scheduleDownloadPersist(payload);
+
   if (state.view === "library" && state.libraryKind === "downloads") renderLibrary();
+}
+
+/* Progress arrives in bursts, so non-terminal states are written at most once
+   per interval while a finished transfer is stored immediately. */
+function scheduleDownloadPersist(payload) {
+  const status = downloadStatusOf(payload);
+
+  if (TERMINAL_DOWNLOAD_STATUSES.includes(status)) {
+    window.clearTimeout(state.downloadPersistTimer);
+    state.downloadPersistTimer = 0;
+    state.pendingDownloadPersist = null;
+    persistDownload(payload);
+    return;
+  }
+
+  state.pendingDownloadPersist = payload;
+  if (state.downloadPersistTimer) return;
+
+  state.downloadPersistTimer = window.setTimeout(() => {
+    state.downloadPersistTimer = 0;
+    const pending = state.pendingDownloadPersist;
+    state.pendingDownloadPersist = null;
+    if (pending) persistDownload(pending);
+  }, DOWNLOAD_PERSIST_INTERVAL_MS);
+}
+
+function persistDownload(payload) {
+  upsertDownload({
+    id: payload.id,
+    url: payload.url,
+    path: payload.path,
+    received: payload.received,
+    total: payload.total,
+    status: downloadStatusOf(payload),
+    error: payload.error
+  });
 }
 
 async function loadDownloads() {
@@ -1632,6 +1679,7 @@ async function start() {
   applyTheme();
   populateSettingsControls();
   applyLanguage();
+  markInterruptedDownloads();
   bindEvents();
   bindNativeEvents();
   setStatus(t("status.ready"));

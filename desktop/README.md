@@ -65,10 +65,11 @@ depends on that API.
   manager.
 - A searchable history manager records completed top-level page visits, keeps
   visit counts and titles, and can be cleared independently. `Ctrl+H` opens it.
-- A download manager lists every download in the session with live progress,
-  byte counts and status (running, paused, completed, failed, cancelled), and
-  offers pause, resume, cancel and open actions. Completed downloads are also
-  kept as a bounded activity list in the local UI profile. `Ctrl+J` opens it.
+- A download manager lists every download with live progress, byte counts and
+  status (running, paused, completed, failed, cancelled), and offers pause,
+  resume, cancel and open actions. Finished and unfinished transfers are stored
+  in the local UI profile, so the list survives a restart; transfers that were
+  still running become `interrupted` on the next start. `Ctrl+J` opens it.
 - Home shows recent pages and saved bookmarks. `Escape` closes a data manager,
   the settings view or the find bar.
 - Downloads are saved to the operating system's Downloads directory, with a
@@ -98,9 +99,13 @@ Downloads started from a private tab still write a file to disk, and every
 private tab shares the same incognito session.
 
 Not implemented in this desktop target: tab tear-off, multiple windows, split
-view, extension or userscript support, ad and tracker filtering, persisted
-download history across restarts, synchronized browser data, an in-app updater,
-and code signing.
+view, extension or userscript support, ad and tracker filtering, resuming an
+interrupted download after a restart, synchronized browser data, an in-app
+updater, and code signing.
+
+An interrupted transfer keeps its partial file on disk and is listed as
+`interrupted` after a restart; it is not resumed automatically, because the
+native download task does not survive the process.
 
 A failed load is detected by inspecting the finished document for the webview's
 error page. A page that never finishes loading keeps the progress bar until the
@@ -126,7 +131,7 @@ the request while the user decides.
 | Page zoom | Supported | Supported | Supported | Native webview zoom with a visible percentage |
 | Find in page | Supported | Supported | Supported | Counts text occurrences and steps through matches with `window.find`; it does not highlight every match |
 | Per-origin site permissions | Allow-list | Allow-list | Allow-list | Requests are denied unless the origin and kind are listed in Settings; a denied request raises a notice with an allow action, and there is no blocking prompt |
-| Downloads | Supported | Supported | Supported | Managed transfer with progress, pause, resume, cancel and open; paused transfers resume with an HTTP range request |
+| Downloads | Supported | Supported | Supported | Managed transfer with progress, pause, resume, cancel and open; finished and interrupted transfers survive a restart, and paused transfers resume with an HTTP range request |
 | Language | English, Indonesian | English, Indonesian | English, Indonesian | Interface copy switches immediately and is stored with the other settings |
 | Bookmarks and history | Supported | Supported | Supported | Searchable local managers; stored in the local UI webview profile |
 | Clear browsing data | Supported | Supported | Supported | Cookies and site data for the shared profile, plus history and download activity |
@@ -181,6 +186,11 @@ Artifacts are emitted under `src-tauri/target/release/bundle/`:
 | Windows | NSIS .exe and MSI |
 | Linux | AppImage and .deb |
 | macOS | DMG containing the .app bundle |
+
+The MSI bundle runs WiX ICE validation, which needs the Windows Installer
+service. On a restricted session that service can be unavailable, and the MSI
+step then fails with `LGHT0217` or `LGHT0216` while the NSIS installer in the
+same run still succeeds. Build the MSI on a normal interactive Windows session.
 
 The desktop workflow generates the native icon set from
 `art/rudy_browser_mark.svg`, installs frontend dependencies with Bun, then runs
